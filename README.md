@@ -151,9 +151,9 @@ doesn't).
   [pandoc-eqnos](https://github.com/tomduck/pandoc-eqnos), LaTeX style `\ref{}` (I assume) in [pandoc-theorem](https://github.com/sliminality/pandoc-theorem), and reference links `[text](#identifier "caption")` and citation links
   `@identifier` in [pandoc-numbering](https://github.com/chdemko/pandoc-numbering).
 
-  In [pandoc-numbering](https://github.com/chdemko/pandoc-numbering) the
-  caption can include automatically supplied text (section number) via a
-  pattern syntax.
+  In [pandoc-numbering](https://github.com/chdemko/pandoc-numbering) there
+  is a [pattern syntax](https://pandoc-numbering.readthedocs.io/en/latest/referencing.html) to include automatically generated expressions in
+  the caption (description, section number, ...).
 
 
 Usage
