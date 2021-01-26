@@ -14,7 +14,7 @@ stand out from the surrounding text and are sometimes labelled and
 numbered. Examples are vignettes used in a psychology experiments,
 principles in a philosophy paper, arguments, mathematical theorems,
 proofs, exercises, and so on. In JATS XML (the XML tag suite used
-for scientific and academiic papers) there is a `<statement>` element
+for scientific and academic papers) there is a `<statement>` element
 to mark them up.
 
 This project aims to develop:
