@@ -65,7 +65,7 @@ Some comments.
 
 * To our knowledge none of these provide `<statement>` markup in XML JATS
 ouptuts.
-* Several of these filters are also or mostly toward lists of images,
+* Several of these filters are also (or mostly) geared toward lists of images,
   figures, tables etc (pandoc-crossref, pandoc-xnos).
 * Not all of the filters support cross-referencing (e.g. pandoc-amsthm
 doesn't).
@@ -182,7 +182,6 @@ Proposed syntax
   about whether to allow syntax that breaks things (e.g.
   definition syntax) or be conservative (default prevents
   breaking existing syntax)
-
 
 ## simple Div syntax
 
