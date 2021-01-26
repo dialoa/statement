@@ -1,0 +1,5 @@
+file = "statement.lua"
+title = "Statement documentation"
+description = "Statement - a Lua filter for statement support in Pandoc's markdown"
+format = "markdown"
+all = true
