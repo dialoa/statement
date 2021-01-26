@@ -46,11 +46,11 @@ learn from:
 * [pandoc-amsthm](https://github.com/ickc/pandoc-amsthm). Python,
   AMS theorem statements. Appears to crash with
   Pandoc's latest version ("ImportError: No module named pandocfilters").
-* [pandoc-ling](https://github.com/cysouw/pandoc-ling) Lua, linguistic
+* [pandoc-ling](https://github.com/cysouw/pandoc-ling). Lua, linguistic
   examples.
-* [pandoc-theorem](https://github.com/sliminality/pandoc-theorem)
+* [pandoc-theorem](https://github.com/sliminality/pandoc-theorem).
   Haskell, AMS theorem statements, LaTeX output only.
-* [pandoc-numbering](https://github.com/chdemko/pandoc-numbering) Python,
+* [pandoc-numbering](https://github.com/chdemko/pandoc-numbering). Python,
   numbering arbitrary objects including equations, exercises, output
   markdown; see [documentation](https://pandoc-numbering.readthedocs.io/).
 
@@ -70,9 +70,9 @@ ouptuts.
 * Not all of the filters support cross-referencing (e.g. pandoc-amsthm
 doesn't).
 * Some filters take over the
-  [defintition list](https://pandoc.org/MANUAL.html#definition-lists )syntax.
-  This has a markdown feel but may break some things that people do or
-  expect:
+  [defintition list](https://pandoc.org/MANUAL.html#definition-lists)
+  syntax. This has a markdown feel but may break some things that people
+  do or expect:
 
   - [pandoc-theorem](https://github.com/sliminality/pandoc-theorem)
 
@@ -168,9 +168,8 @@ pandoc -s --lua-filter=statement.lua source.md -o
 Proposed syntax
 =====
 
-## Aims
+## Desiderata
 
-* conservative (doesn't break down existing syntax)
 * readable, 'markdown-y'
 * graceful breakdown (in unsupported formats, without the filter)
 * customizable: can be used to generate `<statement>` tags, but also
@@ -181,7 +180,9 @@ Proposed syntax
   - the more general syntax of pandoc-numbering?
 * switches for various syntaxes. In particular, think hard
   about whether to allow syntax that breaks things (e.g.
-  definition syntax)
+  definition syntax) or be conservative (default prevents
+  breaking existing syntax)
+
 
 ## simple Div syntax
 
@@ -281,9 +282,58 @@ Definition lists style?
 Note: any `@...`-style syntax requires the filter to be applied before
 Pandoc's own citation processing engine`citeproc` and `pandoc-citeproc`.
 
-# Contributing
+Target outputs
+==============
 
-PR welcome.
+XML JATS
+--------
+
+And example from the [XML JATS reference for the `<statement>`
+element[https://jats.nlm.nih.gov/publishing/tag-library/1.2/element/statement.html):
+
+```jats
+<p>The following hypothesis is posited:
+<statement><label>Hypothesis 1</label>
+<p>Buyer preferences for companies are influenced
+by factors extrinsic to the firm attributable to, and
+determined by, country-of-origin effects.</p>
+</statement>
+</p>
+```
+
+An example from an [American Mathematical Society (AMS) sample
+JATS article](https://github.com/AmerMathSoc/AMS-Lens/blob/master/data/arxiv-0312227/arxiv-0312227.xml):
+
+```jats
+     <statement content-type="theorem" style="thmplain" specific-use="resource" id="ltxid2">
+        <label>Assumption 1.1</label>
+        <p content-type="noindent"><inline-formula content-type="math/tex">...</inline-formula>.</p>
+      </statement>
+```
+
+Note the numbers are pre-processed and included in the label, with a
+prefix. We could perhaps follow the pattern:
+
+```
+<label>PREFIX NUMBER TITLE (ABBREVIATION)</label>
+```
+
+LaTeX
+-----
+
+AMS theorems, including custom environments for the plain forms (no
+prefix, with our without title and abbreviation).
+
+HTML
+----
+
+Close to XML, perhaps with some classes to allow for styling.
+
+Contributing
+============
+
+Feedback on the proposed syntax and projected behaviour welcome. Feel free
+to use PRs or contact us.
 
 [Source code documentation](doc/index.html) in `doc/`.
 
