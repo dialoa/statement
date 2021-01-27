@@ -1,4 +1,4 @@
--[[-- # Statement - a Lua filter for statement support in Pandoc's markdown
+--[[-- # Statement - a Lua filter for statement support in Pandoc's markdown
 
 This Lua filter provides support for statements (principles, arguments, vignettes,
 theorems, exercises etc.) in Pandoc's markdown.
@@ -8,8 +8,8 @@ theorems, exercises etc.) in Pandoc's markdown.
 @copyright 2021 Julien Dutant, Thomas Hodgson
 @license MIT - see LICENSE file for details.
 @release 0.1
-]]
 
+]]
 
 -- # Helper functions
 
