@@ -82,7 +82,7 @@ function format_statement(elem)
   end
   if FORMAT:match 'jats' then
     table.insert(elem.content, 1, pandoc.RawBlock('jats', "<statement>"))
-    table.insert(elem.content, pandoc.RawBlock('jats', "<//statement>"))
+    table.insert(elem.content, pandoc.RawBlock('jats', "</statement>"))
     return elem.content -- returns content, not the Div
   end
   if FORMAT:match 'html' then
