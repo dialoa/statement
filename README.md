@@ -156,14 +156,34 @@ doesn't).
   the caption (description, section number, ...).
 
 
+Usage and options
+==================
+
 Usage
-=====
+----
 
 Copy `statement.lua` in the folder of your markdown file or in your `PATH`.
 
 ```
 pandoc -s --lua-filter=statement.lua source.md -o
 ```
+
+Options
+-------
+
+Filter's options are set through a `statement` field in the document's metadata. These can be written in the document or
+specified in a defaults file. Example of YAML block:
+
+```
+statement:
+  header: no
+```
+
+Here is a description of the options with their defaults.
+
+`header` (yes)
+: standalone output includes code to format statements. Set to "no" if
+your template formats statements blocks.
 
 Proposed syntax
 =====

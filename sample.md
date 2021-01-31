@@ -1,3 +1,8 @@
+---
+statement:
+  header: yes
+---
+
 ::: statement
 All is one.
 
