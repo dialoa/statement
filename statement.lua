@@ -11,78 +11,61 @@ theorems, exercises etc.) in Pandoc's markdown.
 
 ]]
 
+-- # Parameters
+
+--- formats for which we process the
+local target_formats = {
+  'html.*',
+  'latex',
+  'jats'
+}
+
+local convert_horizontal_rules = {
+  convert = "yes",
+  latex = "\\rule{0.5\\linewidth}{0.5pt}",
+  html = "<hr/>",
+  html4 = "<hr/>",
+  html5 = "<hr/>",
+  jats = "<hr/>"
+}
+
 -- # Helper functions
 
---- Merge two lists
---    TODO: get rid of that function, you should
---    instead declare the desired lists as pandoc.Lists
--- @param one ore more list
--- @return merged list
-function merge_lists (...)
-
-  local arguments_table = table.pack(...)
-  local lists_to_merge = {}
-  local merged_lists = {}
-
-  -- helper function: merge two lists
-  local function merge_two_lists(list1, list2)
-    result = {}
-    for _,value in ipairs(list2) do -- using ipairs, assuming only indexed items are to be merged
-      table.insert(list1, value)
-    end
-
-    return
-  end
-
-  -- we only keep lists
-  for _,item in ipairs(arguments_table) do
-    if type(item) == "table" then
-      table.insert (lists_to_merge, item)
-    else
-      -- assert(false, "Not a list, expecting lists to be merged"); -- error handling here if needed
+--- Returns true if the current target format is in a given list.
+--    The list is made of pandoc format names. They can include
+--      pattern matching, e.g. "html.*" will match html4 and html5.
+-- @param formats list of formats
+-- @return true if the current target format is in `formats`
+local function format_matches(formats)
+  for _,format in pairs(formats) do
+    if FORMAT:match(format) then
+      return true
     end
   end
-
-  -- if more than one left, merge
-  if #lists_to_merge > 0 then
-    for i = 1, #lists_to_merge do
-      for _,value in ipairs(lists_to_merge[i]) do -- using ipairs, assuming only indexed items are to be merged
-        table.insert(merged_lists, value)
-      end
-    end
-  end
-
-  return merged_lists
+  return false
 end
 
--- function insert label
--- arguments:
---    - label : list of inlines
---    - elem: Div where the label is to be inserted
-function insert_label(label, elem)
-  -- if the first element is a paragraph, add the label to it.
-  -- Otherwise put the label in its own paragraph.
+-- # Filter functions
 
-  if elem.content[1] ~= nil and elem.content[1].t == "Para" then
-    table.insert (label, pandoc.Space()) -- insert space after the label
-    elem.content[1].content = merge_lists(label, elem.content[1].content)
-  else
-    table.insert (elem.content, 1, pandoc.Para(label))
-  end
-end
 
--- wrap element with suitable output markup
--- TODO: match all latex formats, all html formats; and epub
-
+--- Format for the target output.
+-- Wraps the div with suitable markup inserted as raw blocks.
+-- @param elem the element to be processed
+-- @return the processed element
+-- @todo provide hooks for customizing the starting/end tags.
 function format_statement(elem)
+
+  local content = pandoc.List:new(elem.content)
+
   if FORMAT:match 'latex' then
-    table.insert(elem.content, 1, pandoc.RawBlock('latex', "\\begin{statement}\n\\setlength{\\parskip}{0em}"))
-    table.insert(elem.content, pandoc.RawBlock('latex', "\\end{statement}"))
-    return elem.content -- returns content, not the Div
+    content:insert(1, pandoc.RawBlock('latex', "\\begin{statement}\n\\setlength{\\parskip}{0em}"))
+    content:insert(pandoc.RawBlock('latex', "\\end{statement}"))
+    return content -- returns content, not the Div
   end
   if FORMAT:match 'jats' then
-    table.insert(elem.content, 1, pandoc.RawBlock('jats', "<statement>"))
-    table.insert(elem.content, pandoc.RawBlock('jats', "</statement>"))
+    content:insert(1, pandoc.RawBlock('jats', "<statement>"))
+    content:insert(pandoc.RawBlock('jats', "</statement>"))
+    elem.content = content
     return elem.content -- returns content, not the Div
   end
   if FORMAT:match 'html' then
@@ -91,48 +74,44 @@ function format_statement(elem)
 
 end
 
--- function build_label
---   returns a list of inlines
---   NB, do not add space at the end of the label, it will be provided if needed
-function build_label ()
-  -- return {pandoc.Str("Label.")} -- for tests
-
-end
-
--- function replace_horizontal_rules
---  walk blocks and replace horizontal rules with custom output blocks
---  TODO reduce the space in LaTeX. may require fusing with the blocks before and after!
-function replace_horizontal_rules(elem)
+--- Replace horizontal rules by custom output code depending on format.
+--    Within statements, horizontal rules are only used to
+--    state arguments: they separate premises and conclusionn.
+-- @param elem where horizontal rules should be replaced
+-- @return elem with horizontal rules replaced
+local function replace_horizontal_rules(elem)
   return pandoc.walk_block(elem, {
     HorizontalRule = function(elem)
-      if FORMAT:match 'latex' then
-        return pandoc.RawBlock('latex', "\\rule{0.5\\linewidth}{0.5pt}")
+        if convert_horizontal_rules[FORMAT] then
+          return pandoc.RawBlock(FORMAT, convert_horizontal_rules[FORMAT])
+        end
       end
-    end
   })
 end
 
+--- Process an element of class `statement`.
+-- @param element
+-- @return the processed element
+local function process(element)
 
--- process Div elements with "statement" class
---  TODO: in JATS the label should be typeset in <label> tags
---    typesetting the label has to be done independently
---    one option: turn label into a span, and then typeset the span by format?
---    divide the process in two bits. First, make a table with the relevant
---    label info (type, numbering if needed, etc.)
---    then typeset statement by format.
-function Div (elem)
-  if elem.classes:includes ("statement") then
-    -- typset label (inline element)
-    label = build_label()
-    -- insert label, if any
-    if label ~= nil then
-      insert_label (label, elem)
-    end
     -- replace horizontal rules
-        elem = replace_horizontal_rules(elem)
+    if convert_horizontal_rules["convert"] then
+      element = replace_horizontal_rules(element)
+    end
 
     -- format statement for output
-    return format_statement(elem)
-  end
+    return format_statement(element)
 end
 
+--- Main filter, returned if the target format matches our list.
+main_filter = {
+  Div = function (element)
+    if element.classes:includes ("statement") then
+      return process(element)
+    end
+  end,
+}
+
+if format_matches(target_formats) then
+  return {main_filter}
+end
