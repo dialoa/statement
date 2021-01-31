@@ -165,7 +165,8 @@ Usage
 Copy `statement.lua` in the folder of your markdown file or in your `PATH`.
 
 ```
-pandoc -s --lua-filter=statement.lua source.md -o
+pandoc -s --lua-filter=statement.lua sample.md -o output.html
+pandoc -s -L statement.lua sample.md -o output.pdf
 ```
 
 Options
