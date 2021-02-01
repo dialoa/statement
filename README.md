@@ -308,16 +308,17 @@ Target outputs
 XML JATS
 --------
 
-And example from the [XML JATS reference for the `<statement>`
+An example from the [XML JATS reference for the `<statement>`
 element[https://jats.nlm.nih.gov/publishing/tag-library/1.2/element/statement.html):
 
 ```jats
 <p>The following hypothesis is posited:
-<statement><label>Hypothesis 1</label>
-<p>Buyer preferences for companies are influenced
-by factors extrinsic to the firm attributable to, and
-determined by, country-of-origin effects.</p>
-</statement>
+  <statement>
+    <label>Hypothesis 1</label>
+      <p>Buyer preferences for companies are influenced
+      by factors extrinsic to the firm attributable to, and
+      determined by, country-of-origin effects.</p>
+  </statement>
 </p>
 ```
 
@@ -325,29 +326,99 @@ An example from an [American Mathematical Society (AMS) sample
 JATS article](https://github.com/AmerMathSoc/AMS-Lens/blob/master/data/arxiv-0312227/arxiv-0312227.xml):
 
 ```jats
-     <statement content-type="theorem" style="thmplain" specific-use="resource" id="ltxid2">
-        <label>Assumption 1.1</label>
-        <p content-type="noindent"><inline-formula content-type="math/tex">...</inline-formula>.</p>
-      </statement>
+ <statement content-type="theorem" style="thmplain"
+  specific-use="resource" id="ltxid2">
+    <label>Assumption 1.1</label>
+    <p content-type="noindent">
+      <inline-formula content-type="math/tex">...</inline-formula>.
+    </p>
+</statement>
 ```
 
-Note the numbers are pre-processed and included in the label, with a
-prefix. We could perhaps follow the pattern:
+The latter shows:
+  * that the `id` tag should be supported. Proposal: set it to the statement's markdown key, but leave it out otherwise?
+  * that any numbering is preprocessed and included in the label with a prefix.
 
+The element may contain [a `title` tag](https://jats.nlm.nih.gov/publishing/tag-library/1.2/element/statement.html). We assume this should be used for the statement's name, if any:
+
+```jats
+<statement id="sta:gaia">
+  <label>Hypothesis 1.1</label>
+  <title>The Gaia hypothesis</title>
+  <p>All organisms  and  their  inorganic  surroundings on  Earth  are  closely  integrated  to  form  a single  and  self-regulating  complex  system.</p>
+</statement>
 ```
-<label>PREFIX NUMBER TITLE (ABBREVIATION)</label>
+
+To cross-reference, we should mark up the statement with [a `<target>` tag](https://jats.nlm.nih.gov/publishing/tag-library/1.2/element/target.html).
+
+When (as happens in philosophy) a statement is labelled with an acronym of its
+title, we could insert that in the label (worth checking how eLife Lens would print that):
+
+```jats
+<statement id="sta:pp">
+  <label>PP</label>
+  <title>The Principal Principle</title>
+  <p>A rational agent's credence in $p$ conditional on the chance of $p$ being $x$ is $x$.</p>
+</statement>
 ```
 
 LaTeX
 -----
 
-AMS theorems, including custom environments for the plain forms (no
-prefix, with our without title and abbreviation).
+The components of AMS theorems are:
+
+* Heading, which includes:
+  - Prefix. Example `Axiom`, `Theorem`, `Klein's Lemma`, or empty.
+  - Number. Automatically generated, per type or group of types and chapter as needed.
+  - Additional Info. Example: `Klein \cite{bibkey}` or `Pythagoras' Theorem`.
+* Content.
+
+The default typesetting is as follows, with indentation:
+
+__Prefix Number__. (Additional Info). *Content*
+
+*More content*
+
+For standard maths theorem, we can map Prefix + Number to JATS's `<label>` and Additional Info ... to JATS's `<title>`? Alternatively, our syntax differentiates a title from random additional info, and we print the title as Prefix if there's no prefix, after additional info if there's a prefix?
+
+For statements without a math type (prefix) but only a name and possibly an abbreviation, we need to decide whether the name / abbreviation are printed as "prefix" or "additional info" or neither.
+
+LaTeX environment tags are `\begin{xxx}` and `end{xxx}` where `xxx` specifies the kind of theorem. A kind can be specified for a single theorem if we want its name in bold. The environment options are:
+
+* default, `\begin{thm}`, with prefix and number
+* with additional information, `\begin{thm}[Klein \cite{bibkey}]`, `\begin{thm}[Pythagoras's theorem]`
+
+The theorem kinds are defined as follows.
+
+* `\newtheorem{thm}{Theorem}`: `thm` will be the environment name, `Theorem` the prefix. The statements will be numbered.
+* `\newtheorem*{exa}{Example}`: not numbered. Can be used for a single theorem: `\newtheorem*{klein}{Klein's Lemma}`, whose name is then going to be typed as prefix and not additional information.
+* `\newtheorem{lem}{Lemma}[thm]` kind with 'parent counter': will be numbered continuously with `thm` entries.
+
+  `\newtheorem{prop}{Proposition}[section]`. The 'parent counter' can be a LaTeX sectioning level, in that case the statements are numbered X.1, X.2 where X is the number of the current division of that level.
+
+* `\setcounter{thm}{0}` set a counter to an arbitrary value.
+* Cross refernce to theorems? `\label` and `\ref` I think.
+
+How to handle the cross-reference of statements using abbreviations? e.g. print
+out (PP) when cross-refering to a principle whose name is abbreviated PP?
 
 HTML
 ----
 
 Close to XML, perhaps with some classes to allow for styling.
+
+Proposals:
+
+```html
+<div class="statement" id="sta:mystatement">
+  <span class="statement-heading">
+    <span class="statement-prefix">Theorem</span> <span class="statement-number">3</span>.
+    </span>
+    <p>Text of the statement...</p>
+</statement>
+```
+
+Or something with "label" and "title" matching the XML?
 
 Contributing
 ============
