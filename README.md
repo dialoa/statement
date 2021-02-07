@@ -95,11 +95,11 @@ doesn't).
 
   - [pandoc-amsthm](https://github.com/ickc/pandoc-amsthm)
 
-  ```markdown
-  <div class="proof">
-  A Proof.
-  </div>
-  ```
+    ```markdown
+    <div class="proof">
+    A Proof.
+    </div>
+    ```
 
   - the output of Pandoc's LaTeX reader when given theorem commands:
 
@@ -113,7 +113,7 @@ doesn't).
     :::
     ```
 
-    This is the result of running `pandoc -f latex -t markdown` on:
+    The above is the result of running `pandoc -f latex -t markdown` on:
 
     ```latex
     \usepackage{amsthm}
