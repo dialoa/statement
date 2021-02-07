@@ -27,7 +27,7 @@ local target_formats = {
   'native',
   'markdown'
 }
--- how to convert horizontal rules
+-- code for horizontal rules within statements
 local horizontal_rule = {
   latex = "\\rule{0.5\\linewidth}{0.5pt}",
   html = '<hr style="width:50%" />',
@@ -53,6 +53,18 @@ local header = {
     margin: 2.5em 1em;
   }
   </style>]],
+}
+
+-- code for statement environments
+local environment_tags = {
+  latex = {
+    beginenv  = '\\begin{statement}\n\\setlength{\\parskip}{0em}',
+    endenv    = '\\end{statement}',
+  },
+  jats = {
+    beginenv  = '<statement>',
+    endenv    = '</statement>'
+  },
 }
 
 -- # Helper functions
@@ -139,26 +151,21 @@ end
 -- Wraps the div with suitable markup inserted as raw blocks.
 -- @param elem the element to be processed
 -- @return the processed element
+-- @todo keep
 -- @todo provide hooks for customizing the starting/end tags.
 function format_statement(elem)
 
   local content = pandoc.List:new(elem.content)
 
-  if FORMAT:match 'latex' then
-    content:insert(1, pandoc.RawBlock('latex',
-      "\\begin{statement}\n\\setlength{\\parskip}{0em}"))
-    content:insert(pandoc.RawBlock('latex', "\\end{statement}"))
-    return content -- returns content, not the Div
+  if environment_tags[FORMAT] then
+
+    content:insert(1,pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv']))
+    content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['endenv']))
+    return content -- returns contents, not the Div
+
   end
-  if FORMAT:match 'jats' then
-    content:insert(1, pandoc.RawBlock('jats', "<statement>"))
-    content:insert(pandoc.RawBlock('jats', "</statement>"))
-    elem.content = content
-    return elem.content -- returns content, not the Div
-  end
-  if FORMAT:match 'html' then
-    return elem -- keep the div
-  end
+
+  return elem -- keep the Div
 
 end
 
@@ -258,6 +265,7 @@ if format_matches(target_formats) then
 
   fill_equivalent_formats(horizontal_rule)
   fill_equivalent_formats(header)
+  fill_equivalent_formats(environment_tags)
 
   return {main_filter}
 
