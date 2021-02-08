@@ -191,7 +191,7 @@ local function replace_horizontal_rules(elem)
   })
 end
 
---- Process an element of class `statement`.
+--- Process an element (Div) of class statement.
 -- @param element
 -- @return the processed element
 -- @see options
