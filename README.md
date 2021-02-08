@@ -14,8 +14,8 @@ stand out from the surrounding text and are sometimes labelled and
 numbered. Examples are vignettes used in a psychology experiments,
 principles in a philosophy paper, arguments, mathematical theorems,
 proofs, exercises, and so on. In JATS XML (the XML tag suite used
-for scientific and academic papers) there is a `<statement>` element
-to mark them up.
+for scientific and academic papers) there is [a `<statement>`
+element](https://jats.nlm.nih.gov/publishing/tag-library/1.2/element/statement.html) to mark them up.
 
 This project aims to develop:
 * A markdown syntax for statements.
@@ -81,7 +81,7 @@ doesn't).
     ```
 
   - [pandoc-numbering](https://github.com/chdemko/pandoc-numbering)
-    introduces a whole new syntax but still hijacks some elements of definition lists:
+    introduces a wholly new syntax but it also overlaps with definition lists:
 
     ```markdown
     Exercise (This is the first exercise) #
@@ -100,7 +100,7 @@ doesn't).
     </div>
     ```
 
-  - the output of Pandoc's LaTeX reader when given theorem commands:
+  - Pandoc's own LaTeX reader converts theorem environments thus:
 
     ```markdown
     ::: {.thm}
@@ -112,17 +112,9 @@ doesn't).
     :::
     ```
 
-    The above is the result of running `pandoc -f latex -t markdown` on:
-
-    ```latex
-    \usepackage{amsthm}
-    \newtheorem{thm}{Theorem}
-    \newtheorem{lem}{Lemma}
-    \begin{thm}Here is a theorem
-    \end{thm}
-    \begin{lem}Here is a lemma.
-    \end{lem}
-    ```
+    (The bold and italics here are mimicing the default appearance of
+    theorems in LaTeX. They are not in the original LaTeX code that
+    simply has `\begin{thm}Here is a theorem.\end{thm}`)
 
 * [pandoc-amsthm](https://github.com/ickc/pandoc-amsthm) provides a YAML syntax
 (and parser) for declaring custom theorem types:
@@ -138,22 +130,26 @@ doesn't).
     proof:    [proof]
     parentcounter:    [chapter]
   ```
+
 * [pandoc-amsthm](https://github.com/ickc/pandoc-amsthm) uses CSS
   counters for numbering in HTML output. This means that the filter
   isn't needed: the class markup and CSS style are enough. Can that cover
   all uses cases though (custom theorems)?
 
-* The referencing style is `@eqn:identifier` in
-  [pandoc-crossref](https://github.com/lierdakil/pandoc-crossref),
-  `@eq:identifier` or `{@eq:identifier}`, `+@eq:id`, `*@eq:id`
-   `*@eq:id` and `{#eq:id tag="B.1"}` and similarly for theorems
-  [pandoc-eqnos](https://github.com/tomduck/pandoc-eqnos), LaTeX style `\ref{}` (I assume) in [pandoc-theorem](https://github.com/sliminality/pandoc-theorem), and reference links `[text](#identifier "caption")` and citation links
+* There referencing styles proposed are as follows:
+
+  *  `@eqn:identifier` in
+  [pandoc-crossref](https://github.com/lierdakil/pandoc-crossref)
+  * `@eq:identifier` or `{@eq:identifier}`, `+@eq:id`, `*@eq:id`
+   `*@eq:id` and `{#eq:id tag="B.1"}` and analogously for theorems
+  [pandoc-eqnos](https://github.com/tomduck/pandoc-eqnos),
+  * LaTeX style `\ref{}` (I assume) in [pandoc-theorem](https://github.com/sliminality/pandoc-theorem),
+  * reference links `[text](#identifier "caption")` and citation links
   `@identifier` in [pandoc-numbering](https://github.com/chdemko/pandoc-numbering).
 
-  In [pandoc-numbering](https://github.com/chdemko/pandoc-numbering) there
+* In [pandoc-numbering](https://github.com/chdemko/pandoc-numbering) there
   is a [pattern syntax](https://pandoc-numbering.readthedocs.io/en/latest/referencing.html) to include automatically generated expressions in
   the caption (description, section number, ...).
-
 
 Usage and options
 ==================
@@ -203,14 +199,69 @@ Proposed syntax
   definition syntax) or be conservative (default prevents
   breaking existing syntax)
 
-## simple Div syntax
+Cases to be covered. (Formatted here as quotations.)
+
+##### Statement with no label or title
+
+Vignette, principle, .... Intended to be printed as one or more indented block.
+
+> Everything is.
+
+##### Usual mathematical classes: label, title
+
+The usual mathematical classes.
+
+> **Theorem 1**. The sum...
+
+> **Theorem 1**. (Pythagoras's Theorem) The sum ...
+
+The title may include additional information instead:
+
+> **Theorem 1**. (Doe, 2012) The sum ...
+
+##### Labelled single theorems in AMS-thm
+
+AMSthm (the AMS-supported LaTeX package to handle theorems) recommends
+using labels for special named variant of one of the common types:
+
+> **Klein's lemma**. (Klein, 2012) The sum ...
+
+##### Labelled principes in philosophy
+
+Philosophers often have satements labelled with a name, an acronym,
+or both. With a variety of placements:
+
+> *The Principle of Sufficient Reason.* Everything must have a reason or cause.
+
+> *The Principle of Sufficient Reason (PSR).* Everything must have a reason or cause.
+
+> *(PSR)* Everything must have a reason or cause.
+
+> Everything must have a reason or cause. (*PSR*)
+
+How to systematize?
+
+* We could treat those like special named variants of theorems in math. By
+  default the label would be strong (bold), which is ugly and will not fit
+  every journal. We would have to provide hooks / style options to change those.
+* If we provide options to adjust formatting, is it necessary to present
+  statement-level overrides? E.g. a philosophy article that cites a
+  math name theorem (bold label) but otherwise has labelled principles
+  that only call for simple emphasis.
+* Title in JATS seems intended for things like "Pythogora's theorem"
+  rather than "Doe, 2012". If we use it for that purpose, though,
+  what do we do when such information is provided?
+    * One option: let the user typeset it - by entering a citation at the
+      beginning of the theorem, for instance. What would be wrong with that? (a) that we couldn't give this the desired LaTeX output?
+
+## simple Div syntaxes
 
 Does not break anything, at least in principle. Close to the output
 of Pandoc's LaTeX reader.
 
-### Statement without a label
+### Statement without label or title
 
-Vignette, principle,
+Vignette, principle, .... Intended to be printed as an indented block.
 
 ```markdown
 ::: statement
@@ -224,7 +275,9 @@ Everything is.
 
 Question: can we add a id, and if yes, refer to it?
 
-### Statement with a label
+### Statement with a title or label?
+
+(Cf. above on the question whether these should be titles or labels.)
 
 ```markdown
 ::: {.statement label="Totality"}
@@ -272,10 +325,25 @@ Two plus two equals four.
 
 ```
 
+Perhaps also:
+
+```
+::: statement
+**Theorem**. Two plus two equals four.
+:::
+
+::: {.statement .unnumbered}
+**Lemma**. Two plus two equals four.
+:::
+
+```
+
+
 ### Argument
 
-In statements, the horizontal line is reinterpreted as an conclusion line
-(separating premises and conclusion)
+Arguments are sometimes presented as statements with a line separating
+premises and conclusion. In statements, we reinterpret the horizontal
+line as a conclusion line:
 
 ```
 :::
@@ -289,11 +357,15 @@ Everything exists.
 
 ```
 
+It is typeset at half the main text width. Better looks: make it just as
+wide as the largest premise or conclusion in the argument; but that's
+hard to achieve in HTML and in LaTeX.
+
 ## Other syntaxes
 
 Definition lists style?
 
-## Reference syntax
+## Crossreference syntax
 
 - `@sta:identifier`.
 - other?
@@ -308,7 +380,7 @@ XML JATS
 --------
 
 An example from the [XML JATS reference for the `<statement>`
-element[https://jats.nlm.nih.gov/publishing/tag-library/1.2/element/statement.html):
+element](https://jats.nlm.nih.gov/publishing/tag-library/1.2/element/statement.html):
 
 ```jats
 <p>The following hypothesis is posited:
@@ -425,11 +497,13 @@ Contributing
 Feedback on the proposed syntax and projected behaviour welcome. Feel free
 to use PRs or contact us.
 
-[Source code documentation](doc/index.html) in `doc/`.
+The [source documentation](https://jdutant.github.io/statement/) is available
+on Github and at `docs/index.html`.
 
-Source documentation generated with
-[Ldoc](https://stevedonovan.github.io/ldoc/manual/doc.md.html) (available through[Luarocks](https://luarocks.org/) as `ldoc`).
-To update the documentation run this in this directory:
+The source documentation is generated from the source with
+[Ldoc](https://stevedonovan.github.io/ldoc/manual/doc.md.html) (available through[Luarocks](https://luarocks.org/), run `luarocks install ldoc` or
+`sudo luarocks install ldoc`). Once you have Ldoc install, you can regenerate
+the documentation by running this in the repository base directory:
 
 ```bash
 ldoc --all ./
