@@ -1,0 +1,549 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Statement Documentation</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>ldoc</h1>
+
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Desiderata">Desiderata </a></li>
+<li><a href="#simple_Div_syntax">simple Div syntax </a></li>
+<li><a href="#Other_syntaxes">Other syntaxes </a></li>
+<li><a href="#Reference_syntax">Reference syntax </a></li>
+</ul>
+
+
+<h2>Topics</h2>
+<ul class="">
+  <li><strong>README</strong></li>
+</ul>
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../index.html">statement</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+
+<hr/>
+<p>title: "Statement - a Lua filter for statement support in Pandoc's markdown"</p>
+<h2>author: "Julien Dutant, Thomas Hodgson"</h2>
+
+<h1>Introduction</h1>
+
+<h2>Presentation</h2>
+
+<p>Statements are text blocks that are not quotations. They typically
+stand out from the surrounding text and are sometimes labelled and
+numbered. Examples are vignettes used in a psychology experiments,
+principles in a philosophy paper, arguments, mathematical theorems,
+proofs, exercises, and so on. In JATS XML (the XML tag suite used
+for scientific and academic papers) there is a <code>&lt;statement&gt;</code> element
+to mark them up.</p>
+
+<p>This project aims to develop:
+* A markdown syntax for statements.
+* A <a href="http://pandoc.org">Pandoc</a> filter using that syntax to generate <code>LaTeX</code> and <code>PDF</code>, <code>html</code>, <code>JATS XML</code>.</p>
+
+<p>The features we ultimately aim to provide include:
+1. labelling statements,
+2. cross-referencing statements, including with their label,
+3. providing AMS-style statements (theorems, axioms, proofs, exercises, ...), and customizing them
+4. ways to input statements in docx.</p>
+
+<p>But this is a work in progress and we focus on the first two features first. Feedback on the proposed syntax and the code is welcome.</p>
+
+<h2>Related filters</h2>
+
+<p>An overview of packages providing overlapping functionalities that we can
+learn from:</p>
+
+<ul>
+    <li><a href="https://github.com/tomduck/pandoc-xnos">pandoc-xnos</a>. Python, contains
+several filters including:
+
+<pre>
+- [pandoc-theoremnos](https://github.com/tomduck/pandoc-theoremnos) <span class="keyword">for</span>
+theorem statemnts <span class="keyword">and</span>
+- [pandoc-eqnos](https://github.com/tomduck/pandoc-eqnos) <span class="keyword">for</span>
+equations
+</pre>
+</li>
+    <li><a href="https://github.com/lierdakil/pandoc-crossref">pandoc-crossref</a>.
+    Haskell, equations statements only.</li>
+    <li><a href="https://github.com/ickc/pandoc-amsthm">pandoc-amsthm</a>. Python,
+    AMS theorem statements. Appears to crash with
+    Pandoc's latest version ("ImportError: No module named pandocfilters").</li>
+    <li><a href="https://github.com/cysouw/pandoc-ling">pandoc-ling</a>. Lua, linguistic
+    examples.</li>
+    <li><a href="https://github.com/sliminality/pandoc-theorem">pandoc-theorem</a>.
+    Haskell, AMS theorem statements, LaTeX output only.</li>
+    <li><a href="https://github.com/chdemko/pandoc-numbering">pandoc-numbering</a>. Python,
+    numbering arbitrary objects including equations, exercises, output
+    markdown; see <a href="https://pandoc-numbering.readthedocs.io/">documentation</a>.</li>
+</ul>
+
+<p>See also the discussion of Pandoc's issue
+  <a href="https://github.com/jgm/pandoc/issues/1608">#1608</a> on support for LaTeX theorem environments. In the end the LaTeX reader has been modified
+  to read some theorem environment and output them in formatted markeup
+  in markdown (see below). But this markup isn't turned back
+  into theorems when going in the other direction.</p>
+
+
+<p>Some comments.</p>
+
+<ul>
+    <li><p>To our knowledge none of these provide <code>&lt;statement&gt;</code> markup in XML JATS
+    ouptuts.</p></li>
+    <li><p>Several of these filters are also (or mostly) geared toward lists of images,
+    figures, tables etc (pandoc-crossref, pandoc-xnos).</p></li>
+    <li><p>Not all of the filters support cross-referencing (e.g. pandoc-amsthm
+    doesn't).</p></li>
+    <li><p>Some filters take over the
+    <a href="https://pandoc.org/MANUAL.html#definition-lists">defintition list</a>
+    syntax. This has a markdown feel but may break some things that people
+    do or expect:</p></li>
+    <li><p><a href="https://github.com/sliminality/pandoc-theorem">pandoc-theorem</a></p></li>
+</ul>
+
+
+<pre>
+`<code>&lt;span class=&quot;backtick&quot;&gt;&lt;code&gt;markdown
+Lemma (Pumping Lemming). \label{pumping}
+
+:   Text of the lemma...
+&lt;/code&gt;&lt;/span&gt;</code>`
+</pre>
+
+<p>  - <a href="https://github.com/chdemko/pandoc-numbering">pandoc-numbering</a></p>
+
+<pre>
+introduces a whole new syntax but still hijacks some elements of definition lists:
+
+`<code>&lt;span class=&quot;backtick&quot;&gt;&lt;code&gt;markdown
+Exercise (This is the first exercise) #
+
+Exercise #
+:   Text for the second exercise
+&lt;/code&gt;&lt;/span&gt;</code>`
+</pre>
+
+<p>* Others use <code>div</code> syntax, either <a href="https://pandoc.org/MANUAL.html#extension-native_divs">native divs (<code>&lt;div&gt;</code>)</a> or <a href="https://pandoc.org/MANUAL.html#divs-and-spans">fenced divs (<code>:::</code>)</a>:</p>
+
+<ul>
+    <li><a href="https://github.com/ickc/pandoc-amsthm">pandoc-amsthm</a></li>
+</ul>
+
+
+<pre>
+`<code>&lt;span class=&quot;backtick&quot;&gt;&lt;code&gt;markdown
+&amp;amp;lt;div class=&amp;quot;proof&amp;quot;&amp;amp;gt;
+A Proof.
+&amp;amp;lt;/div&amp;amp;gt;
+&lt;/code&gt;&lt;/span&gt;</code>`
+</pre>
+
+<p>  - the output of Pandoc's LaTeX reader when given theorem commands:</p>
+
+
+<pre>
+`<code>&lt;span class=&quot;backtick&quot;&gt;&lt;code&gt;
+::: {.thm}
+**Theorem 1**. *Here is a theorem*
+:::
+
+::: {.lem}
+**Lemma 1**. *Here is a lemma.*
+:::
+&lt;/code&gt;&lt;/span&gt;</code><span class="backtick"><code>
+
+The above is the result of running </code></span>pandoc -f latex -t markdown<span class="backtick"><code> on:
+
+</code></span><code>&lt;span class=&quot;backtick&quot;&gt;&lt;code&gt;latex
+\usepackage{amsthm}
+\newtheorem{thm}{Theorem}
+\newtheorem{lem}{Lemma}
+\begin{thm}Here is a theorem
+\end{thm}
+\begin{lem}Here is a lemma.
+\end{lem}
+&lt;/code&gt;&lt;/span&gt;</code>`
+</pre>
+
+<p>* <a href="https://github.com/ickc/pandoc-amsthm">pandoc-amsthm</a> provides a YAML syntax
+(and parser) for declaring custom theorem types:</p>
+
+<p>  ```yaml
+  amsthm:</p>
+
+<pre>
+plain:    [Theorem]
+plain-unnumbered: [Lemma, Proposition, Corollary]
+definition:   [Definition,Conjecture,Example,Postulate,Problem]
+definition-unnumbered:    []
+remark:   [Case]
+remark-unnumbered:    [Remark,Note]
+proof:    [proof]
+parentcounter:    [chapter]
+</pre>
+
+<p>  ```
+* <a href="https://github.com/ickc/pandoc-amsthm">pandoc-amsthm</a> uses CSS
+  counters for numbering in HTML output. This means that the filter
+  isn't needed: the class markup and CSS style are enough. Can that cover
+  all uses cases though (custom theorems)?</p>
+
+<ul>
+    <li>The referencing style is <code>@eqn:identifier</code> in
+    <a href="https://github.com/lierdakil/pandoc-crossref">pandoc-crossref</a>,
+    <code>@eq:identifier</code> or <code>{@eq:identifier}</code>, <code>+@eq:id</code>, <code>*@eq:id</code>
+    <code>*@eq:id</code> and <code>{#eq:id tag=&quot;B.1&quot;}</code> and similarly for theorems
+    <a href="https://github.com/tomduck/pandoc-eqnos">pandoc-eqnos</a>, LaTeX style <code>\ref{}</code> (I assume) in <a href="https://github.com/sliminality/pandoc-theorem">pandoc-theorem</a>, and reference links <code><a href="#identifier &amp;quot;caption&amp;quot;">text</a></code> and citation links
+    <code>@identifier</code> in <a href="https://github.com/chdemko/pandoc-numbering">pandoc-numbering</a>.</li>
+</ul>
+
+<p>  In <a href="https://github.com/chdemko/pandoc-numbering">pandoc-numbering</a> there
+  is a <a href="https://pandoc-numbering.readthedocs.io/en/latest/referencing.html">pattern syntax</a> to include automatically generated expressions in
+  the caption (description, section number, ...).</p>
+
+
+<h1>Usage and options</h1>
+
+<h2>Usage</h2>
+
+<p>Copy <code>statement.lua</code> in the folder of your markdown file or in your <code>PATH</code>.</p>
+
+<pre><code> pandoc -s --lua-filter=statement.lua sample.md -o output.html
+ pandoc -s -L statement.lua sample.md -o output.pdf
+</code></pre>
+
+
+<h2>Options</h2>
+
+<p>Filter's options are set through a <a href="../index.html#">statement</a> field in the document's metadata. These can be written in the document or
+specified in a defaults file. Example of YAML block:</p>
+
+<pre><code> statement:
+   header: no
+</code></pre>
+
+
+<p>Here is a description of the options with their defaults.</p>
+
+<p><a href="../index.html#header">header</a> (yes)
+: standalone output includes code to format statements. Set to "no" if
+your template formats statements blocks.</p>
+
+<h1>Proposed syntax</h1>
+
+<p><a name="Desiderata"></a></p>
+<h2>Desiderata</h2>
+
+<ul>
+    <li>readable, 'markdown-y'</li>
+    <li>graceful breakdown (in unsupported formats, without the filter)</li>
+    <li>customizable: can be used to generate <code>&lt;statement&gt;</code> tags, but also
+    <code>AMS theorem</code> with customisable prefixes and counters.</li>
+    <li>support some of the existing syntaxes (see above):</li>
+    <li>definition-style</li>
+    <li>the output for Pandoc's latex reader</li>
+    <li>the more general syntax of pandoc-numbering?</li>
+    <li>switches for various syntaxes. In particular, think hard
+    about whether to allow syntax that breaks things (e.g.
+    definition syntax) or be conservative (default prevents
+    breaking existing syntax)</li>
+</ul>
+
+<p><a name="simple_Div_syntax"></a></p>
+<h2>simple Div syntax</h2>
+
+<p>Does not break anything, at least in principle. Close to the output
+of Pandoc's LaTeX reader.</p>
+
+<h3>Statement without a label</h3>
+
+<p>Vignette, principle,</p>
+
+
+<pre>
+::: statement
+Everything is.
+:::
+
+::: {.statement}
+Everything is.
+:::
+</pre>
+
+
+<p>Question: can we add a id, and if yes, refer to it?</p>
+
+<h3>Statement with a label</h3>
+
+
+<pre>
+::: {.statement label=<span class="string">"Totality"</span>}
+Everything is.
+:::
+
+::: {.statement label=<span class="string">"A *fine* story"</span>}
+He lived <span class="keyword">and</span> died.
+:::
+
+::: statement
+**Totality**. Everything is.
+:::
+</pre>
+
+
+<p>Should allow both <code><strong>Totality</strong>.</code> and <code><strong>Totality.</strong></code>.</p>
+
+<h3>Statement with label and acronym</h3>
+
+
+<pre>
+::: statement
+**Totality (T)**. Everything is.
+:::
+
+::: {.statement label=<span class="string">"Totality"</span> #totality}
+**(T)**. Everything is.
+:::
+
+As said <span class="keyword">in</span> (@sta:totality), ...
+</pre>
+
+
+<p>The reference <code>@sta:totality</code> (or whatever reference style we adopt) should
+then be replaced with <code><strong>T</strong></code>.`</p>
+
+<h3>Theorem, axioms and other mathematical statements</h3>
+
+<pre><code> ::: {.statement .theorem}
+ Two plus two equals four.
+ :::
+
+ ::: {.statement .proposition .unnumbered}
+ Two plus two equals four.
+ :::
+</code></pre>
+
+
+
+<h3>Argument</h3>
+
+<p>In statements, the horizontal line is reinterpreted as an conclusion line
+(separating premises and conclusion)</p>
+
+<pre><code> :::
+ Everything is something.
+
+ Whatever is something, exists.
+
+ ---
+ Everything exists.
+ :::
+</code></pre>
+
+
+
+<p><a name="Other_syntaxes"></a></p>
+<h2>Other syntaxes</h2>
+
+<p>Definition lists style?</p>
+
+<p><a name="Reference_syntax"></a></p>
+<h2>Reference syntax</h2>
+
+<ul>
+    <li><code>@sta:identifier</code>.</li>
+    <li>other?</li>
+</ul>
+
+<p>Note: any <code>@...</code>-style syntax requires the filter to be applied before
+Pandoc's own citation processing engine<code>citeproc</code> and <code>pandoc-citeproc</code>.</p>
+
+<h1>Target outputs</h1>
+
+<h2>XML JATS</h2>
+
+<p>An example from the [XML JATS reference for the <code>&lt;statement&gt;</code>
+element[https://jats.nlm.nih.gov/publishing/tag-library/1.2/element/statement.html):</p>
+
+
+<pre>
+&lt;p&gt;The following hypothesis is posited:
+  &lt;statement&gt;
+    &lt;label&gt;Hypothesis <span class="number">1</span>&lt;/label&gt;
+      &lt;p&gt;Buyer preferences <span class="keyword">for</span> companies are influenced
+      by factors extrinsic to the firm attributable to, <span class="keyword">and</span>
+      determined by, country-of-origin effects.&lt;/p&gt;
+  &lt;/statement&gt;
+&lt;/p&gt;
+</pre>
+
+
+<p>An example from an <a href="https://github.com/AmerMathSoc/AMS-Lens/blob/master/data/arxiv-0312227/arxiv-0312227.xml">American Mathematical Society (AMS) sample
+JATS article</a>:</p>
+
+
+<pre>
+ &lt;statement content-<span class="global">type</span>=<span class="string">"theorem"</span> style=<span class="string">"thmplain"</span>
+  specific-use=<span class="string">"resource"</span> id=<span class="string">"ltxid2"</span>&gt;
+    &lt;label&gt;Assumption <span class="number">1.1</span>&lt;/label&gt;
+    &lt;p content-<span class="global">type</span>=<span class="string">"noindent"</span>&gt;
+      &lt;inline-formula content-<span class="global">type</span>=<span class="string">"math/tex"</span>&gt;...&lt;/inline-formula&gt;.
+    &lt;/p&gt;
+&lt;/statement&gt;
+</pre>
+
+
+<p>The latter shows:
+  * that the <code>id</code> tag should be supported. Proposal: set it to the statement's markdown key, but leave it out otherwise?
+  * that any numbering is preprocessed and included in the label with a prefix.</p>
+
+<p>The element may contain <a href="https://jats.nlm.nih.gov/publishing/tag-library/1.2/element/statement.html">a <code>title</code> tag</a>. We assume this should be used for the statement's name, if any:</p>
+
+
+<pre>
+&lt;statement id=<span class="string">"sta:gaia"</span>&gt;
+  &lt;label&gt;Hypothesis <span class="number">1.1</span>&lt;/label&gt;
+  &lt;title&gt;The Gaia hypothesis&lt;/title&gt;
+  &lt;p&gt;All organisms  <span class="keyword">and</span>  their  inorganic  surroundings on  Earth  are  closely  integrated  to  form  a single  <span class="keyword">and</span>  self-regulating  complex  system.&lt;/p&gt;
+&lt;/statement&gt;
+</pre>
+
+
+<p>To cross-reference, we should mark up the statement with <a href="https://jats.nlm.nih.gov/publishing/tag-library/1.2/element/target.html">a <code>&lt;target&gt;</code> tag</a>.</p>
+
+<p>When (as happens in philosophy) a statement is labelled with an acronym of its
+title, we could insert that in the label (worth checking how eLife Lens would print that):</p>
+
+
+<pre>
+&lt;statement id=<span class="string">"sta:pp"</span>&gt;
+  &lt;label&gt;PP&lt;/label&gt;
+  &lt;title&gt;The Principal Principle&lt;/title&gt;
+  &lt;p&gt;A rational agent's credence <span class="keyword">in</span> $p$ conditional on the chance of $p$ being $x$ is $x$.&lt;/p&gt;
+&lt;/statement&gt;
+</pre>
+
+
+<h2>LaTeX</h2>
+
+<p>The components of AMS theorems are:</p>
+
+<ul>
+    <li>Heading, which includes:</li>
+    <li>Prefix. Example <code>Axiom</code>, <code>Theorem</code>, <code>Klein&apos;s Lemma</code>, or empty.</li>
+    <li>Number. Automatically generated, per type or group of types and chapter as needed.</li>
+    <li>Additional Info. Example: <code>Klein \cite{bibkey}</code> or <code>Pythagoras&apos; Theorem</code>.</li>
+    <li>Content.</li>
+</ul>
+
+<p>The default typesetting is as follows, with indentation:</p>
+
+<p><strong>Prefix Number</strong>. (Additional Info). <em>Content</em></p>
+
+<p><em>More content</em></p>
+
+<p>For standard maths theorem, we can map Prefix + Number to JATS's <code>&lt;label&gt;</code> and Additional Info ... to JATS's <code>&lt;title&gt;</code>? Alternatively, our syntax differentiates a title from random additional info, and we print the title as Prefix if there's no prefix, after additional info if there's a prefix?</p>
+
+<p>For statements without a math type (prefix) but only a name and possibly an abbreviation, we need to decide whether the name / abbreviation are printed as "prefix" or "additional info" or neither.</p>
+
+<p>LaTeX environment tags are <code>\begin{xxx}</code> and <code>end{xxx}</code> where <code>xxx</code> specifies the kind of theorem. A kind can be specified for a single theorem if we want its name in bold. The environment options are:</p>
+
+<ul>
+    <li>default, <code>\begin{thm}</code>, with prefix and number</li>
+    <li>with additional information, <code>\begin{thm}[Klein \cite{bibkey}]</code>, <code>\begin{thm}[Pythagoras&apos;s theorem]</code></li>
+</ul>
+
+<p>The theorem kinds are defined as follows.</p>
+
+<ul>
+    <li><code>\newtheorem{thm}{Theorem}</code>: <code>thm</code> will be the environment name, <code>Theorem</code> the prefix. The statements will be numbered.</li>
+    <li><code>\newtheorem*{exa}{Example}</code>: not numbered. Can be used for a single theorem: <code>\newtheorem*{klein}{Klein&apos;s Lemma}</code>, whose name is then going to be typed as prefix and not additional information.</li>
+    <li><code>\newtheorem{lem}{Lemma}[thm]</code> kind with 'parent counter': will be numbered continuously with <code>thm</code> entries.</li>
+</ul>
+
+<p>  <code>\newtheorem{prop}{Proposition}[section]</code>. The 'parent counter' can be a LaTeX sectioning level, in that case the statements are numbered X.1, X.2 where X is the number of the current division of that level.</p>
+
+<ul>
+    <li><code>\setcounter{thm}{0}</code> set a counter to an arbitrary value.</li>
+    <li>Cross refernce to theorems? <code>\label</code> and <code>\ref</code> I think.</li>
+</ul>
+
+<p>How to handle the cross-reference of statements using abbreviations? e.g. print
+out (PP) when cross-refering to a principle whose name is abbreviated PP?</p>
+
+<h2>HTML</h2>
+
+<p>Close to XML, perhaps with some classes to allow for styling.</p>
+
+<p>Proposals:</p>
+
+
+<pre>
+&lt;div class=<span class="string">"statement"</span> id=<span class="string">"sta:mystatement"</span>&gt;
+  &lt;span class=<span class="string">"statement-heading"</span>&gt;
+    &lt;span class=<span class="string">"statement-prefix"</span>&gt;Theorem&lt;/span&gt; &lt;span class=<span class="string">"statement-number"</span>&gt;<span class="number">3</span>&lt;/span&gt;.
+    &lt;/span&gt;
+    &lt;p&gt;Text of the statement...&lt;/p&gt;
+&lt;/statement&gt;
+</pre>
+
+
+<p>Or something with "label" and "title" matching the XML?</p>
+
+<h1>Contributing</h1>
+
+<p>Feedback on the proposed syntax and projected behaviour welcome. Feel free
+to use PRs or contact us.</p>
+
+<p><a href="doc/index.html">Source code documentation</a> in <code>doc/</code>.</p>
+
+<p>Source documentation generated with
+<a href="https://stevedonovan.github.io/ldoc/manual/doc.md.html">Ldoc</a> (available through<a href="https://luarocks.org/">Luarocks</a> as <code>ldoc</code>).
+To update the documentation run this in this directory:</p>
+
+
+<pre>
+ldoc <span class="comment">--all ./</span>
+</pre>
+
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2021-02-08 01:26:35 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

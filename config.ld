@@ -1,5 +1,6 @@
 file = "statement.lua"
-title = "Statement documentation"
+all = true
+title = "Statement Documentation"
 description = "Statement - a Lua filter for statement support in Pandoc's markdown"
 format = "markdown"
-all = true
+readme = "README.md"

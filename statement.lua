@@ -13,13 +13,15 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 
 -- # Parameters
 
---- options map with defaults
+--- Options map, including defaults.
+-- @param header boolean whether to include support code in the header (true).
+-- @param convert_rules boolean whether to convert horinzontal rules to half length.
 local options = {
   header = true,
   convert_rules = true,
 }
 
---- formats for which we process the filter
+--- list of formats for which we process the filter.
 local target_formats = {
   'html.*',
   'latex',
@@ -27,14 +29,16 @@ local target_formats = {
   'native',
   'markdown'
 }
--- code for horizontal rules within statements
+--- code map for horizontal rules within statements.
+-- One key for each format.
 local horizontal_rule = {
   latex = "\\rule{0.5\\linewidth}{0.5pt}",
   html = '<hr style="width:50%" />',
   jats = "<hr/>"
 }
 
--- code for header-includes
+--- Code for header-includes.
+-- one key per format.
 local header = {
   latex = [[\usepackage{amsthm}
 \newtheoremstyle{empty}
@@ -55,7 +59,9 @@ local header = {
   </style>]],
 }
 
--- code for statement environments
+--- Code for statement environments.
+-- one key per format. Its value is a map with `beginenv` and `endenv` keys.
+-- usage: environment_tags[FORMAT]["beginenv"].
 local environment_tags = {
   latex = {
     beginenv  = '\\begin{statement}\n\\setlength{\\parskip}{0em}',
@@ -153,7 +159,7 @@ end
 -- @return the processed element
 -- @todo keep
 -- @todo provide hooks for customizing the starting/end tags.
-function format_statement(elem)
+local function format_statement(elem)
 
   local content = pandoc.List:new(elem.content)
 
@@ -230,7 +236,7 @@ local function process_meta(meta)
 
 end
 
--- Read options from meta block.
+--- Read options from meta block.
 --  Get options from the `statement` field in a metadata block.
 -- @param meta the document's metadata block.
 -- @return nothing, values set in the `options` map.

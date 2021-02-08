@@ -3,7 +3,7 @@
 <html>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
 <head>
-    <title>Statement documentation</title>
+    <title>Statement Documentation</title>
     <link rel="stylesheet" href="ldoc.css" type="text/css" />
 </head>
 <body>
@@ -29,14 +29,18 @@
 
 <h2>Contents</h2>
 <ul>
-<li><a href="#Functions">Functions</a></li>
 <li><a href="#Tables">Tables</a></li>
+<li><a href="#Local_Functions">Local Functions</a></li>
 </ul>
 
 
 <h2>Modules</h2>
 <ul class="nowrap">
   <li><strong>statement</strong></li>
+</ul>
+<h2>Topics</h2>
+<ul class="">
+  <li><a href="topics/README.md.html">README</a></li>
 </ul>
 
 </div>
@@ -58,58 +62,225 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.</p>
     </ul>
 
 
-<h2><a href="#Functions">Functions</a></h2>
-<table class="function_list">
-	<tr>
-	<td class="name" nowrap><a href="#format_statement">format_statement (elem)</a></td>
-	<td class="summary">Format for the target output.</td>
-	</tr>
-</table>
 <h2><a href="#Tables">Tables</a></h2>
 <table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#options">options</a></td>
+	<td class="summary">Options map, including defaults.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#target_formats">target_formats</a></td>
+	<td class="summary">list of formats for which we process the filter.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#horizontal_rule">horizontal_rule</a></td>
+	<td class="summary">code map for horizontal rules within statements.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#header">header</a></td>
+	<td class="summary">Code for header-includes.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#environment_tags">environment_tags</a></td>
+	<td class="summary">Code for statement environments.</td>
+	</tr>
 	<tr>
 	<td class="name" nowrap><a href="#main_filter">main_filter</a></td>
 	<td class="summary">Main filter, returned if the target format matches our list.</td>
 	</tr>
 </table>
+<h2><a href="#Local_Functions">Local Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#format_matches">format_matches (formats)</a></td>
+	<td class="summary">Returns true if the current target format is in a given list.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#read_boolean">read_boolean (string)</a></td>
+	<td class="summary">Interprets a metadata string as a read_boolean.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#add_header_includes">add_header_includes (meta, block)</a></td>
+	<td class="summary">Add a block to the document's header-includes meta-data field.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#fill_equivalent_formats">fill_equivalent_formats (map)</a></td>
+	<td class="summary">Fill a map of outputs with equivalent formats.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#format_statement">format_statement (elem)</a></td>
+	<td class="summary">Format for the target output.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#replace_horizontal_rules">replace_horizontal_rules (elem)</a></td>
+	<td class="summary">Replace horizontal rules by custom output code depending on format.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#process">process (element)</a></td>
+	<td class="summary">Process an element of class <a href="index.html#">statement</a>.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#process_meta">process_meta (meta)</a></td>
+	<td class="summary">Process meta block: add header-includes.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#get_options">get_options (meta)</a></td>
+	<td class="summary">Read options from meta block.</td>
+	</tr>
+</table>
 
 <br/>
 <br/>
 
 
-    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+    <h2 class="section-header "><a name="Tables"></a>Tables</h2>
 
     <dl class="function">
     <dt>
-    <a name = "format_statement"></a>
-    <strong>format_statement (elem)</strong>
+    <a name = "options"></a>
+    <strong>options</strong>
     </dt>
     <dd>
-    Format for the target output.
- Wraps the div with suitable markup inserted as raw blocks.
+    Options map, including defaults.
 
 
-    <h3>Parameters:</h3>
+    <h3>Fields:</h3>
     <ul>
-        <li><span class="parameter">elem</span>
-         the element to be processed
+        <li><span class="parameter">header</span>
+         boolean whether to include support code in the header (true).
+        </li>
+        <li><span class="parameter">convert_rules</span>
+         boolean whether to convert horinzontal rules to half length.
         </li>
     </ul>
 
-    <h3>Returns:</h3>
-    <ol>
-
-        the processed element
-    </ol>
 
 
 
 
 </dd>
-</dl>
-    <h2 class="section-header "><a name="Tables"></a>Tables</h2>
+    <dt>
+    <a name = "target_formats"></a>
+    <strong>target_formats</strong>
+    </dt>
+    <dd>
+    list of formats for which we process the filter.
 
-    <dl class="function">
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">latex</span>
+
+
+
+        </li>
+        <li><span class="parameter">jats</span>
+
+
+
+        </li>
+        <li><span class="parameter">native</span>
+
+
+
+        </li>
+        <li><span class="parameter">markdown</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "horizontal_rule"></a>
+    <strong>horizontal_rule</strong>
+    </dt>
+    <dd>
+    code map for horizontal rules within statements.
+ One key for each format.
+
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">latex</span>
+
+
+
+        </li>
+        <li><span class="parameter">html</span>
+
+
+
+        </li>
+        <li><span class="parameter">jats</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "header"></a>
+    <strong>header</strong>
+    </dt>
+    <dd>
+    Code for header-includes.
+ one key per format.
+
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">latex</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "environment_tags"></a>
+    <strong>environment_tags</strong>
+    </dt>
+    <dd>
+    Code for statement environments.
+ one key per format. Its value is a map with <code>beginenv</code> and <code>endenv</code> keys.
+ usage: environment_tags[FORMAT]["beginenv"].
+
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">latex</span>
+
+
+
+        </li>
+        <li><span class="parameter">endenv</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
     <dt>
     <a name = "main_filter"></a>
     <strong>main_filter</strong>
@@ -138,13 +309,290 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.</p>
 
 </dd>
 </dl>
+    <h2 class="section-header "><a name="Local_Functions"></a>Local Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "format_matches"></a>
+    <strong>format_matches (formats)</strong>
+    </dt>
+    <dd>
+
+<p>Returns true if the current target format is in a given list. </p>
+<pre><code>The list is made of pandoc format names. They can include
+  pattern matching, e.g. "html.*" will match html4 and html5.
+</code></pre>
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">formats</span>
+         list of formats
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        true if the current target format is in <code>formats</code>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "read_boolean"></a>
+    <strong>read_boolean (string)</strong>
+    </dt>
+    <dd>
+
+<p>Interprets a metadata string as a read_boolean. </p>
+<pre><code>Following pandoc's conventions, returns true by default.
+</code></pre>
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">string</span>
+         user-set string that should express a boolean value.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        boolean true unless read as false
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "add_header_includes"></a>
+    <strong>add_header_includes (meta, block)</strong>
+    </dt>
+    <dd>
+    Add a block to the document's header-includes meta-data field.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">meta</span>
+         the document's metadata block
+        </li>
+        <li><span class="parameter">block</span>
+         Pandoc block element (e.g. RawBlock or Para) to be added to header-includes
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        meta the modified metadata block
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "fill_equivalent_formats"></a>
+    <strong>fill_equivalent_formats (map)</strong>
+    </dt>
+    <dd>
+
+<p>Fill a map of outputs with equivalent formats. </p>
+<pre><code>Takes a map from pandoc format names to outputs and fills
+it with any equivalent format that is not already
+included. For example, the value of map['html'] will
+be copied to map['html4'] if the latter doesn't exist.
+We only fill from more general formats: copy &lt;code&gt;html&lt;/code&gt;
+to &lt;code&gt;html4&lt;/code&gt; but not &lt;code&gt;html4&lt;/code&gt; to &lt;code&gt;html&lt;/code&gt; or &lt;code&gt;html5&lt;/code&gt;.
+</code></pre>
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">map</span>
+         map to be modified
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        modified map
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "format_statement"></a>
+    <strong>format_statement (elem)</strong>
+    </dt>
+    <dd>
+    Format for the target output.
+ Wraps the div with suitable markup inserted as raw blocks.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">elem</span>
+         the element to be processed
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        the processed element
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "replace_horizontal_rules"></a>
+    <strong>replace_horizontal_rules (elem)</strong>
+    </dt>
+    <dd>
+
+<p>Replace horizontal rules by custom output code depending on format. </p>
+<pre><code>Within statements, horizontal rules are only used to
+state arguments: they separate premises and conclusionn.
+</code></pre>
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">elem</span>
+         where horizontal rules should be replaced
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        elem with horizontal rules replaced
+    </ol>
+
+
+    <h3>See also:</h3>
+    <ul>
+         <a href="index.html#horizontal_rule">horizontal_rule</a>
+    </ul>
+
+
+</dd>
+    <dt>
+    <a name = "process"></a>
+    <strong>process (element)</strong>
+    </dt>
+    <dd>
+    Process an element of class <a href="index.html#">statement</a>.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">element</span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        the processed element
+    </ol>
+
+
+    <h3>See also:</h3>
+    <ul>
+         <a href="index.html#options">options</a>
+    </ul>
+
+
+</dd>
+    <dt>
+    <a name = "process_meta"></a>
+    <strong>process_meta (meta)</strong>
+    </dt>
+    <dd>
+
+<p>Process meta block: add header-includes. </p>
+<pre><code>If the output is native or markdown, copy header-includes for
+all formats. We get repeated includes for html, html4, html5.
+Is that a problem?
+</code></pre>
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">meta</span>
+         pandoc Meta block
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        processed block
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "get_options"></a>
+    <strong>get_options (meta)</strong>
+    </dt>
+    <dd>
+    Read options from meta block.
+  Get options from the <a href="index.html#">statement</a> field in a metadata block.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">meta</span>
+         the document's metadata block.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        nothing, values set in the <a href="index.html#options">options</a> map.
+    </ol>
+
+
+    <h3>See also:</h3>
+    <ul>
+         <a href="index.html#options">options</a>
+    </ul>
+
+
+</dd>
+</dl>
 
 
 </div> <!-- id="content" -->
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
-<i style="float:right;">Last updated 2021-02-08 01:01:54 </i>
+<i style="float:right;">Last updated 2021-02-08 01:26:35 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>
