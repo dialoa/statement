@@ -83,15 +83,15 @@ local function format_matches(formats)
   return false
 end
 
---- Interprets a metadata string as a read_boolean
+--- Interprets a metadata string as a read_boolean.
 --    Following pandoc's conventions, returns true by default.
 --  @param string user-set string that should express a boolean value.
 --  @return boolean true unless read as false
-local function read_boolean(str)
+local function read_boolean(string)
 
   local interpret_as_false = pandoc.List({'false', 'no'})
 
-  if interpret_as_false:find(string.lower(str)) then
+  if interpret_as_false:find(string.lower(string)) then
     return false
   else
     return true
@@ -204,7 +204,7 @@ end
 --    If the output is native or markdown, copy header-includes for
 --    all formats. We get repeated includes for html, html4, html5.
 --    Is that a problem?
--- @param element pandoc Meta block
+-- @param meta pandoc Meta block
 -- @return processed block
 local function process_meta(meta)
 
@@ -259,7 +259,7 @@ main_filter = {
   end,
 }
 
---- Main code
+-- Main.
 -- Set parameters, return filter.
 if format_matches(target_formats) then
 
