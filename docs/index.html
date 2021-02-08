@@ -38,18 +38,13 @@
 <ul class="nowrap">
   <li><strong>statement</strong></li>
 </ul>
-<h2>Topics</h2>
-<ul class="">
-  <li><a href="topics/README.md.html">README</a></li>
-</ul>
 
 </div>
 
 <div id="content">
 
 <h1>Module <code>statement</code></h1>
-<p>
-<h1>Statement - a Lua filter for statements in Pandoc's markdown</h1>
+<p><h1>Statement - a Lua filter for statements in Pandoc's markdown</h1>
 </p>
 <p>This Lua filter provides support for statements (principles,
 arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.</p>
@@ -58,7 +53,7 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.</p>
         <li><strong>Copyright</strong>: 2021 Julien Dutant, Thomas Hodgson</li>
         <li><strong>Release</strong>: 0.1</li>
         <li><strong>License</strong>: MIT - see LICENSE file for details.</li>
-        <li><strong>Author</strong>: Julien Dutant <a href="&#x6d;&#97;&#x69;&#108;&#x74;&#111;&#x3a;j&#117;&#x6c;&#105;&#x65;&#110;&#x2e;&#100;&#x75;t&#97;&#x6e;&#116;&#x40;&#107;&#x63;&#108;&#x2e;&#97;&#x63;.&#117;&#x6b;">&#x6a;&#117;&#x6c;&#105;&#x65;&#110;&#x2e;d&#117;&#x74;&#97;&#x6e;&#116;&#x40;&#107;&#x63;l&#46;&#x61;&#99;&#x2e;&#117;&#x6b;</a>,Thomas Hodgson <a href="&#x6d;&#97;&#x69;&#108;&#x74;&#111;&#x3a;h&#101;&#x6c;&#108;&#x6f;&#64;&#x74;&#119;&#x73;h&#111;&#x64;&#103;&#x73;&#111;&#x6e;&#46;&#x6e;&#101;&#x74;">&#x68;&#101;&#x6c;&#108;&#x6f;&#64;&#x74;w&#115;&#x68;&#111;&#x64;&#103;&#x73;&#111;&#x6e;.&#110;&#x65;&#116;</a></li>
+        <li><strong>Author</strong>: Julien Dutant <a href="mailto:julien.dutant@kcl.ac.uk">julien.dutant@kcl.ac.uk</a>,Thomas Hodgson <a href="mailto:hello@twshodgson.net">hello@twshodgson.net</a></li>
     </ul>
 
 
@@ -147,10 +142,10 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.</p>
     <h3>Fields:</h3>
     <ul>
         <li><span class="parameter">header</span>
-         boolean whether to include support code in the header (true).
+        boolean whether to include support code in the header (true).
         </li>
         <li><span class="parameter">convert_rules</span>
-         boolean whether to convert horinzontal rules to half length.
+        boolean whether to convert horinzontal rules to half length.
         </li>
     </ul>
 
@@ -171,22 +166,14 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.</p>
     <ul>
         <li><span class="parameter">latex</span>
 
-
-
         </li>
         <li><span class="parameter">jats</span>
-
-
 
         </li>
         <li><span class="parameter">native</span>
 
-
-
         </li>
         <li><span class="parameter">markdown</span>
-
-
 
         </li>
     </ul>
@@ -202,24 +189,18 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.</p>
     </dt>
     <dd>
     code map for horizontal rules within statements.
- One key for each format.
+One key for each format.
 
 
     <h3>Fields:</h3>
     <ul>
         <li><span class="parameter">latex</span>
 
-
-
         </li>
         <li><span class="parameter">html</span>
 
-
-
         </li>
         <li><span class="parameter">jats</span>
-
-
 
         </li>
     </ul>
@@ -235,14 +216,12 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.</p>
     </dt>
     <dd>
     Code for header-includes.
- one key per format.
+one key per format.
 
 
     <h3>Fields:</h3>
     <ul>
         <li><span class="parameter">latex</span>
-
-
 
         </li>
     </ul>
@@ -258,20 +237,16 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.</p>
     </dt>
     <dd>
     Code for statement environments.
- one key per format. Its value is a map with <code>beginenv</code> and <code>endenv</code> keys.
- usage: environment_tags[FORMAT]["beginenv"].
+one key per format. Its value is a map with <code>beginenv</code> and <code>endenv</code> keys.
+usage: environment_tags[FORMAT][&quot;beginenv&quot;].
 
 
     <h3>Fields:</h3>
     <ul>
         <li><span class="parameter">latex</span>
 
-
-
         </li>
         <li><span class="parameter">endenv</span>
-
-
 
         </li>
     </ul>
@@ -293,12 +268,8 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.</p>
     <ul>
         <li><span class="parameter">Meta</span>
 
-
-
         </li>
         <li><span class="parameter">Div</span>
-
-
 
         </li>
     </ul>
@@ -317,18 +288,15 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.</p>
     <strong>format_matches (formats)</strong>
     </dt>
     <dd>
-
-<p>Returns true if the current target format is in a given list. </p>
-<pre><code>The list is made of pandoc format names. They can include
-  pattern matching, e.g. "html.*" will match html4 and html5.
-</code></pre>
-
+    Returns true if the current target format is in a given list.
+The list is made of pandoc format names. They can include
+pattern matching, e.g. &quot;html.*&quot; will match html4 and html5.
 
 
     <h3>Parameters:</h3>
     <ul>
         <li><span class="parameter">formats</span>
-         list of formats
+        list of formats
         </li>
     </ul>
 
@@ -347,17 +315,14 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.</p>
     <strong>read_boolean (string)</strong>
     </dt>
     <dd>
-
-<p>Interprets a metadata string as a read_boolean. </p>
-<pre><code>Following pandoc's conventions, returns true by default.
-</code></pre>
-
+    Interprets a metadata string as a read_boolean.
+Following pandoc's conventions, returns true by default.
 
 
     <h3>Parameters:</h3>
     <ul>
         <li><span class="parameter">string</span>
-         user-set string that should express a boolean value.
+        user-set string that should express a boolean value.
         </li>
     </ul>
 
@@ -382,10 +347,10 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.</p>
     <h3>Parameters:</h3>
     <ul>
         <li><span class="parameter">meta</span>
-         the document's metadata block
+        the document's metadata block
         </li>
         <li><span class="parameter">block</span>
-         Pandoc block element (e.g. RawBlock or Para) to be added to header-includes
+        Pandoc block element (e.g. RawBlock or Para) to be added to header-includes
         </li>
     </ul>
 
@@ -404,22 +369,19 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.</p>
     <strong>fill_equivalent_formats (map)</strong>
     </dt>
     <dd>
-
-<p>Fill a map of outputs with equivalent formats. </p>
-<pre><code>Takes a map from pandoc format names to outputs and fills
+    Fill a map of outputs with equivalent formats.
+Takes a map from pandoc format names to outputs and fills
 it with any equivalent format that is not already
 included. For example, the value of map['html'] will
 be copied to map['html4'] if the latter doesn't exist.
-We only fill from more general formats: copy &lt;code&gt;html&lt;/code&gt;
-to &lt;code&gt;html4&lt;/code&gt; but not &lt;code&gt;html4&lt;/code&gt; to &lt;code&gt;html&lt;/code&gt; or &lt;code&gt;html5&lt;/code&gt;.
-</code></pre>
-
+We only fill from more general formats: copy <code>html</code>
+to <code>html4</code> but not <code>html4</code> to <code>html</code> or <code>html5</code>.
 
 
     <h3>Parameters:</h3>
     <ul>
         <li><span class="parameter">map</span>
-         map to be modified
+        map to be modified
         </li>
     </ul>
 
@@ -439,13 +401,13 @@ to &lt;code&gt;html4&lt;/code&gt; but not &lt;code&gt;html4&lt;/code&gt; to &lt;
     </dt>
     <dd>
     Format for the target output.
- Wraps the div with suitable markup inserted as raw blocks.
+Wraps the div with suitable markup inserted as raw blocks.
 
 
     <h3>Parameters:</h3>
     <ul>
         <li><span class="parameter">elem</span>
-         the element to be processed
+        the element to be processed
         </li>
     </ul>
 
@@ -464,18 +426,15 @@ to &lt;code&gt;html4&lt;/code&gt; but not &lt;code&gt;html4&lt;/code&gt; to &lt;
     <strong>replace_horizontal_rules (elem)</strong>
     </dt>
     <dd>
-
-<p>Replace horizontal rules by custom output code depending on format. </p>
-<pre><code>Within statements, horizontal rules are only used to
+    Replace horizontal rules by custom output code depending on format.
+Within statements, horizontal rules are only used to
 state arguments: they separate premises and conclusionn.
-</code></pre>
-
 
 
     <h3>Parameters:</h3>
     <ul>
         <li><span class="parameter">elem</span>
-         where horizontal rules should be replaced
+        where horizontal rules should be replaced
         </li>
     </ul>
 
@@ -505,8 +464,6 @@ state arguments: they separate premises and conclusionn.
     <ul>
         <li><span class="parameter">element</span>
 
-
-
         </li>
     </ul>
 
@@ -529,19 +486,16 @@ state arguments: they separate premises and conclusionn.
     <strong>process_meta (meta)</strong>
     </dt>
     <dd>
-
-<p>Process meta block: add header-includes. </p>
-<pre><code>If the output is native or markdown, copy header-includes for
+    Process meta block: add header-includes.
+If the output is native or markdown, copy header-includes for
 all formats. We get repeated includes for html, html4, html5.
 Is that a problem?
-</code></pre>
-
 
 
     <h3>Parameters:</h3>
     <ul>
         <li><span class="parameter">meta</span>
-         pandoc Meta block
+        pandoc Meta block
         </li>
     </ul>
 
@@ -561,20 +515,20 @@ Is that a problem?
     </dt>
     <dd>
     Read options from meta block.
-  Get options from the <a href="index.html#">statement</a> field in a metadata block.
+Get options from the <code>statement</code> field in a metadata block.
 
 
     <h3>Parameters:</h3>
     <ul>
         <li><span class="parameter">meta</span>
-         the document's metadata block.
+        the document's metadata block.
         </li>
     </ul>
 
     <h3>Returns:</h3>
     <ol>
 
-        nothing, values set in the <a href="index.html#options">options</a> map.
+        nothing, values set in the <code>options</code> map.
     </ol>
 
 
@@ -592,7 +546,7 @@ Is that a problem?
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
-<i style="float:right;">Last updated 2021-02-08 01:35:11 </i>
+<i style="float:right;">Last updated 2021-02-08 02:30:31 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>

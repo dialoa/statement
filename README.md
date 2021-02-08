@@ -1,5 +1,5 @@
 ---
-title: "Statement - a Lua filter for statement support in Pandoc's markdown"
+title: "Statement: a Lua filter for statement support in Pandoc's markdown"
 author: "Julien Dutant, Thomas Hodgson"
 ---
 
@@ -37,10 +37,10 @@ learn from:
 
 * [pandoc-xnos](https://github.com/tomduck/pandoc-xnos). Python, contains
   several filters including:
-    - [pandoc-theoremnos](https://github.com/tomduck/pandoc-theoremnos) for
-    theorem statemnts and
-    - [pandoc-eqnos](https://github.com/tomduck/pandoc-eqnos) for
-    equations
+  * [pandoc-theoremnos](https://github.com/tomduck/pandoc-theoremnos) for
+  theorem statemnts and
+  * [pandoc-eqnos](https://github.com/tomduck/pandoc-eqnos) for
+  equations
 * [pandoc-crossref](https://github.com/lierdakil/pandoc-crossref).
   Haskell, equations statements only.
 * [pandoc-amsthm](https://github.com/ickc/pandoc-amsthm). Python,
@@ -60,11 +60,9 @@ See also the discussion of Pandoc's issue
   in markdown (see below). But this markup isn't turned back
   into theorems when going in the other direction.
 
+Some comments:
 
-Some comments.
-
-* To our knowledge none of these provide `<statement>` markup in XML JATS
-ouptuts.
+* None provides `<statement>` markup in XML JATS ouptut (as far as we can tell).
 * Several of these filters are also (or mostly) geared toward lists of images,
   figures, tables etc (pandoc-crossref, pandoc-xnos).
 * Not all of the filters support cross-referencing (e.g. pandoc-amsthm
@@ -91,6 +89,7 @@ doesn't).
     Exercise #
     :   Text for the second exercise
     ```
+
 * Others use `div` syntax, either [native divs (`<div>`)](https://pandoc.org/MANUAL.html#extension-native_divs) or [fenced divs (`:::`)](https://pandoc.org/MANUAL.html#divs-and-spans):
 
   - [pandoc-amsthm](https://github.com/ickc/pandoc-amsthm)
@@ -103,7 +102,7 @@ doesn't).
 
   - the output of Pandoc's LaTeX reader when given theorem commands:
 
-    ```
+    ```markdown
     ::: {.thm}
     **Theorem 1**. *Here is a theorem*
     :::
