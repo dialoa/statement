@@ -11,6 +11,10 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 
 ]]
 
+-- for debug only
+package.path = package.path .. ';/home/t/pprint.lua/?.lua'
+local pprint = require('pprint')
+
 -- # Parameters
 
 --- Options map, including defaults.
@@ -69,7 +73,11 @@ local environment_tags = {
   },
   jats = {
     beginenv  = '<statement>',
-    endenv    = '</statement>'
+    endenv    = '</statement>',
+  },
+  html = {
+    beginenv = '<div class="statement">',
+    endenv = '</div>',
   },
 }
 
