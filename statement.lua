@@ -68,12 +68,12 @@ local header = {
 -- usage: environment_tags[FORMAT]["beginenv"].
 local environment_tags = {
   latex = {
-    beginenv  = '\\begin{statement}\n\\setlength{\\parskip}{0em}',
-    endenv    = '\\end{statement}',
+    beginenv = '\\begin{statement}\n\\setlength{\\parskip}{0em}',
+    endenv = '\\end{statement}',
   },
   jats = {
-    beginenv  = '<statement>',
-    endenv    = '</statement>',
+    beginenv = '<statement>',
+    endenv = '</statement>',
   },
   html = {
     beginenv = '<div class="statement">',
@@ -81,6 +81,43 @@ local environment_tags = {
   },
 }
 
+--- Code for label environments.
+-- one key per format. Its value is a map with `beginenv` and `endenv` keys.
+-- usage: label_tags[FORMAT]["beginenv"].
+-- TODO: LaTeX
+local label_tags = {
+  latex = {
+    beginenv = '',
+    endenv = '',
+  },
+  jats = {
+    beginenv = '<label>',
+    endenv = '</label>',
+  },
+  html = {
+    beginenv = '<div class="statement-label">',
+    endenv = '</div>',
+  },
+}
+
+--- Code for title environments.
+-- one key per format. Its value is a map with `beginenv` and `endenv` keys.
+-- usage: title_tags[FORMAT]["beginenv"].
+-- TODO: LaTeX
+local title_tags = {
+  latex = {
+    beginenv = '',
+    endenv = '',
+  },
+  jats = {
+    beginenv = '<title>',
+    endenv = '</title>',
+  },
+  html = {
+    beginenv = '<div class="statement-title">',
+    endenv = '</div>',
+  },
+}
 -- # Helper functions
 
 --- Returns true if the current target format is in a given list.
@@ -157,7 +194,6 @@ local function fill_equivalent_formats(map)
 
 end
 
-
 -- # Filter functions
 
 
@@ -169,11 +205,23 @@ end
 -- @todo provide hooks for customizing the starting/end tags.
 local function format_statement(elem)
 
-  local content = pandoc.List:new(elem.content)
-
   if environment_tags[FORMAT] then
-
-    content:insert(1,pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv']))
+    
+    local content = pandoc.List({})
+    content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv']))
+    if elem.attributes.label then
+      local label = pandoc.List({pandoc.read(elem.attributes.label).blocks[1]})
+      content:insert(pandoc.RawBlock(FORMAT, label_tags[FORMAT]['beginenv']))
+      content:extend(label)
+      content:insert(pandoc.RawBlock(FORMAT, label_tags[FORMAT]['endenv']))
+    end
+    if elem.attributes.title then
+      local title = pandoc.List({pandoc.read(elem.attributes.title).blocks[1]})
+      content:insert(pandoc.RawBlock(FORMAT, title_tags[FORMAT]['beginenv']))
+      content:extend(title)
+      content:insert(pandoc.RawBlock(FORMAT, title_tags[FORMAT]['endenv']))
+    end
+    content:extend(elem.content)
     content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['endenv']))
     return content -- returns contents, not the Div
 
@@ -185,7 +233,7 @@ end
 
 --- Replace horizontal rules by custom output code depending on format.
 --    Within statements, horizontal rules are only used to
---    state arguments: they separate premises and conclusionn.
+--    state arguments: they separate premises and conclusion.
 -- @param elem where horizontal rules should be replaced
 -- @return elem with horizontal rules replaced
 -- @see horizontal_rule
