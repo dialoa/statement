@@ -207,7 +207,7 @@ local function format_statement(elem)
 
   if environment_tags[FORMAT] then
     
-    local content = pandoc.List
+    local content = pandoc.List({})
     content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv']))
     if elem.attributes.label then
       local label = pandoc.List({pandoc.read(elem.attributes.label).blocks[1]})
