@@ -204,7 +204,7 @@ end
 -- @todo keep
 -- @todo provide hooks for customizing the starting/end tags.
 local function format_statement(elem)
- 
+
   if environment_tags[FORMAT] then
     
     local content = pandoc.List({})
@@ -219,11 +219,17 @@ local function format_statement(elem)
       local title = pandoc.List({pandoc.read(elem.attributes.title).blocks[1]})
       content:insert(pandoc.RawBlock(FORMAT, title_tags[FORMAT]['beginenv']))
       content:extend(title)
+      -- I'm not sure that I am using the target tag correctly
+      -- It can be in a <title>; should it wrap the content?
+      -- https://jats.nlm.nih.gov/publishing/tag-library/1.2/element/target.html
+      if FORMAT == 'jats' and elem.identifier ~= '' then
+        content:insert(pandoc.RawBlock('jats', '<target id="' .. elem.identifier .. '"></target>'))
+      end
       content:insert(pandoc.RawBlock(FORMAT, title_tags[FORMAT]['endenv']))
     end
     content:extend(elem.content)
     if FORMAT == 'latex' and elem.identifier ~= '' then
-      content:insert(pandoc.RawBlock(FORMAT, '\\label{' .. elem.identifier .. '}'))
+      content:insert(pandoc.RawBlock('latex', '\\label{' .. elem.identifier .. '}'))
     end
     content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['endenv']))
     return content -- returns contents, not the Div
