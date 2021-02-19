@@ -54,7 +54,7 @@ local header = {
   {} % punctuation after theorem head
   {0pt} % space after theorem head
   {{}} % head spec
-\theoremstyle{empty}
+\theoremstyle{definition}
 \newtheorem{statement}{Statement}]],
   html = [[<style>
   .statement {
@@ -204,7 +204,7 @@ end
 -- @todo keep
 -- @todo provide hooks for customizing the starting/end tags.
 local function format_statement(elem)
-
+ 
   if environment_tags[FORMAT] then
     
     local content = pandoc.List({})
@@ -222,6 +222,9 @@ local function format_statement(elem)
       content:insert(pandoc.RawBlock(FORMAT, title_tags[FORMAT]['endenv']))
     end
     content:extend(elem.content)
+    if FORMAT == 'latex' and elem.identifier ~= '' then
+      content:insert(pandoc.RawBlock(FORMAT, '\\label{' .. elem.identifier .. '}'))
+    end
     content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['endenv']))
     return content -- returns contents, not the Div
 
