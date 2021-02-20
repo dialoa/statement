@@ -196,11 +196,26 @@ See examples in the syntax sections below.
 
 ## Object model
 
-Here we specify abstractly the properties that we plan the filter to work with. The specification use YAML-style syntax with comments. For leaf entries (those that are not themselves list or set of entries) the value given is the default one. For non-leaf we sometimes specify the default with "(default: ...)" in the comments. If a leaf entry is optional we specify it as `nil (<type>)` where `<type>` gives its type if set, e.g. `nil (string)`. The types `inlines` and `blocks` are pandoc's list of (metadata) inlines and blocks, respectively. INTERNAL indicates that a property is not meant to be manipulated by the user; by default the properties are exposed and manipulated by the user. No property is required to be set by the user; the filter will provide the defaults where the user doesn't specify anything and a value is needed.
+This section gives an abstract specification of the properties that we plan the filter to work with. We use YAML-style syntax with comments.
+
+*Conventions*. For leaf entries (those that are not themselves list
+or set of entries) the value given is the default one. For non-leaf
+we sometimes specify the default with "(default: ...)" in the comments.
+If a leaf entry is optional we specify it as `nil (<type>)` where
+`<type>` gives its type if set, e.g. `nil (string)`. The types `inlines`
+and `blocks` are pandoc's list of (metadata) inlines and blocks,
+respectively. INTERNAL indicates that a property is not meant to be
+directly read or set by the user; READ-ONLY if a property is meant to
+be read but not written by the user; if not specified the property is
+meant to be reabable and writable by the user. No property is
+*required* to be set by the user; the filter will provide
+defaults wherever required.
 
 ### Document-level properties
 
-All metadata properties are placed within a `statement-filter` property. (In markdown metadata we could offer simpler aliases if useful.)
+All document-level properties are within a `statement-filter` property.
+(Avoids conflicts with other filters when placed in the metadata.
+We could provide aliases if that's easier.)
 
 ```yaml
 statement-filter:
@@ -209,7 +224,8 @@ statement-filter:
   supply-header:  true    # if true, we provide header-includes material to format the statement blocks
   crossref-prefixes: true # if true, we process cross-references with prefixes other that `@sta:`, such as `@thm:`, `@axm:`, `@lem:` etc.
                 #
-  header: nil (blocks)      # Stores the material we want to put in header-includes.
+  header: nil (blocks)      # READ-ONLY Stores the material we want to put
+                          # in header-includes.
                           # This is a workaround to allow users to pick it in a custom pandoc templates
                           #if they need to use the command line option --include-in-header
   kinds: # (default: the standard AMS kinds) list to which the user can add
