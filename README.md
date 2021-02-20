@@ -6,6 +6,8 @@ author: "Julien Dutant, Thomas Hodgson"
 Introduction
 ============
 
+**WARNING: WORK IN PROGRESS**. The filter works with minimal functionality, but we are currently working on it and its features may change in the near future. You're welcome to contribute to the design of the filter - its abstract object model, syntax, output. See the "Designing the filter" section below.
+
 Presentation
 ------------
 
@@ -172,19 +174,107 @@ specified in a defaults file. Example of YAML block:
 
 ```
 statement:
-  header: no
+  supply-header: no
 ```
 
 Here is a description of the options with their defaults.
 
-`header` (yes)
+`supply-header` (yes)
 : standalone output includes code to format statements. Set to "no" if
 your template formats statements blocks.
 
-Proposed syntax
-=====
+Design of the filter
+====================
 
-## Desiderata
+## Use cases
+
+* Standard AMS classes: Theorem, Axiom, Lemma, Proof, Remark, Problem, ...
+* Statement of a principle, scientific law, hypothesis, etc. With or without label.
+* Presentation of an argument (premises, horizontal line, conclusion)
+
+See examples in the syntax sections below.
+
+## Object model
+
+Here we specify abstractly the properties that we plan the filter to work with. The specification use YAML-style syntax with comments. For leaf entries (those that are not themselves list or set of entries) the value given is the default one. For non-leaf we sometimes specify the default with "(default: ...)" in the comments. If a leaf entry is optional we specify it as `nil (<type>)` where `<type>` gives its type if set, e.g. `nil (string)`. The types `inlines` and `blocks` are pandoc's list of (metadata) inlines and blocks, respectively. INTERNAL indicates that a property is not meant to be manipulated by the user; by default the properties are exposed and manipulated by the user. No property is required to be set by the user; the filter will provide the defaults where the user doesn't specify anything and a value is needed.
+
+### Document-level properties
+
+All metadata properties are placed within a `statement-filter` property. (In markdown metadata we could offer simpler aliases if useful.)
+
+```yaml
+statement-filter:
+  reset-counters-with-headings-level: 0   # 0 counters never reset, 1 reset at each heading 1, etc.
+  keep-default-kinds: true    # whether the standard AMS kinds are provided; if false, the user has full control over which kinds exist besides `statement`
+  supply-header:  true    # if true, we provide header-includes material to format the statement blocks
+  crossref-prefixes: true # if true, we process cross-references with prefixes other that `@sta:`, such as `@thm:`, `@axm:`, `@lem:` etc.
+                #
+  header: nil (blocks)      # Stores the material we want to put in header-includes.
+                          # This is a workaround to allow users to pick it in a custom pandoc templates
+                          #if they need to use the command line option --include-in-header
+  kinds: # (default: the standard AMS kinds) list to which the user can add
+    theorem:
+      - label: "Theorem"
+      - counter: "theorem"   # if user doesn't specify an existing kind, give a warning and treat as unnumbered
+      - prefix: thm  # ref to theorem with `@thm:`
+    lemma:
+      - label: "Lemma"
+      - counter: "theorem" # shares the theorem counter
+      - prefix: lem
+    proof:
+      - label: "Proof"
+      - counter: ""      # unnumbered
+    # ... same for the other AMS standard kinds
+    argument:
+      - label: ""
+      - counter: ""
+      - convert-h-rules: true   # any hrule found in the statement will be converted in a half-textwidth rule in the output
+    mystatement:
+      - label: nil
+      - counter: nil
+      - convert-h-rules: false
+      - prefix: nil
+```
+
+### Statement-level properties
+
+These are properties associated with an individual `statement` Div.
+
+```yaml
+  kind: nil (string) # one of the statement-filter.kinds. if nil, the statement
+    # is of the default kind `statement` (unnumbered, no label).
+    # if the user specifies a kind that is not in statement-filter.kinds,
+    # we throw a warning and assume this to be nil.
+  id: nil (string)
+  content: blocks # the content of the statement
+  title: nil (inlines) # the title of the statement, e.g. `Pythagoras's theorem`
+  label: nil (inlines) # INTERNAL the full formatted label of the statement, e.g. `**Theorem 2.1**`. May be based on a user-provided label.
+  info: nil (inlines) # info on the statement, e.g. `[@Pythagoras600BC]`
+  number: nil (string) # INTERNAL number of statement, e.g. "1.2"
+  reference-text: '***' (inlines) # INTERNAL formatted text to be used when cross-referencing the statement. If the user doesn't specify a label or numbering they get a link with `***` and a warning.
+```
+
+### Citation-level properties
+
+These are the properties associated with individual references to statements.
+This will be read from pandoc Cite objects and converted into native pandoc
+Span inlines with the following properties
+(compare [pandoc Ciations](https://pandoc.org/lua-filters.html#type-citation)):
+
+```yaml
+classes:
+- statement-crossreference # to allow e.g. CSS styling
+- ... # user's other classes
+citations: # list of (statement-)citation objects
+  - key: string # the user-provided key, e.g. thm:pythagoras. If there is no
+            # statement with that id, throw a warning and format the
+            # reference-text as key?
+  - prefix: nil (inlines)
+  - suffix: nil (inlines)
+  - reference_text: '<key>?' (inlines) # INTERNAL copied from the statement object pointed to by the key, otherwise "<key>?"
+```
+
+## Desiderata for a markdown syntax
 
 * readable, 'markdown-y'
 * graceful breakdown (in unsupported formats, without the filter)
