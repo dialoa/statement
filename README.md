@@ -560,10 +560,14 @@ For standard maths theorem, we can map Prefix + Number to JATS's `<label>` and A
 
 For statements without a math type (prefix) but only a name and possibly an abbreviation, we need to decide whether the name / abbreviation are printed as "prefix" or "additional info" or neither.
 
-LaTeX environment tags are `\begin{xxx}` and `end{xxx}` where `xxx` specifies the kind of theorem. A kind can be specified for a single theorem if we want its name in bold. The environment options are:
+LaTeX environment tags are `\begin{<kind>}` and `end{<kind>}` where `<kind>` specifies the kind of theorem, e.g. "thm". For a single special named
+theorem, the package doc recommends defining a single kind with its
+own name. The environment commands are:
 
-* default, `\begin{thm}`, with prefix and number
-* with additional information, `\begin{thm}[Klein \cite{bibkey}]`, `\begin{thm}[Pythagoras's theorem]`
+* default, `\begin{<kind>}...\end{<kind>}`, typesets the content with prefix
+and number as specificed by the theorem kind definition (see below)
+* with additional information, `\begin{<kind>}[Klein \cite{bibkey}]`, `\begin{<kind>}[Pythagoras's theorem]`
+* without number `\begin{<kind>*}`.
 
 The theorem kinds are defined as follows.
 
