@@ -102,7 +102,8 @@ doesn't).
     </div>
     ```
 
-  - Pandoc's own LaTeX reader converts theorem environments thus:
+  - Pandoc's own LaTeX reader converts theorem environments to markdown
+    like this:
 
     ```markdown
     ::: {.thm}
@@ -605,7 +606,7 @@ Contributing
 ============
 
 Feedback on the proposed syntax and projected behaviour welcome. Feel free
-to use PRs or contact us.
+to use issues, PRs or to contact us directly.
 
 The [source documentation](https://jdutant.github.io/statement/) is available
 on Github and at `docs/index.html`.
