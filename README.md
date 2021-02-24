@@ -480,6 +480,267 @@ Definition lists style?
 Note: any `@...`-style syntax requires the filter to be applied before
 Pandoc's own citation processing engine`citeproc` and `pandoc-citeproc`.
 
+Default statement kinds
+=======================
+
+Suggestion, with crossreference prefixes
+and counters:
+
+* Statement. Prefix: sta. Counter: none.
+* Theorem. Prefix: thm. Counter: thm.
+* Corollary. Prefix: cor. Counter: thm.
+* Lemma. Prefix: lem. Counter: thm.
+* Proposition. Prefix: prp. Counter: thm.
+* Conjecture. Prefix: con. Counter: thm.
+* Fact. Prefix: fac. Counter: thm.
+* Definition. Prefix: def. Counter: thm.
+* Example. Prefix: exa. Counter: thm.
+* Problem. Prefix: prb. Counter: thm.
+* Exercise. Prefix: exe. Counter: thm.
+* Solution. Prefix: sol. Counter: thm.
+* Remark. Prefix: rem. Counter: thm.
+* Claim. Prefix: cla. Counter: thm.
+* Proof. Prefix: prf. Counter: none.
+
+With an "extended-kinds" option (or by default?) we could
+also provide  the eleven extended kinds of LyX's AMS Extended
+module.
+
+[LyX](https://www.lyx.org/) provides the following defaults for
+mathematical statements.
+
+__With simple LaTeX__
+
+Theorem, Corollary, Lemma, Proposition, Conjecture, Fact,
+Definition, Example, Problem, Exercise, Solution and Remark,
+Claim are all numbered together. Proof is unnumbered. Case is
+a numbered list type with its own local numbering allowing three
+levels of sub-lists. The first six (Theorem, Corollary, Lemma,
+Proposition, Conjecture, Fact) are in `plain` style: bold
+roman label, italic text, extra space above and below.
+The next (Definition, Example, Problem, Exercise, Solution) are
+ in `definition` style: bold label, roman text, extra space above
+and below. Two (Remark, Claim) are in `remark` style: italic
+label, no extra space. Case, Proof have their own style, similar
+to `remark`.
+
+```latex
+\theoremstyle{plain}
+\newtheorem{thm}{\protect\theoremname}
+\theoremstyle{plain}
+\newtheorem{cor}[thm]{\protect\corollaryname}
+\theoremstyle{plain}
+\newtheorem{lem}[thm]{\protect\lemmaname}
+\theoremstyle{plain}
+\newtheorem{prop}[thm]{\protect\propositionname}
+\theoremstyle{plain}
+\newtheorem{conjecture}[thm]{\protect\conjecturename}
+\theoremstyle{plain}
+\newtheorem{fact}[thm]{\protect\factname}
+\theoremstyle{definition}
+\newtheorem{defn}[thm]{\protect\definitionname}
+\theoremstyle{definition}
+\newtheorem{example}[thm]{\protect\examplename}
+\theoremstyle{definition}
+\newtheorem{problem}[thm]{\protect\problemname}
+\theoremstyle{definition}
+\newtheorem{xca}[thm]{\protect\exercisename}
+\theoremstyle{definition}
+\newtheorem{sol}[thm]{\protect\solutionname}
+\theoremstyle{remark}
+\newtheorem{rem}[thm]{\protect\remarkname}
+\theoremstyle{remark}
+\newtheorem{claim}[thm]{\protect\claimname}
+\newlist{casenv}{enumerate}{4}
+\setlist[casenv]{leftmargin=*,align=left,widest={iiii}}
+\setlist[casenv,1]{label={{\itshape\ \casename} \arabic*.},ref=\arabic*}
+\setlist[casenv,2]{label={{\itshape\ \casename} \roman*.},ref=\roman*}
+\setlist[casenv,3]{label={{\itshape\ \casename\ \alph*.}},ref=\alph*}
+\setlist[casenv,4]{label={{\itshape\ \casename} \arabic*.},ref=\arabic*}
+\makeatletter
+\ifx\proof\undefined
+\newenvironment{proof}[1][\protect\proofname]{\par
+  \normalfont\topsep6\p@\@plus6\p@\relax
+  \trivlist
+  \itemindent\parindent
+  \item[\hskip\labelsep\scshape #1]\ignorespaces
+}{%
+  \endtrivlist\@endpefalse
+}
+\providecommand{\proofname}{Proof}
+\fi
+\makeatother
+
+\usepackage{babel}
+\providecommand{\casename}{Case}
+\providecommand{\claimname}{Claim}
+\providecommand{\conjecturename}{Conjecture}
+\providecommand{\corollaryname}{Corollary}
+\providecommand{\definitionname}{Definition}
+\providecommand{\examplename}{Example}
+\providecommand{\exercisename}{Exercise}
+\providecommand{\factname}{Fact}
+\providecommand{\lemmaname}{Lemma}
+\providecommand{\problemname}{Problem}
+\providecommand{\propositionname}{Proposition}
+\providecommand{\remarkname}{Remark}
+\providecommand{\solutionname}{Solution}
+\providecommand{\theoremname}{Theorem}
+```
+
+__With the AMS theorem module (`amsthm` package)__
+
+Same as above, except that all environments also have an
+unnumbered variant, except Case and Proof. Proof is not
+defined: it is already provided by the package (and its
+label is localized by `babel` or `amsthm`).
+
+```latex
+\theoremstyle{plain}
+\newtheorem{thm}{\protect\theoremname}
+\theoremstyle{plain}
+\newtheorem*{thm*}{\protect\theoremname}
+\theoremstyle{plain}
+\newtheorem{cor}[thm]{\protect\corollaryname}
+\theoremstyle{plain}
+\newtheorem*{cor*}{\protect\corollaryname}
+\theoremstyle{plain}
+\newtheorem{lem}[thm]{\protect\lemmaname}
+\theoremstyle{plain}
+\newtheorem*{lem*}{\protect\lemmaname}
+\theoremstyle{plain}
+\newtheorem{prop}[thm]{\protect\propositionname}
+\theoremstyle{plain}
+\newtheorem*{prop*}{\protect\propositionname}
+\theoremstyle{plain}
+\newtheorem{conjecture}[thm]{\protect\conjecturename}
+\theoremstyle{plain}
+\newtheorem*{conjecture*}{\protect\conjecturename}
+\theoremstyle{plain}
+\newtheorem{fact}[thm]{\protect\factname}
+\theoremstyle{plain}
+\newtheorem*{fact*}{\protect\factname}
+\theoremstyle{definition}
+\newtheorem{defn}[thm]{\protect\definitionname}
+\theoremstyle{definition}
+\newtheorem*{defn*}{\protect\definitionname}
+\theoremstyle{definition}
+\newtheorem{example}[thm]{\protect\examplename}
+\theoremstyle{definition}
+\newtheorem*{example*}{\protect\examplename}
+\theoremstyle{definition}
+\newtheorem{problem}[thm]{\protect\problemname}
+\theoremstyle{definition}
+\newtheorem*{problem*}{\protect\problemname}
+\theoremstyle{definition}
+\newtheorem{xca}[thm]{\protect\exercisename}
+\theoremstyle{definition}
+\newtheorem*{xca*}{\protect\exercisename}
+\theoremstyle{definition}
+\newtheorem{sol}[thm]{\protect\solutionname}
+\theoremstyle{definition}
+\newtheorem*{sol*}{\protect\solutionname}
+\theoremstyle{remark}
+\newtheorem{rem}[thm]{\protect\remarkname}
+\theoremstyle{remark}
+\newtheorem*{rem*}{\protect\remarkname}
+\theoremstyle{remark}
+\newtheorem{claim}[thm]{\protect\claimname}
+\theoremstyle{remark}
+\newtheorem*{claim*}{\protect\claimname}
+\newlist{casenv}{enumerate}{4}
+\setlist[casenv]{leftmargin=*,align=left,widest={iiii}}
+\setlist[casenv,1]{label={{\itshape\ \casename} \arabic*.},ref=\arabic*}
+\setlist[casenv,2]{label={{\itshape\ \casename} \roman*.},ref=\roman*}
+\setlist[casenv,3]{label={{\itshape\ \casename\ \alph*.}},ref=\alph*}
+\setlist[casenv,4]{label={{\itshape\ \casename} \arabic*.},ref=\arabic*}
+
+\providecommand{\casename}{Case}
+\providecommand{\claimname}{Claim}
+\providecommand{\conjecturename}{Conjecture}
+\providecommand{\corollaryname}{Corollary}
+\providecommand{\definitionname}{Definition}
+\providecommand{\examplename}{Example}
+\providecommand{\exercisename}{Exercise}
+\providecommand{\factname}{Fact}
+\providecommand{\lemmaname}{Lemma}
+\providecommand{\problemname}{Problem}
+\providecommand{\propositionname}{Proposition}
+\providecommand{\remarkname}{Remark}
+\providecommand{\solutionname}{Solution}
+\providecommand{\theoremname}{Theorem}
+```
+
+__With the module AMS extended__
+
+The LyX module "AMS extended" provides elevent additional
+statement kinds: Criterion, Algorithm, Axiom, Assumption,
+Question (in the `plain` style), Condition (in the `definition`
+style), Note, Notation, Summary, Acknowledgement, Conclusion (in
+the `remark` style). All numbered with Theorem, and all with
+an unnumbered version. The preamble is as with the AMS module
+with the following additions:
+
+```latex
+\theoremstyle{plain}
+\newtheorem{criterion}[thm]{\protect\criterionname}
+\theoremstyle{plain}
+\newtheorem*{criterion*}{\protect\criterionname}
+\theoremstyle{plain}
+\newtheorem{lyxalgorithm}[thm]{\protect\algorithmname}
+\theoremstyle{plain}
+\newtheorem*{lyxalgorithm*}{\protect\algorithmname}
+\theoremstyle{plain}
+\newtheorem{ax}[thm]{\protect\axiomname}
+\theoremstyle{plain}
+\newtheorem*{ax*}{\protect\axiomname}
+\theoremstyle{definition}
+\newtheorem{condition}[thm]{\protect\conditionname}
+\theoremstyle{definition}
+\newtheorem*{condition*}{\protect\conditionname}
+\theoremstyle{remark}
+\newtheorem{note}[thm]{\protect\notename}
+\theoremstyle{remark}
+\newtheorem*{note*}{\protect\notename}
+\theoremstyle{remark}
+\newtheorem{notation}[thm]{\protect\notationname}
+\theoremstyle{remark}
+\newtheorem*{notation*}{\protect\notationname}
+\theoremstyle{remark}
+\newtheorem{summary}[thm]{\protect\summaryname}
+\theoremstyle{remark}
+\newtheorem*{summary*}{\protect\summaryname}
+\theoremstyle{remark}
+\newtheorem{acknowledgement}[thm]{\protect\acknowledgementname}
+\theoremstyle{remark}
+\newtheorem*{acknowledgement*}{\protect\acknowledgementname}
+\theoremstyle{remark}
+\newtheorem{conclusion}[thm]{\protect\conclusionname}
+\theoremstyle{remark}
+\newtheorem*{conclusion*}{\protect\conclusionname}
+\theoremstyle{plain}
+\newtheorem{assumption}[thm]{\protect\assumptionname}
+\theoremstyle{plain}
+\newtheorem*{assumption*}{\protect\assumptionname}
+\theoremstyle{plain}
+\newtheorem{question}[thm]{\protect\questionname}
+\theoremstyle{plain}
+\newtheorem*{question*}{\protect\questionname}
+
+\providecommand{\acknowledgementname}{Acknowledgement}
+\providecommand{\algorithmname}{Algorithm}
+\providecommand{\assumptionname}{Assumption}
+\providecommand{\axiomname}{Axiom}
+\providecommand{\conclusionname}{Conclusion}
+\providecommand{\conditionname}{Condition}
+\providecommand{\criterionname}{Criterion}
+\providecommand{\notationname}{Notation}
+\providecommand{\notename}{Note}
+\providecommand{\questionname}{Question}
+\providecommand{\summaryname}{Summary}
+```
+
+
 Target outputs
 ==============
 
