@@ -216,7 +216,10 @@ defaults wherever required.
 
 All document-level properties are within a `statement-filter` property.
 (Avoids conflicts with other filters when placed in the metadata.
-We could provide aliases if that's easier.)
+We could provide aliases if that's easier.) Of course the user wouldn't have
+to set all of these, and some of them shouldn't be manipulated by the
+user at all. It may also not be necessary for the filter to set those
+in the document's metadata itself as opposed to a local `options` variable.
 
 ```yaml
 statement-filter:
