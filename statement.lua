@@ -45,17 +45,18 @@ local horizontal_rule = {
 -- one key per format.
 local header = {
   latex = [[\usepackage{amsthm}
-\newtheoremstyle{empty}
-  {1em} % space above
-  {1em} % space below
-  {\addtolength{\leftskip}{2.5em}\addtolength{\rightskip}{2.5em}} % body font
-  {0pt} % indentation
-  {} % theorem head font
-  {} % punctuation after theorem head
-  {0pt} % space after theorem head
-  {{}} % head spec
-\theoremstyle{definition}
-\newtheorem{statement}{Statement}]],
+% \newtheoremstyle{empty}
+%  {1em} % space above
+%  {1em} % space below
+%  {\addtolength{\leftskip}{2.5em}\addtolength{\rightskip}{2.5em}} % body font
+%  {0pt} % indentation
+%  {} % theorem head font
+%  {} % punctuation after theorem head
+%  {0pt} % space after theorem head
+%  {{}} % head spec
+% \theoremstyle{definition}
+% \newtheorem{statement}{Statement}
+  \newtheorem*{statement}{Statement}]],
   html = [[<style>
   .statement {
     margin: 2.5em 1em;
@@ -68,7 +69,7 @@ local header = {
 -- usage: environment_tags[FORMAT]["beginenv"].
 local environment_tags = {
   latex = {
-    beginenv = '\\begin{statement}\n\\setlength{\\parskip}{0em}',
+    beginenv = '\\begin{statement}',
     endenv = '\\end{statement}',
   },
   jats = {
@@ -84,12 +85,7 @@ local environment_tags = {
 --- Code for label environments.
 -- one key per format. Its value is a map with `beginenv` and `endenv` keys.
 -- usage: label_tags[FORMAT]["beginenv"].
--- TODO: LaTeX
 local label_tags = {
-  latex = {
-    beginenv = '',
-    endenv = '',
-  },
   jats = {
     beginenv = '<label>',
     endenv = '</label>',
@@ -103,12 +99,7 @@ local label_tags = {
 --- Code for title environments.
 -- one key per format. Its value is a map with `beginenv` and `endenv` keys.
 -- usage: title_tags[FORMAT]["beginenv"].
--- TODO: LaTeX
 local title_tags = {
-  latex = {
-    beginenv = '',
-    endenv = '',
-  },
   jats = {
     beginenv = '<title>',
     endenv = '</title>',
@@ -206,17 +197,27 @@ end
 local function format_statement(elem)
 
   if environment_tags[FORMAT] then
+
+    if elem.attributes.label then
+      label = pandoc.List({pandoc.read(elem.attributes.label).blocks[1]})
+    end
+
+    if elem.attributes.title then
+      title = pandoc.List({pandoc.read(elem.attributes.title).blocks[1]})
+    end
     
     local content = pandoc.List({})
-    content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv']))
-    if elem.attributes.label then
-      local label = pandoc.List({pandoc.read(elem.attributes.label).blocks[1]})
+    if FORMAT == 'latex' and elem.attributes.title then
+      -- using stringify here will strip the formatting; is there a better option?
+      content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv'] .. '[' .. pandoc.utils.stringify(title) .. ']' )) else
+      content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv']))
+    end
+    if FORMAT ~= 'latex' and elem.attributes.label then
       content:insert(pandoc.RawBlock(FORMAT, label_tags[FORMAT]['beginenv']))
       content:extend(label)
       content:insert(pandoc.RawBlock(FORMAT, label_tags[FORMAT]['endenv']))
     end
-    if elem.attributes.title then
-      local title = pandoc.List({pandoc.read(elem.attributes.title).blocks[1]})
+    if FORMAT ~= 'latex' and elem.attributes.title then
       content:insert(pandoc.RawBlock(FORMAT, title_tags[FORMAT]['beginenv']))
       content:extend(title)
       -- I'm not sure that I am using the target tag correctly
