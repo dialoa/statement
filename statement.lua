@@ -175,6 +175,8 @@ end
 
 -- # Filter functions
 
+-- The kinds that have been set, which are used to build the LaTeX header
+local kinds = {}
 
 --- Format for the target output.
 -- Wraps the div with suitable markup inserted as raw blocks.
@@ -185,21 +187,28 @@ end
 local function format_statement(elem)
 
   if environment_tags[FORMAT] then
+    if not elem.attributes.kind then
+      elem.attributes.kind = 'Statement'
+    end
     local content = pandoc.List({})
     if FORMAT == 'latex' then
-        header['latex'] = header['latex'] .. '\\newtheorem{' .. string.lower(elem.attributes.label) .. '}' .. '{' .. elem.attributes.label .. '}' 
-        local latex_begin = environment_tags[FORMAT]['beginenv'] .. string.lower(elem.attributes.label) .. '}'
-        if elem.attributes.title then
-          -- using stringify here will strip the formatting; is there a better option?
-          content:insert(pandoc.RawBlock(FORMAT, latex_begin .. '[' .. pandoc.utils.stringify(pandoc.read(elem.attributes.title)) .. ']' )) else
-          content:insert(pandoc.RawBlock(FORMAT, latex_begin))
-        end
-        else
-        content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv']))
+      if kinds[elem.attributes.kind] == nil then
+        header['latex'] = header['latex'] .. '\\newtheorem{' .. string.lower(elem.attributes.kind) .. '}' .. '{' .. elem.attributes.kind .. '}\n'
+        -- Is this the way to have a set in Lua?
+        kinds[elem.attributes.kind] = true
+       end
+       local latex_begin = environment_tags[FORMAT]['beginenv'] .. string.lower(elem.attributes.kind) .. '}'
+       if elem.attributes.title then
+       -- using stringify here will strip the formatting; is there a better option?
+        content:insert(pandoc.RawBlock(FORMAT, latex_begin .. '[' .. pandoc.utils.stringify(pandoc.read(elem.attributes.title)) .. ']' )) else
+        content:insert(pandoc.RawBlock(FORMAT, latex_begin))
+      end
+      else
+      content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv']))
     end
-    if FORMAT ~= 'latex' and elem.attributes.label then
+    if FORMAT ~= 'latex' and elem.attributes.kind then
       content:insert(pandoc.RawBlock(FORMAT, label_tags[FORMAT]['beginenv']))
-      local label = pandoc.List({pandoc.read(elem.attributes.label).blocks[1]})
+      local label = pandoc.List({pandoc.read(elem.attributes.kind).blocks[1]})
       content:extend(label)
       content:insert(pandoc.RawBlock(FORMAT, label_tags[FORMAT]['endenv']))
     end
@@ -220,7 +229,7 @@ local function format_statement(elem)
       content:insert(pandoc.RawBlock('latex', '\\label{' .. elem.identifier .. '}'))
     end
     if FORMAT == 'latex' then
-      local latex_end = environment_tags[FORMAT]['endenv'] .. string.lower(elem.attributes.label) .. '}'
+      local latex_end = environment_tags[FORMAT]['endenv'] .. string.lower(elem.attributes.kind) .. '}'
       content:insert(pandoc.RawBlock(FORMAT, latex_end)) else
       content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['endenv']))
     end
