@@ -44,19 +44,7 @@ local horizontal_rule = {
 --- Code for header-includes.
 -- one key per format.
 local header = {
-  latex = [[\usepackage{amsthm}
-% \newtheoremstyle{empty}
-%  {1em} % space above
-%  {1em} % space below
-%  {\addtolength{\leftskip}{2.5em}\addtolength{\rightskip}{2.5em}} % body font
-%  {0pt} % indentation
-%  {} % theorem head font
-%  {} % punctuation after theorem head
-%  {0pt} % space after theorem head
-%  {{}} % head spec
-% \theoremstyle{definition}
-% \newtheorem{statement}{Statement}
-  \newtheorem*{statement}{Statement}]],
+  latex = [[]],
   html = [[<style>
   .statement {
     margin: 2.5em 1em;
@@ -69,8 +57,8 @@ local header = {
 -- usage: environment_tags[FORMAT]["beginenv"].
 local environment_tags = {
   latex = {
-    beginenv = '\\begin{statement}',
-    endenv = '\\end{statement}',
+    beginenv = '\\begin{',
+    endenv = '\\end{',
   },
   jats = {
     beginenv = '<statement>',
@@ -198,10 +186,16 @@ local function format_statement(elem)
 
   if environment_tags[FORMAT] then
     local content = pandoc.List({})
-    if FORMAT == 'latex' and elem.attributes.title then
-      -- using stringify here will strip the formatting; is there a better option?
-      content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv'] .. '[' .. pandoc.utils.stringify(pandoc.read(elem.attributes.title)) .. ']' )) else
-      content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv']))
+    if FORMAT == 'latex' then
+        header['latex'] = header['latex'] .. '\\newtheorem{' .. string.lower(elem.attributes.label) .. '}' .. '{' .. elem.attributes.label .. '}' 
+        local latex_begin = environment_tags[FORMAT]['beginenv'] .. string.lower(elem.attributes.label) .. '}'
+        if elem.attributes.title then
+          -- using stringify here will strip the formatting; is there a better option?
+          content:insert(pandoc.RawBlock(FORMAT, latex_begin .. '[' .. pandoc.utils.stringify(pandoc.read(elem.attributes.title)) .. ']' )) else
+          content:insert(pandoc.RawBlock(FORMAT, latex_begin))
+        end
+        else
+        content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv']))
     end
     if FORMAT ~= 'latex' and elem.attributes.label then
       content:insert(pandoc.RawBlock(FORMAT, label_tags[FORMAT]['beginenv']))
@@ -225,7 +219,11 @@ local function format_statement(elem)
     if FORMAT == 'latex' and elem.identifier ~= '' then
       content:insert(pandoc.RawBlock('latex', '\\label{' .. elem.identifier .. '}'))
     end
-    content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['endenv']))
+    if FORMAT == 'latex' then
+      local latex_end = environment_tags[FORMAT]['endenv'] .. string.lower(elem.attributes.label) .. '}'
+      content:insert(pandoc.RawBlock(FORMAT, latex_end)) else
+      content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['endenv']))
+    end
     return content -- returns contents, not the Div
 
   end
