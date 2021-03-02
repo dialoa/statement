@@ -197,28 +197,21 @@ end
 local function format_statement(elem)
 
   if environment_tags[FORMAT] then
-
-    if elem.attributes.label then
-      label = pandoc.List({pandoc.read(elem.attributes.label).blocks[1]})
-    end
-
-    if elem.attributes.title then
-      title = pandoc.List({pandoc.read(elem.attributes.title).blocks[1]})
-    end
-    
     local content = pandoc.List({})
     if FORMAT == 'latex' and elem.attributes.title then
       -- using stringify here will strip the formatting; is there a better option?
-      content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv'] .. '[' .. pandoc.utils.stringify(title) .. ']' )) else
+      content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv'] .. '[' .. pandoc.utils.stringify(pandoc.read(elem.attributes.title)) .. ']' )) else
       content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv']))
     end
     if FORMAT ~= 'latex' and elem.attributes.label then
       content:insert(pandoc.RawBlock(FORMAT, label_tags[FORMAT]['beginenv']))
+      local label = pandoc.List({pandoc.read(elem.attributes.label).blocks[1]})
       content:extend(label)
       content:insert(pandoc.RawBlock(FORMAT, label_tags[FORMAT]['endenv']))
     end
     if FORMAT ~= 'latex' and elem.attributes.title then
       content:insert(pandoc.RawBlock(FORMAT, title_tags[FORMAT]['beginenv']))
+      local title = pandoc.List({pandoc.read(elem.attributes.title).blocks[1]})
       content:extend(title)
       -- I'm not sure that I am using the target tag correctly
       -- It can be in a <title>; should it wrap the content?
