@@ -194,8 +194,8 @@ local function format_statement(elem)
     if FORMAT == 'latex' then
       if kinds[elem.attributes.kind] == nil then
         header['latex'] = header['latex'] .. '\\newtheorem{' .. string.lower(elem.attributes.kind) .. '}' .. '{' .. elem.attributes.kind .. '}\n'
-        -- Is this the way to have a set in Lua?
-        kinds[elem.attributes.kind] = true
+        kinds[elem.attributes.kind] = 1 else
+        kinds[elem.attributes.kind] = kinds[elem.attributes.kind] + 1
        end
        local latex_begin = environment_tags[FORMAT]['beginenv'] .. string.lower(elem.attributes.kind) .. '}'
        if elem.attributes.title then
