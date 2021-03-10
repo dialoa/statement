@@ -507,7 +507,7 @@ and counters:
 
 With an "extended-kinds" option (or by default?) we could
 also provide  the eleven extended kinds of LyX's AMS Extended
-module.
+module. Also perhaps Postulate (pos).
 
 [LyX](https://www.lyx.org/) provides the following defaults for
 mathematical statements.
