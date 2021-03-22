@@ -861,7 +861,7 @@ Proposals:
     <span class="statement-prefix">Theorem</span> <span class="statement-number">3</span>.
     </span>
     <p>Text of the statement...</p>
-</statement>
+</div>
 ```
 
 Or something with "label" and "title" matching the XML?

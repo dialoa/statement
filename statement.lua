@@ -11,6 +11,10 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 
 ]]
 
+-- for debug only
+package.path = package.path .. ';/home/t/pprint.lua/?.lua'
+local pprint = require('pprint')
+
 -- # Parameters
 
 --- Options map, including defaults.
@@ -40,18 +44,7 @@ local horizontal_rule = {
 --- Code for header-includes.
 -- one key per format.
 local header = {
-  latex = [[\usepackage{amsthm}
-\newtheoremstyle{empty}
-  {1em} % space above
-  {1em} % space below
-  {\addtolength{\leftskip}{2.5em}\addtolength{\rightskip}{2.5em}} % body font
-  {0pt} % indentation
-  {} % theorem head font
-  {} % punctuation after theorem head
-  {0pt} % space after theorem head
-  {{}} % head spec
-\theoremstyle{empty}
-\newtheorem{statement}{Statement}]],
+  latex = [[]],
   html = [[<style>
   .statement {
     margin: 2.5em 1em;
@@ -64,15 +57,46 @@ local header = {
 -- usage: environment_tags[FORMAT]["beginenv"].
 local environment_tags = {
   latex = {
-    beginenv  = '\\begin{statement}\n\\setlength{\\parskip}{0em}',
-    endenv    = '\\end{statement}',
+    beginenv = '\\begin{',
+    endenv = '\\end{',
   },
   jats = {
-    beginenv  = '<statement>',
-    endenv    = '</statement>'
+    beginenv = '<statement>',
+    endenv = '</statement>',
+  },
+  html = {
+    beginenv = '<div class="statement">',
+    endenv = '</div>',
   },
 }
 
+--- Code for label environments.
+-- one key per format. Its value is a map with `beginenv` and `endenv` keys.
+-- usage: label_tags[FORMAT]["beginenv"].
+local label_tags = {
+  jats = {
+    beginenv = '<label>',
+    endenv = '</label>',
+  },
+  html = {
+    beginenv = '<div class="statement-label">',
+    endenv = '</div>',
+  },
+}
+
+--- Code for title environments.
+-- one key per format. Its value is a map with `beginenv` and `endenv` keys.
+-- usage: title_tags[FORMAT]["beginenv"].
+local title_tags = {
+  jats = {
+    beginenv = '<title>',
+    endenv = '</title>',
+  },
+  html = {
+    beginenv = '<div class="statement-title">',
+    endenv = '</div>',
+  },
+}
 -- # Helper functions
 
 --- Returns true if the current target format is in a given list.
@@ -149,9 +173,10 @@ local function fill_equivalent_formats(map)
 
 end
 
-
 -- # Filter functions
 
+-- The kinds that have been set, which are used to build the LaTeX header
+local kinds = {}
 
 --- Format for the target output.
 -- Wraps the div with suitable markup inserted as raw blocks.
@@ -161,12 +186,53 @@ end
 -- @todo provide hooks for customizing the starting/end tags.
 local function format_statement(elem)
 
-  local content = pandoc.List:new(elem.content)
-
   if environment_tags[FORMAT] then
-
-    content:insert(1,pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv']))
-    content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['endenv']))
+    if not elem.attributes.kind then
+      elem.attributes.kind = 'Statement'
+    end
+    local content = pandoc.List({})
+    if FORMAT == 'latex' then
+      if kinds[elem.attributes.kind] == nil then
+        header['latex'] = header['latex'] .. '\\newtheorem{' .. string.lower(elem.attributes.kind) .. '}' .. '{' .. elem.attributes.kind .. '}\n'
+        kinds[elem.attributes.kind] = 1 else
+        kinds[elem.attributes.kind] = kinds[elem.attributes.kind] + 1
+       end
+       local latex_begin = environment_tags[FORMAT]['beginenv'] .. string.lower(elem.attributes.kind) .. '}'
+       if elem.attributes.title then
+       -- using stringify here will strip the formatting; is there a better option?
+        content:insert(pandoc.RawBlock(FORMAT, latex_begin .. '[' .. pandoc.utils.stringify(pandoc.read(elem.attributes.title)) .. ']' )) else
+        content:insert(pandoc.RawBlock(FORMAT, latex_begin))
+      end
+      else
+      content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv']))
+    end
+    if FORMAT ~= 'latex' and elem.attributes.kind then
+      content:insert(pandoc.RawBlock(FORMAT, label_tags[FORMAT]['beginenv']))
+      local label = pandoc.List({pandoc.read(elem.attributes.kind).blocks[1]})
+      content:extend(label)
+      content:insert(pandoc.RawBlock(FORMAT, label_tags[FORMAT]['endenv']))
+    end
+    if FORMAT ~= 'latex' and elem.attributes.title then
+      content:insert(pandoc.RawBlock(FORMAT, title_tags[FORMAT]['beginenv']))
+      local title = pandoc.List({pandoc.read(elem.attributes.title).blocks[1]})
+      content:extend(title)
+      -- I'm not sure that I am using the target tag correctly
+      -- It can be in a <title>; should it wrap the content?
+      -- https://jats.nlm.nih.gov/publishing/tag-library/1.2/element/target.html
+      if FORMAT == 'jats' and elem.identifier ~= '' then
+        content:insert(pandoc.RawBlock('jats', '<target id="' .. elem.identifier .. '"></target>'))
+      end
+      content:insert(pandoc.RawBlock(FORMAT, title_tags[FORMAT]['endenv']))
+    end
+    content:extend(elem.content)
+    if FORMAT == 'latex' and elem.identifier ~= '' then
+      content:insert(pandoc.RawBlock('latex', '\\label{' .. elem.identifier .. '}'))
+    end
+    if FORMAT == 'latex' then
+      local latex_end = environment_tags[FORMAT]['endenv'] .. string.lower(elem.attributes.kind) .. '}'
+      content:insert(pandoc.RawBlock(FORMAT, latex_end)) else
+      content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['endenv']))
+    end
     return content -- returns contents, not the Div
 
   end
@@ -177,7 +243,7 @@ end
 
 --- Replace horizontal rules by custom output code depending on format.
 --    Within statements, horizontal rules are only used to
---    state arguments: they separate premises and conclusionn.
+--    state arguments: they separate premises and conclusion.
 -- @param elem where horizontal rules should be replaced
 -- @return elem with horizontal rules replaced
 -- @see horizontal_rule
