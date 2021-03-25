@@ -1,0 +1,115 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{lmodern}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\hypersetup{
+  pdftitle={A sample document for the statement filter},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+\urlstyle{same} % disable monospaced font for URLs
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{amsthm}
+\newtheoremstyle{empty}%
+      {1em} % space above
+      {1em} % space below
+      {\addtolength{\leftskip}{2em}\addtolength{\rightskip}{2em}} % body font
+      {0pt} % first line indentation
+      {} % theorem head font
+      {} % punctuation after theorem head
+      {0pt} % space after theorem head
+      {{}} % theorem head spec
+    
+\theoremstyle{empty}
+\newtheorem{statement}{}
+\theoremstyle{plain}
+\newtheorem{corollary}{Corollary}
+\theoremstyle{plain}
+\newtheorem{principle}{Principle}
+\ifLuaTeX
+  \usepackage{selnolig}  % disable illegal ligatures
+\fi
+
+\title{A sample document for the statement filter}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+An simple statement. Should be empty style:
+
+\begin{statement}
+
+This material is normally indented.
+
+\end{statement}
+
+A statement of the kind \texttt{corollary}, which is defined in the
+defaults.
+
+\begin{corollary}
+
+This is a corollary. The kind is defined by default.
+
+\end{corollary}
+
+A statement of the kind \texttt{principle}, which has to be created on
+the fly.
+
+\begin{principle}[Quine’s principle]
+
+Everything is something.
+
+\end{principle}
+
+An horizontal line within a statement:
+
+\begin{statement}
+
+All is one.
+
+One is less.
+
+\rule{0.5\linewidth}{0.5pt}
+
+All is less.
+
+\end{statement}
+
+\end{document}
