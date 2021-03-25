@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article PUBLIC "-//NLM//DTD JATS (Z39.96) Journal Archiving and Interchange DTD v1.2 20190208//EN"
+                  "JATS-archivearticle1.dtd">
+<article xmlns:mml="http://www.w3.org/1998/Math/MathML" xmlns:xlink="http://www.w3.org/1999/xlink" dtd-version="1.2" article-type="other">
+<front>
+<journal-meta>
+<journal-id></journal-id>
+<journal-title-group>
+</journal-title-group>
+<issn></issn>
+<publisher>
+<publisher-name></publisher-name>
+</publisher>
+</journal-meta>
+<article-meta>
+<title-group>
+<article-title>A sample document for the statement
+filter</article-title>
+</title-group>
+</article-meta>
+</front>
+<body>
+<p>An simple statement. Should be empty style:</p>
+<boxed-text>
+  <statement>
+  <p>This material is normally indented.</p>
+  </statement>
+</boxed-text>
+<p>A statement of the kind <monospace>corollary</monospace>, which is
+defined in the defaults.</p>
+<boxed-text>
+  <statement>
+  <label>
+  <p>Corollary</p>
+  </label>
+  <p>This is a corollary. The kind is defined by default.</p>
+  </statement>
+</boxed-text>
+<p>A statement of the kind <monospace>principle</monospace>, which has
+to be created on the fly.</p>
+<boxed-text>
+  <statement>
+  <label>
+  <p>Principle</p>
+  </label>
+  <title>
+  <p>Quine's principle</p>
+  </title>
+  <p>Everything is something.</p>
+  </statement>
+</boxed-text>
+<p>An horizontal line within a statement:</p>
+<boxed-text>
+  <statement>
+  <p>All is one.</p>
+  <p>One is less.</p>
+  <hr/>
+  <p>All is less.</p>
+  </statement>
+</boxed-text>
+</body>
+<back>
+</back>
+</article>

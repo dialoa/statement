@@ -12,17 +12,61 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 ]]
 
 -- for debug only
-package.path = package.path .. ';/home/t/pprint.lua/?.lua'
-local pprint = require('pprint')
+-- package.path = package.path .. ';/home/t/pprint.lua/?.lua'
+-- local pprint = require('pprint')
 
 -- # Parameters
 
 --- Options map, including defaults.
 -- @param header boolean whether to include support code in the header (true).
 -- @param convert_rules boolean whether to convert horinzontal rules to half length.
+-- @param kinds map of the kinds of statement available
 local options = {
   header = true,
   convert_rules = true,
+}
+--- Kinds map.
+-- the generic key gives defaults to create new kinds on the fly if needed.
+-- otherwise entries are maps of feature for a given kind:
+-- @param latexenvname name of the latex environment
+-- @param latexstyle string of parameters for \newtheoremstyle, excluding
+-- the first parameter (name): space above, space below, body font, first \
+-- line identation, theorem head font, punctuation after theorem head,
+-- space after theorem head, head spec. Beware of escaping backslashes.
+local kinds = {
+  statement = {
+    style = 'empty',
+  },
+  corollary = {
+    style = 'plain',
+    label = "Corollary"
+  },
+}
+--- Statement styles map.
+-- plain, definition and remark are the AMS default styles.
+-- empty is a custom empty style (no label).
+local styles = {
+  plain = {
+    header = {
+      latex = '',
+      html = 'margin: 2em 1em'
+    },
+  },
+  empty = {
+    header = {
+      latex = [[%
+      {1em} % space above
+      {1em} % space below
+      {\addtolength{\leftskip}{2em}\addtolength{\rightskip}{2em}} % body font
+      {0pt} % first line indentation
+      {} % theorem head font
+      {} % punctuation after theorem head
+      {0pt} % space after theorem head
+      {{}} % theorem head spec
+    ]],
+    html = 'margin: 2em 1em',
+    }
+  }
 }
 
 --- list of formats for which we process the filter.
@@ -44,12 +88,13 @@ local horizontal_rule = {
 --- Code for header-includes.
 -- one key per format.
 local header = {
-  latex = [[]],
-  html = [[<style>
-  .statement {
-    margin: 2.5em 1em;
+  latex = {
+    before = '\\usepackage{amsthm}'
+  },
+  html = {
+    before = '<style>',
+    after = '</style>'
   }
-  </style>]],
 }
 
 --- Code for statement environments.
@@ -113,22 +158,6 @@ local function format_matches(formats)
   return false
 end
 
---- Interprets a metadata string as a read_boolean.
---    Following pandoc's conventions, returns true by default.
---  @param string user-set string that should express a boolean value.
---  @return boolean true unless read as false
-local function read_boolean(string)
-
-  local interpret_as_false = pandoc.List({'false', 'no'})
-
-  if interpret_as_false:find(string.lower(string)) then
-    return false
-  else
-    return true
-  end
-
-end
-
 --- Add a block to the document's header-includes meta-data field.
 -- @param meta the document's metadata block
 -- @param block Pandoc block element (e.g. RawBlock or Para) to be added to header-includes
@@ -175,69 +204,137 @@ end
 
 -- # Filter functions
 
--- The kinds that have been set, which are used to build the LaTeX header
-local kinds = {}
+--- Map of the kinds that are used in the document.
+-- Used to build header-includes code.
+--    keys should be lowercase (`statement`, `axiom` etc)
+--    values are boolean
+local kinds_used = pandoc.List({})
+
+--- Process a statement's attributes
+-- Keeps a list of kinds used, adds default "statement" kind if needed.
+-- @param elem a Pandoc Div element
+function process_attributes(elem)
+
+  -- clean up the kind attribute name
+  -- removes non-alphanumeric chars and puts in lowercase
+  local kind = elem.attributes.kind or ''
+  kind =  string.lower(string.gsub(kind, '%W', ''))
+  if kind == '' then kind = 'statement' end
+
+  -- if the kind isn't in the list of available kinds, add it
+  --    the label will be the original kind field
+  if not kinds[kind] then
+    kinds[kind] = {
+      style = 'plain',
+      label = elem.attributes.kind
+    }
+  end
+
+  -- keep track of the kinds used
+  if not kinds_used:includes(kind) then
+    kinds_used:insert(kind)
+  end
+
+  -- save the cleaned-up kind name
+  elem.attributes.kind = kind
+
+  return elem
+end
 
 --- Format for the target output.
 -- Wraps the div with suitable markup inserted as raw blocks.
 -- @param elem the element to be processed
--- @return the processed element
--- @todo keep
+-- @return a formatted element (or list of elements?)
+--
+-- @TODO are we sure that environment_tags, label_tags, title_tags
+--  contain values for FORMAT? What if the format is html5 or html4?
+--  it is probably safer to have a strict list of output formats...
+--
+-- @TODO probably more efficient to define the RawBlocks in the
+--  options tables, so as to avoid calling these functions all the time
+--  and to make the code more legible
+--
 -- @todo provide hooks for customizing the starting/end tags.
 local function format_statement(elem)
 
   if environment_tags[FORMAT] then
-    if not elem.attributes.kind then
-      elem.attributes.kind = 'Statement'
-    end
+
     local content = pandoc.List({})
-    if FORMAT == 'latex' then
-      if kinds[elem.attributes.kind] == nil then
-        header['latex'] = header['latex'] .. '\\newtheorem{' .. string.lower(elem.attributes.kind) .. '}' .. '{' .. elem.attributes.kind .. '}\n'
-        kinds[elem.attributes.kind] = 1 else
-        kinds[elem.attributes.kind] = kinds[elem.attributes.kind] + 1
-       end
-       local latex_begin = environment_tags[FORMAT]['beginenv'] .. string.lower(elem.attributes.kind) .. '}'
-       if elem.attributes.title then
+    local kind = elem.attributes.kind
+    local title = elem.attributes.title or ''
+    local label = kinds[kind].label or ''
+    local identifier = elem.identifier or ''
+
+    if FORMAT:match('latex') then
+
+      -- build the \begin command, adding title if defined
+      local latex_begin = environment_tags[FORMAT]['beginenv'] .. kind .. '}'
+      if title ~= '' then
        -- using stringify here will strip the formatting; is there a better option?
-        content:insert(pandoc.RawBlock(FORMAT, latex_begin .. '[' .. pandoc.utils.stringify(pandoc.read(elem.attributes.title)) .. ']' )) else
+        content:insert(pandoc.RawBlock(FORMAT, latex_begin .. '['
+          .. pandoc.utils.stringify(pandoc.read(elem.attributes.title)) .. ']' ))
+      else
         content:insert(pandoc.RawBlock(FORMAT, latex_begin))
       end
-      else
-      content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv']))
-    end
-    if FORMAT ~= 'latex' and elem.attributes.kind then
-      content:insert(pandoc.RawBlock(FORMAT, label_tags[FORMAT]['beginenv']))
-      local label = pandoc.List({pandoc.read(elem.attributes.kind).blocks[1]})
-      content:extend(label)
-      content:insert(pandoc.RawBlock(FORMAT, label_tags[FORMAT]['endenv']))
-    end
-    if FORMAT ~= 'latex' and elem.attributes.title then
-      content:insert(pandoc.RawBlock(FORMAT, title_tags[FORMAT]['beginenv']))
-      local title = pandoc.List({pandoc.read(elem.attributes.title).blocks[1]})
-      content:extend(title)
-      -- I'm not sure that I am using the target tag correctly
-      -- It can be in a <title>; should it wrap the content?
-      -- https://jats.nlm.nih.gov/publishing/tag-library/1.2/element/target.html
-      if FORMAT == 'jats' and elem.identifier ~= '' then
-        content:insert(pandoc.RawBlock('jats', '<target id="' .. elem.identifier .. '"></target>'))
+
+      -- body of the statement
+      content:extend(elem.content)
+
+      -- identified if defined (in LaTeX, \label for crossreference)
+      if identifier ~= '' then
+        content:insert(pandoc.RawBlock('latex', '\\label{' .. identifier .. '}'))
       end
-      content:insert(pandoc.RawBlock(FORMAT, title_tags[FORMAT]['endenv']))
-    end
-    content:extend(elem.content)
-    if FORMAT == 'latex' and elem.identifier ~= '' then
-      content:insert(pandoc.RawBlock('latex', '\\label{' .. elem.identifier .. '}'))
-    end
-    if FORMAT == 'latex' then
-      local latex_end = environment_tags[FORMAT]['endenv'] .. string.lower(elem.attributes.kind) .. '}'
-      content:insert(pandoc.RawBlock(FORMAT, latex_end)) else
+
+      -- end the statement
+      local latex_end = environment_tags[FORMAT]['endenv'] .. kind .. '}'
+      content:insert(pandoc.RawBlock(FORMAT, latex_end))
+
+      -- insert the new content
+      -- the div and its attributes remain as is
+      elem.content = content
+
+    elseif FORMAT:match('html.*') or FORMAT:match('jats') then
+
+      content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['beginenv']))
+
+      -- insert label if defined
+      if label ~= '' then
+        content:insert(pandoc.RawBlock(FORMAT, label_tags[FORMAT]['beginenv']))
+        -- local pandoclabel = pandoc.List({pandoc.read(label).blocks[1]})
+        -- content:extend(pandoclabel)
+        content:insert(pandoc.Plain(pandoc.Str(label))) -- Plain is a block that is not a paragraph
+        content:insert(pandoc.RawBlock(FORMAT, label_tags[FORMAT]['endenv']))
+      end
+
+      -- insert title if defined, and identifier in JATS
+      if title ~= '' then
+        content:insert(pandoc.RawBlock(FORMAT, title_tags[FORMAT]['beginenv']))
+        -- local pandoctitle = pandoc.List({pandoc.read(title).blocks[1]})
+        -- content:extend(pandoctitle)
+        content:insert(pandoc.Plain(pandoc.Str(title)))
+        -- I'm not sure that I am using the target tag correctly
+        -- It can be in a <title>; should it wrap the content?
+        -- https://jats.nlm.nih.gov/publishing/tag-library/1.2/element/target.html
+        if FORMAT == 'jats' and identifier ~= '' then
+          content:insert(pandoc.RawBlock('jats', '<target id="' .. elem.identifier .. '"></target>'))
+        end
+        content:insert(pandoc.RawBlock(FORMAT, title_tags[FORMAT]['endenv']))
+      end
+
+      -- body of the statement
+      content:extend(elem.content)
+
+      -- end the statement
       content:insert(pandoc.RawBlock(FORMAT, environment_tags[FORMAT]['endenv']))
+
+      -- @todo in those formats we should probably replace the div instead
+      elem.content = content
+
     end
-    return content -- returns contents, not the Div
+
+    return elem -- keep the Div, return it only if you changed sthg
 
   end
-
-  return elem -- keep the Div
 
 end
 
@@ -264,81 +361,154 @@ end
 local function process(element)
 
     -- replace horizontal rules
-    if options['convert_rules'] then
+    if options.convert_rules then
       element = replace_horizontal_rules(element)
     end
+
+    -- process attributes
+    element = process_attributes(element)
 
     -- format statement for output
     return format_statement(element)
 end
 
---- Process meta block: add header-includes.
---    If the output is native or markdown, copy header-includes for
---    all formats. We get repeated includes for html, html4, html5.
---    Is that a problem?
--- @param meta pandoc Meta block
--- @return processed block
-local function process_meta(meta)
 
-  if options["header"] then
+--- Build header-includes code.
+-- @param format string format to be used
+-- @return string with the code
+-- @todo (minor issue) "the for style,definition in pairs(styles) do"
+--    loops doesn't go through the styles in the same order on every run
+--    this sometimes prevents the Makefile to validate the code.
+local function build_header(format)
 
-    if FORMAT:match('native') or FORMAT:match('markdown') then
+  local result = ''
 
-      for format_name,format_code in pairs(header) do
-        add_header_includes(meta,
-          pandoc.RawBlock(format_name, format_code))
+  -- basic setup
+  if header[format] and header[format].before then
+    result = result .. header[format].before .. '\n'
+  end
+
+  -- theorem styles
+  for style,definition in pairs(styles) do
+
+    if definition.header and definition.header[format] then
+
+      if format:match('latex') and definition.header.latex ~= '' then
+        result = result .. '\\newtheoremstyle{' .. style
+          .. '}' .. definition.header.latex .. '\n'
+      elseif format:match('html.*') then
+        result = result .. '.statement-style-' .. style .. ' '
+          .. '{' .. definition.header.html .. '}\n'
       end
-
-    elseif header[FORMAT] then
-
-      add_header_includes(meta,
-        pandoc.RawBlock(FORMAT, header[FORMAT]))
 
     end
 
   end
 
-  return meta
+  -- theorem kinds
+  for _,kind in ipairs(kinds_used) do
+
+    if format:match('latex') then
+
+      local label = kinds[kind].label or ''
+      result = result .. '\\theoremstyle{' .. kinds[kind].style .. '}\n'
+        .. '\\newtheorem{' .. kind .. '}{' .. label .. '}\n'
+
+    end
+
+  end
+
+  if header[format] and header[format].after then
+    result = result .. header[format].after .. '\n'
+  end
+
+  return result
+end
+
+
+--- Write meta: add header-includes to the document's metadata.
+--    If the output is native or markdown, add header-includes for
+--    all formats.
+-- @todo We get repeated includes for html, html4, html5. Is that
+--  a problem?
+-- @param meta pandoc Meta block
+-- @return processed block
+local function write_meta(meta)
+
+  if options.header then
+
+
+    if FORMAT:match('native') or FORMAT:match('markdown') then
+
+      local output_types = {'latex', 'html', 'jats'}
+      for _,output_type in ipairs(output_types) do
+        add_header_includes(meta,
+          pandoc.RawBlock(output_type, build_header(output_type))
+        )
+      end
+
+    else
+
+      add_header_includes(meta,
+        pandoc.RawBlock(FORMAT, build_header(FORMAT))
+      )
+
+    end
+
+    return meta
+
+  end
 
 end
 
 --- Read options from meta block.
 --  Get options from the `statement` field in a metadata block.
+-- @todo read kinds settings
 -- @param meta the document's metadata block.
 -- @return nothing, values set in the `options` map.
 -- @see options
 local function get_options(meta)
-  if meta.statement and meta.statement.header then
+  if meta.statement then
 
-    options['header'] = read_boolean(
-      pandoc.utils.stringify(meta.statement.header))
+    if meta.statement.header ~= nil then
+      if meta.statement.header then
+        options.header = true
+      else
+        options.header = false
+      end
+    end
+
+    -- @todo read kinds
 
   end
 end
 
---- Main filter, returned if the target format matches our list.
-main_filter = {
-
+--- Main filters: read options, process document.
+read_options_filter = {
   Meta = function(meta)
     get_options(meta)
-    return process_meta(meta)
   end,
-
-  Div = function (element)
-    if element.classes:includes ("statement") then
-      return process(element)
+}
+process_filter = {
+  Div = function(elem)
+    if elem.classes:includes('statement') then
+      return process(elem)
     end
+  end,
+  Meta = function(meta)
+    return write_meta(meta)
   end,
 }
 
--- Main.
--- Set parameters, return filter.
+
+--- Main code:  Fill in global variables, read options, process
+-- the document, write options.
 if format_matches(target_formats) then
 
   fill_equivalent_formats(horizontal_rule)
   fill_equivalent_formats(header)
   fill_equivalent_formats(environment_tags)
 
-  return {main_filter}
+  return {read_options_filter, process_filter}
 
 end
