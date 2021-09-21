@@ -79,7 +79,8 @@ length of a text paragraph in LaTeX.{]} Should be empty style:
 
 \begin{statement}
 
-This material is indented left and right.
+This material is indented left and right. To see this we add a very long
+line that will need to be broken at some point or other.
 
 The second paragraph has a first line indent.
 
@@ -112,7 +113,7 @@ All is one.
 
 One is less.
 
-\nopagebreak\raisebox{.25\baselineskip}{\rule{0.5\linewidth}{0.5pt}}
+\nopagebreak[4]\raisebox{.25\baselineskip}{\rule{0.5\linewidth}{0.5pt}}\nopagebreak[4]
 
 All is less.
 
@@ -129,7 +130,13 @@ line. We avoid this by putting them into a minipage.
 
   \begin{statement}
 
-  This starts a statement.
+  \addtolength{\rightskip}{2em}
+
+  This starts a statement. To check the right indent we add a very long
+  line that will need to be broken at some point or other. To check the
+  right indent we add a very long line that will need to be broken at
+  some point or other. To check the right indent we add a very long line
+  that will need to be broken at some point or other.
 
   Statements second paragraphs are indented.
 
@@ -145,7 +152,11 @@ line. We avoid this by putting them into a minipage.
 
   \begin{statement}
 
-  Followed by a statement
+  Followed by a statement. To check the right indent we add a very long
+  line that will need to be broken at some point or other. To check the
+  right indent we add a very long line that will need to be broken at
+  some point or other. To check the right indent we add a very long line
+  that will need to be broken at some point or other.
 
   \end{statement}
 
@@ -155,9 +166,11 @@ line. We avoid this by putting them into a minipage.
 
   \begin{argument}
 
+  \addtolength{\rightskip}{2em}
+
   This starts and argument
 
-  \nopagebreak\raisebox{.25\baselineskip}{\rule{0.5\linewidth}{0.5pt}}
+  \nopagebreak[4]\raisebox{.25\baselineskip}{\rule{0.5\linewidth}{0.5pt}}\nopagebreak[4]
 
   Argument paragraphs aren't indented.
 

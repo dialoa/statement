@@ -24,7 +24,8 @@ filter</article-title>
 length of a text paragraph in LaTeX.] Should be empty style:</p>
 <boxed-text>
   <statement>
-  <p>This material is indented left and right.</p>
+  <p>This material is indented left and right. To see this we add a very
+  long line that will need to be broken at some point or other.</p>
   <p>The second paragraph has a first line indent.</p>
   </statement>
 </boxed-text>
@@ -68,7 +69,12 @@ line. We avoid this by putting them into a minipage.</p>
     <p specific-use="wrapper">
       <boxed-text>
         <statement>
-        <p>This starts a statement.</p>
+        <p>This starts a statement. To check the right indent we add a
+        very long line that will need to be broken at some point or
+        other. To check the right indent we add a very long line that
+        will need to be broken at some point or other. To check the
+        right indent we add a very long line that will need to be broken
+        at some point or other.</p>
         <p>Statements second paragraphs are indented.</p>
         </statement>
       </boxed-text>
@@ -81,7 +87,12 @@ line. We avoid this by putting them into a minipage.</p>
     <p specific-use="wrapper">
       <boxed-text>
         <statement>
-        <p>Followed by a statement</p>
+        <p>Followed by a statement. To check the right indent we add a
+        very long line that will need to be broken at some point or
+        other. To check the right indent we add a very long line that
+        will need to be broken at some point or other. To check the
+        right indent we add a very long line that will need to be broken
+        at some point or other.</p>
         </statement>
       </boxed-text>
     </p>

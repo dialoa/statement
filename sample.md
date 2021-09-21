@@ -10,7 +10,7 @@ A simple statement. [Here is some dummy text to show the normal
 line length of a text paragraph in LaTeX.] Should be empty style:
 
 ::: statement
-This material is indented left and right.
+This material is indented left and right. To see this we add a very long line that will need to be broken at some point or other.
 
 The second paragraph has a first line indent.
 :::
@@ -47,7 +47,8 @@ In LaTeX, statements that begin a list item normally create an empty line.
 We avoid this by putting them into a minipage.
 
 * ::: statement
-  This starts a statement.
+  This starts a statement. To check the right indent we add a very long line that will need to be broken at some point or other. To check the right indent we add a very long line that will need to be broken at some point or other.
+  To check the right indent we add a very long line that will need to be broken at some point or other.
 
   Statements second paragraphs are indented.
   :::
@@ -58,7 +59,8 @@ We avoid this by putting them into a minipage.
 * This item has normal text
 
   ::: statement
-  Followed by a statement
+  Followed by a statement. To check the right indent we add a very long line that will need to be broken at some point or other. To check the right indent we add a very long line that will need to be broken at some point or other.
+  To check the right indent we add a very long line that will need to be broken at some point or other.
   :::
 
   and more normal text.

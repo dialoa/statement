@@ -24,7 +24,9 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 local options = {
   header = true,
   convert_rules = true,
-  shorthands = true
+  shorthands = true,
+  latexskipinlist = '\\baselineskip',
+  latexrightskipinlist = '2em'
 }
 --- Kinds map.
 -- the generic key gives defaults to create new kinds on the fly if needed.
@@ -106,7 +108,9 @@ local target_formats = {
 --- code map for horizontal rules within statements.
 -- One key for each format.
 local horizontal_rule = {
-  latex = "\\nopagebreak\\raisebox{.25\\baselineskip}{\\rule{0.5\\linewidth}{0.5pt}}",
+  latex = "\\nopagebreak[4]\\raisebox{.25\\baselineskip}{"
+      .. "\\rule{0.5\\linewidth}{0.5pt}"
+      .. "}\\nopagebreak[4]",
   html = '<hr style="width:50%" />',
   jats = "<hr/>"
 }
@@ -517,6 +521,14 @@ local function get_options(meta)
       options.shorthands = false
     end
 
+    -- custom LaTeX skips for statements that appear as first line in a list
+    if meta.statement.latexskipinlist ~= nil then
+      options.latexskipinlist = meta.statement.latexskipinlist
+    end
+    if meta.statement.latexrightskipinlist ~= nil then
+      options.latexrightskipinlist = meta.statement.latexrightskipinlist
+    end
+
     -- @todo read kinds
 
   end
@@ -545,8 +557,14 @@ local function process_list_elem(elem)
           ))
         blocks:insert(3, pandoc.RawBlock('latex',
           '\\end{minipage}'
-          .. '\\vskip \\baselineskip'
+          .. '\\vskip ' .. options.latexskipinlist
           ))
+        -- add a right skip declaration within the statement Div
+        blocks[2].content:insert(1, pandoc.RawBlock('latex',
+          '\\addtolength{\\rightskip}{'..options.latexrightskipinlist .. '}'
+          )
+        )
+
         return blocks
       end
 
