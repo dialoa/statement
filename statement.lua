@@ -570,7 +570,7 @@ local function process_list_elem(elem)
 
       -- go through list items, check if they start with a statement Div
       for i = 1, #elem.content do
-        if elem.content[i][1].t == 'Div' then
+        if elem.content[i][1] and elem.content[i][1].t == 'Div' then
           if elem.content[i][1].classes:includes('statement') then
             elem.content[i] = wrap(elem.content[i])
             list_updated = true
