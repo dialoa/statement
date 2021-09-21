@@ -21,7 +21,7 @@
       padding-top: 50px;
       padding-bottom: 50px;
       hyphens: auto;
-      word-wrap: break-word;
+      overflow-wrap: break-word;
       text-rendering: optimizeLegibility;
       font-kerning: normal;
     }
@@ -92,6 +92,7 @@
     pre code {
       padding: 0;
       overflow: visible;
+      overflow-wrap: normal;
     }
     .sourceCode {
      background-color: transparent;
@@ -149,6 +150,7 @@
   <![endif]-->
   <style>
   .statement-style-plain {margin: 2em 1em}
+  .statement-style-emptynoindent {margin: 2em 1em}
   .statement-style-empty {margin: 2em 1em}
   </style>
 </head>
@@ -156,14 +158,15 @@
 <header id="title-block-header">
 <h1 class="title">A sample document for the statement filter</h1>
 </header>
-<p>An simple statement. Should be empty style:</p>
+<p>A simple statement. [Here is some dummy text to show the normal line length of a text paragraph in LaTeX.] Should be empty style:</p>
 <div class="statement" kind="statement">
 <div class="statement">
-<p>This material is normally indented.</p>
+<p>This material is indented left and right.</p>
+<p>The second paragraph has a first line indent.</p>
 </div>
 </div>
 <p>A statement of the kind <code>corollary</code>, which is defined in the defaults.</p>
-<div class="statement" kind="corollary">
+<div class="statement corollary" kind="corollary">
 <div class="statement">
 <div class="statement-label">
 Corollary
@@ -183,8 +186,8 @@ Quine's principle
 <p>Everything is something.</p>
 </div>
 </div>
-<p>An horizontal line within a statement:</p>
-<div class="statement" kind="statement">
+<p>A stament in the argument style, with an horizontal line in the statement:</p>
+<div class="argument" kind="argument">
 <div class="statement">
 <p>All is one.</p>
 <p>One is less.</p>
@@ -192,5 +195,41 @@ Quine's principle
 <p>All is less.</p>
 </div>
 </div>
+<p>In LaTeX, statements that begin a list item normally create an empty line. We avoid this by putting them into a minipage.</p>
+<ul>
+<li><div class="statement" kind="statement">
+<div class="statement">
+<p>This starts a statement.</p>
+<p>Statements second paragraphs are indented.</p>
+</div>
+</div>
+<p>This is more text in the item.</p>
+<p>And even more text.</p></li>
+<li><p>This item has normal text</p>
+<div class="statement" kind="statement">
+<div class="statement">
+<p>Followed by a statement</p>
+</div>
+</div>
+<p>and more normal text.</p></li>
+<li><div class="argument" kind="argument">
+<div class="statement">
+<p>This starts and argument</p>
+<hr style="width:50%" />
+<p>Argument paragraphs aren’t indented.</p>
+</div>
+</div>
+<p>This is more text in the item.</p></li>
+</ul>
+<p>This list is a control to check that lists without statements are left without changes:</p>
+<ol type="1">
+<li><div class="dummy">
+<p>Some random text in a Div</p>
+</div></li>
+<li>Another list entry</li>
+<li><div class="dummy">
+<p>more text in a Div</p>
+</div></li>
+</ol>
 </body>
 </html>

@@ -2,17 +2,22 @@
 title: A sample document for the statement filter
 statement:
   header: true
+indent: true
 ---
 
-An simple statement. Should be empty style:
+
+A simple statement. [Here is some dummy text to show the normal
+line length of a text paragraph in LaTeX.] Should be empty style:
 
 ::: statement
-This material is normally indented.
+This material is indented left and right.
+
+The second paragraph has a first line indent.
 :::
 
 A statement of the kind `corollary`, which is defined in the defaults.
 
-::: {.statement kind="Corollary"}
+::: {.statement .corollary}
 
 This is a corollary. The kind is defined by default.
 
@@ -26,9 +31,9 @@ Everything is something.
 
 :::
 
-An horizontal line within a statement:
+A stament in the argument style, with an horizontal line in the statement:
 
-::: statement
+::: argument
 All is one.
 
 One is less.
@@ -37,4 +42,47 @@ One is less.
 
 All is less.
 :::
+
+In LaTeX, statements that begin a list item normally create an empty line.
+We avoid this by putting them into a minipage.
+
+* ::: statement
+  This starts a statement.
+
+  Statements second paragraphs are indented.
+  :::
+
+  This is more text in the item.
+
+  And even more text.
+* This item has normal text
+
+  ::: statement
+  Followed by a statement
+  :::
+
+  and more normal text.
+
+* ::: argument
+  This starts and argument
+
+  ---
+
+  Argument paragraphs aren't indented.
+  :::
+
+  This is more text in the item.
+
+
+This list is a control to check that lists without statements are left
+without changes:
+
+1) ::: dummy
+    Some random text in a Div
+   :::
+2) Another list entry
+3) ::: dummy
+  more text in a Div
+   :::
+
 

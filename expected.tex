@@ -22,16 +22,6 @@
   \usepackage[]{microtype}
   \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
 }{}
-\makeatletter
-\@ifundefined{KOMAClassName}{% if non-KOMA class
-  \IfFileExists{parskip.sty}{%
-    \usepackage{parskip}
-  }{% else
-    \setlength{\parindent}{0pt}
-    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
-}{% if KOMA class
-  \KOMAoptions{parskip=half}}
-\makeatother
 \usepackage{xcolor}
 \IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
 \IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
@@ -49,7 +39,17 @@
       {1em} % space above
       {1em} % space below
       {\addtolength{\leftskip}{2em}\addtolength{\rightskip}{2em}} % body font
-      {0pt} % first line indentation
+      {0pt} % first line indentation (empty = no indent)
+      {} % theorem head font
+      {} % punctuation after theorem head
+      {0pt} % space after theorem head
+      {{}} % theorem head spec
+    
+\newtheoremstyle{emptynoindent}%
+      {1em} % space above
+      {1em} % space below
+      {\addtolength{\leftskip}{2em}\addtolength{\rightskip}{2em}\parindent 0pt} % body font
+      {0pt} % first line indentation (empty = no indent)
       {} % theorem head font
       {} % punctuation after theorem head
       {0pt} % space after theorem head
@@ -61,6 +61,8 @@
 \newtheorem{corollary}{Corollary}
 \theoremstyle{plain}
 \newtheorem{principle}{Principle}
+\theoremstyle{emptynoindent}
+\newtheorem{argument}{}
 \ifLuaTeX
   \usepackage{selnolig}  % disable illegal ligatures
 \fi
@@ -72,11 +74,14 @@
 \begin{document}
 \maketitle
 
-An simple statement. Should be empty style:
+A simple statement. {[}Here is some dummy text to show the normal line
+length of a text paragraph in LaTeX.{]} Should be empty style:
 
 \begin{statement}
 
-This material is normally indented.
+This material is indented left and right.
+
+The second paragraph has a first line indent.
 
 \end{statement}
 
@@ -98,18 +103,82 @@ Everything is something.
 
 \end{principle}
 
-An horizontal line within a statement:
+A stament in the argument style, with an horizontal line in the
+statement:
 
-\begin{statement}
+\begin{argument}
 
 All is one.
 
 One is less.
 
-\rule{0.5\linewidth}{0.5pt}
+\nopagebreak\raisebox{.25\baselineskip}{\rule{0.5\linewidth}{0.5pt}}
 
 All is less.
 
-\end{statement}
+\end{argument}
+
+In LaTeX, statements that begin a list item normally create an empty
+line. We avoid this by putting them into a minipage.
+
+\edef\docparindent{\the\parindent}
+
+\begin{itemize}
+\item
+  \begin{minipage}[t]{\textwidth}\parindent \docparindent
+
+  \begin{statement}
+
+  This starts a statement.
+
+  Statements second paragraphs are indented.
+
+  \end{statement}
+
+  \end{minipage}\vskip \baselineskip
+
+  This is more text in the item.
+
+  And even more text.
+\item
+  This item has normal text
+
+  \begin{statement}
+
+  Followed by a statement
+
+  \end{statement}
+
+  and more normal text.
+\item
+  \begin{minipage}[t]{\textwidth}\parindent \docparindent
+
+  \begin{argument}
+
+  This starts and argument
+
+  \nopagebreak\raisebox{.25\baselineskip}{\rule{0.5\linewidth}{0.5pt}}
+
+  Argument paragraphs aren't indented.
+
+  \end{argument}
+
+  \end{minipage}\vskip \baselineskip
+
+  This is more text in the item.
+\end{itemize}
+
+This list is a control to check that lists without statements are left
+without changes:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi})}
+\item
+  Some random text in a Div
+\item
+  Another list entry
+\item
+  more text in a Div
+\end{enumerate}
 
 \end{document}

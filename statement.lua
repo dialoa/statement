@@ -24,6 +24,7 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 local options = {
   header = true,
   convert_rules = true,
+  shorthands = true
 }
 --- Kinds map.
 -- the generic key gives defaults to create new kinds on the fly if needed.
@@ -37,11 +38,21 @@ local kinds = {
   statement = {
     style = 'empty',
   },
+  argument = {
+    style = 'emptynoindent'
+  },
   corollary = {
     style = 'plain',
     label = "Corollary"
   },
 }
+-- create a list of shorthands
+local kinds_shorthands = pandoc.List:new()
+for key,_ in pairs(kinds) do
+  if key ~= 'statement' then
+    kinds_shorthands:insert(key)
+  end
+end
 --- Statement styles map.
 -- plain, definition and remark are the AMS default styles.
 -- empty is a custom empty style (no label).
@@ -58,7 +69,7 @@ local styles = {
       {1em} % space above
       {1em} % space below
       {\addtolength{\leftskip}{2em}\addtolength{\rightskip}{2em}} % body font
-      {0pt} % first line indentation
+      {0pt} % first line indentation (empty = no indent)
       {} % theorem head font
       {} % punctuation after theorem head
       {0pt} % space after theorem head
@@ -66,7 +77,22 @@ local styles = {
     ]],
     html = 'margin: 2em 1em',
     }
-  }
+  },
+  emptynoindent = {
+    header = {
+      latex = [[%
+      {1em} % space above
+      {1em} % space below
+      {\addtolength{\leftskip}{2em}\addtolength{\rightskip}{2em}\parindent 0pt} % body font
+      {0pt} % first line indentation (empty = no indent)
+      {} % theorem head font
+      {} % punctuation after theorem head
+      {0pt} % space after theorem head
+      {{}} % theorem head spec
+    ]],
+    html = 'margin: 2em 1em',
+    }
+  },
 }
 
 --- list of formats for which we process the filter.
@@ -80,7 +106,7 @@ local target_formats = {
 --- code map for horizontal rules within statements.
 -- One key for each format.
 local horizontal_rule = {
-  latex = "\\rule{0.5\\linewidth}{0.5pt}",
+  latex = "\\nopagebreak\\raisebox{.25\\baselineskip}{\\rule{0.5\\linewidth}{0.5pt}}",
   html = '<hr style="width:50%" />',
   jats = "<hr/>"
 }
@@ -219,6 +245,13 @@ function process_attributes(elem)
   -- removes non-alphanumeric chars and puts in lowercase
   local kind = elem.attributes.kind or ''
   kind =  string.lower(string.gsub(kind, '%W', ''))
+  -- if no kind attribute found, look in the classes
+  for _,class in ipairs(elem.classes) do
+    if kinds_shorthands:includes(class) then
+      kind = class
+    end
+  end
+
   if kind == '' then kind = 'statement' end
 
   -- if the kind isn't in the list of available kinds, add it
@@ -470,6 +503,7 @@ end
 local function get_options(meta)
   if meta.statement then
 
+    -- header: if true we provide header-includes
     if meta.statement.header ~= nil then
       if meta.statement.header then
         options.header = true
@@ -478,20 +512,102 @@ local function get_options(meta)
       end
     end
 
+    -- shorthands (default true): process divs with only a kind name
+    if meta.statement.shorthands == false then
+      options.shorthands = false
+    end
+
     -- @todo read kinds
 
   end
 end
 
---- Main filters: read options, process document.
+--- process list element
+-- In LaTeX a statement at the first line of an list item creates an
+-- unwanted empty line. We wrap it in a LaTeX minipage to avoid this.
+-- @TODO This is hack, probably prevents page breaks within the statement
+-- @TODO The skip below the statement is rigid, it should pick the
+-- skip that statement kind
+local function process_list_elem(elem)
+  if FORMAT:match('latex') or FORMAT:match('native')
+    or FORMAT:match('json') then
+      -- only return something if `elem` is updated
+      local list_updated = false
+
+      -- function to wrap the first element of a list of blocks
+      -- store the parindent value before, as minipage resets it to zero
+      -- \docparindent will contain it, but needs to be picked before
+      -- the list!
+      -- with minipage commands
+      local wrap = function(blocks)
+        blocks:insert(1, pandoc.RawBlock('latex',
+          '\\begin{minipage}[t]{\\textwidth}\\parindent \\docparindent'
+          ))
+        blocks:insert(3, pandoc.RawBlock('latex',
+          '\\end{minipage}'
+          .. '\\vskip \\baselineskip'
+          ))
+        return blocks
+      end
+
+      -- go through list items, check if they start with a statement Div
+      for i = 1, #elem.content do
+        if elem.content[i][1].t == 'Div' then
+          if elem.content[i][1].classes:includes('statement') then
+            elem.content[i] = wrap(elem.content[i])
+            list_updated = true
+          elseif options.shorthands then
+            local is_statement = false
+            for _,class in ipairs(elem.content[i][1].classes) do
+              if kinds_shorthands:includes(class) then
+                is_statement = true
+                break
+              end
+            end
+            if is_statement then
+              elem.content[i] = wrap(elem.content[i])
+              list_updated = true
+            end
+          end
+        end
+      end
+
+      -- if the list has been updated we need to put a LaTeX line
+      -- before to store the document's parindent value
+      if list_updated == true then
+        return {
+          pandoc.RawBlock('latex',
+            '\\edef\\docparindent{\\the\\parindent}\n'),
+          elem
+        }
+      end
+  end
+end
+
+--- Main filters: read options, process lists, process document.
+-- In LaTeX statements that begin a list should be placed within
+-- a minipage.
 read_options_filter = {
   Meta = function(meta)
     get_options(meta)
   end,
 }
+process_lists_filter = {
+  BulletList = process_list_elem,
+  OrderedList = process_list_elem,
+}
 process_filter = {
   Div = function(elem)
-    if elem.classes:includes('statement') then
+    if options.shorthands then
+      for _,name in ipairs(kinds_shorthands) do
+        if elem.classes:includes(name) then
+          return process(elem)
+        end
+      end
+      if elem.classes:includes('statement') then
+        return process(elem)
+      end
+    elseif elem.classes:includes('statement') then
       return process(elem)
     end
   end,
@@ -509,6 +625,6 @@ if format_matches(target_formats) then
   fill_equivalent_formats(header)
   fill_equivalent_formats(environment_tags)
 
-  return {read_options_filter, process_filter}
+  return {read_options_filter, process_lists_filter, process_filter}
 
 end

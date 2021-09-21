@@ -20,10 +20,12 @@ filter</article-title>
 </article-meta>
 </front>
 <body>
-<p>An simple statement. Should be empty style:</p>
+<p>A simple statement. [Here is some dummy text to show the normal line
+length of a text paragraph in LaTeX.] Should be empty style:</p>
 <boxed-text>
   <statement>
-  <p>This material is normally indented.</p>
+  <p>This material is indented left and right.</p>
+  <p>The second paragraph has a first line indent.</p>
   </statement>
 </boxed-text>
 <p>A statement of the kind <monospace>corollary</monospace>, which is
@@ -49,7 +51,8 @@ to be created on the fly.</p>
   <p>Everything is something.</p>
   </statement>
 </boxed-text>
-<p>An horizontal line within a statement:</p>
+<p>A stament in the argument style, with an horizontal line in the
+statement:</p>
 <boxed-text>
   <statement>
   <p>All is one.</p>
@@ -58,6 +61,69 @@ to be created on the fly.</p>
   <p>All is less.</p>
   </statement>
 </boxed-text>
+<p>In LaTeX, statements that begin a list item normally create an empty
+line. We avoid this by putting them into a minipage.</p>
+<list list-type="bullet">
+  <list-item>
+    <p specific-use="wrapper">
+      <boxed-text>
+        <statement>
+        <p>This starts a statement.</p>
+        <p>Statements second paragraphs are indented.</p>
+        </statement>
+      </boxed-text>
+    </p>
+    <p>This is more text in the item.</p>
+    <p>And even more text.</p>
+  </list-item>
+  <list-item>
+    <p>This item has normal text</p>
+    <p specific-use="wrapper">
+      <boxed-text>
+        <statement>
+        <p>Followed by a statement</p>
+        </statement>
+      </boxed-text>
+    </p>
+    <p>and more normal text.</p>
+  </list-item>
+  <list-item>
+    <p specific-use="wrapper">
+      <boxed-text>
+        <statement>
+        <p>This starts and argument</p>
+        <hr/>
+        <p>Argument paragraphs aren’t indented.</p>
+        </statement>
+      </boxed-text>
+    </p>
+    <p>This is more text in the item.</p>
+  </list-item>
+</list>
+<p>This list is a control to check that lists without statements are
+left without changes:</p>
+<list list-type="order">
+  <list-item>
+    <label>1)</label>
+    <p specific-use="wrapper">
+      <boxed-text>
+        <p>Some random text in a Div</p>
+      </boxed-text>
+    </p>
+  </list-item>
+  <list-item>
+    <label>2)</label>
+    <p>Another list entry</p>
+  </list-item>
+  <list-item>
+    <label>3)</label>
+    <p specific-use="wrapper">
+      <boxed-text>
+        <p>more text in a Div</p>
+      </boxed-text>
+    </p>
+  </list-item>
+</list>
 </body>
 <back>
 </back>
