@@ -7,13 +7,9 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @author Thomas Hodgson <hello@twshodgson.net>
 @copyright 2021 Julien Dutant, Thomas Hodgson
 @license MIT - see LICENSE file for details.
-@release 0.1
+@release 0.2
 
 ]]
-
--- for debug only
--- package.path = package.path .. ';/home/t/pprint.lua/?.lua'
--- local pprint = require('pprint')
 
 -- # Parameters
 
@@ -174,6 +170,19 @@ local title_tags = {
 }
 -- # Helper functions
 
+--- type: pandoc-friendly type function
+-- pandoc.utils.type is only defined in Pandoc >= 2.17
+-- if it isn't, we extend Lua's type function to give the same values
+-- as pandoc.utils.type on Meta objects: Inlines, Inline, Blocks, Block,
+-- string and booleans
+-- Caution: not to be used on non-Meta Pandoc elements, the
+-- results will differ (only 'Block', 'Blocks', 'Inline', 'Inlines' in
+-- >=2.17, the .t string in <2.17).
+local type = pandoc.utils.type or function (obj)
+        local tag = type(obj) == 'table' and obj.t and obj.t:gsub('^Meta', '')
+        return tag and tag ~= 'Map' and tag or type(obj)
+    end
+
 --- Returns true if the current target format is in a given list.
 --    The list is made of pandoc format names. They can include
 --      pattern matching, e.g. "html.*" will match html4 and html5.
@@ -188,25 +197,29 @@ local function format_matches(formats)
   return false
 end
 
---- Add a block to the document's header-includes meta-data field.
+---- Add a block to the document's header-includes meta-data field.
 -- @param meta the document's metadata block
 -- @param block Pandoc block element (e.g. RawBlock or Para) to be added to header-includes
 -- @return meta the modified metadata block
 local function add_header_includes(meta, block)
 
-    local header_includes
+    local header_includes = pandoc.List:new()
 
-    -- make meta['header-includes'] a list if needed
-    if meta['header-includes'] and meta['header-includes'].t == 'MetaList' then
-        header_includes = meta['header-includes']
-    else
-        header_includes = pandoc.MetaList{meta['header-includes']}
+    -- use meta['header-includes']
+
+    if meta['header-includes'] then
+      if type(meta['header-includes']) ==  'List' then
+        header_includes:extend(meta['header-includes'])
+      else
+        header_includes:insert(pandoc.utils.stringify(meta['header-includes']))
+      end
     end
 
-    -- insert `block` in header-includes and add it to `meta`
+    -- insert `block` in header-includes
 
-    header_includes[#header_includes + 1] =
-        pandoc.MetaBlocks{block}
+    header_includes:insert(pandoc.MetaBlocks({block}))
+
+    -- save header-includes in the document's meta
 
     meta['header-includes'] = header_includes
 
