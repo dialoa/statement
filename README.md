@@ -3,33 +3,107 @@ title: "Statement: a Lua filter for statement support in Pandoc's markdown"
 author: "Julien Dutant, Thomas Hodgson"
 ---
 
+
+**WARNING: WORK IN PROGRESS**. The filter works with minimal
+functionality, but we are currently working on it and its features
+may change in the near future. You're welcome to contribute to the
+design of the filter - its abstract object model, syntax, output.
+See the "Designing the filter" section below.
+
+A Lua filter for Pandoc to handle "statement" text elements, esp. in
+LaTeX, HTML and XML. 
+
+A statement is a "Theorem, Lemma, Proof, Postulate, Hypothesis,
+Proposition, Corollary, or other formal statement, identified as such
+with a label and usually made typographically distinct from the
+surrounding text" (according to the [JATS XML specification]
+(#https://jats.nlm.nih.gov/articleauthoring/tag-library/1.3/element/statement.html), 
+the standard XML tag suite for scientific publishing).
+Examples are mathematical theorems, proofs, exercises, but also 
+principles or arguments in a philosophy paper, prompts in a 
+psychology paper, etc. 
+
+This Lua filter for Pandoc aims to provide:
+
+* a markdown syntax for statements.
+* a markdown syntax for cross-referencing statements.
+* providing American Mathematical Society statements (theorems,
+  axioms, etc.), with suitable output in LaTeX.
+* suitable JATS XML outputs.
+* control of what kinds of statements a document has and how they look.
+
 Introduction
 ============
 
-**WARNING: WORK IN PROGRESS**. The filter works with minimal functionality, but we are currently working on it and its features may change in the near future. You're welcome to contribute to the design of the filter - its abstract object model, syntax, output. See the "Designing the filter" section below.
+Usage
+=====
 
-Presentation
-------------
+Copy the filter in a destination accessible to Pandoc. Tell Pandoc to
+use it on document with:
 
-Statements are text blocks that are not quotations. They typically
-stand out from the surrounding text and are sometimes labelled and
-numbered. Examples are vignettes used in a psychology experiments,
-principles in a philosophy paper, arguments, mathematical theorems,
-proofs, exercises, and so on. In JATS XML (the XML tag suite used
-for scientific and academic papers) there is [a `<statement>`
-element](https://jats.nlm.nih.gov/publishing/tag-library/1.2/element/statement.html) to mark them up.
+```bash
+pandoc -s -L path/to/statement.lua source.md -o destination.pdf
+```
 
-This project aims to develop:
-* A markdown syntax for statements.
-* A [Pandoc](http://pandoc.org) filter using that syntax to generate `LaTeX` and `PDF`, `html`, `JATS XML`.
+Markdown syntax
+---------------
 
-The features we ultimately aim to provide include:
-1. labelling statements,
-2. cross-referencing statements, including with their label,
-3. providing AMS-style statements (theorems, axioms, proofs, exercises, ...), and customizing them
-4. ways to input statements in docx.
+In markdown statements are written:
 
-But this is a work in progress and we focus on the first two features first. Feedback on the proposed syntax and the code is welcome.
+```markdown
+::: axiom
+[@Jones] 
+:::
+```
+
+Metadata options
+----------------
+
+```yaml
+statement-filter:
+  only-statement: false
+  no-aliases: false
+  latex-inlist-skip:
+  latex-inlist-rightskip:
+  default-kinds: basic # ams, none
+  new-styles:
+    fancy:
+      space-above:
+      space-below:
+      indent:
+      left-skip:
+      right-skip:
+      body-font:
+      head-font:
+      head-punctuation:
+      info-delimiters:
+      space-after-head:
+      head-pattern:
+  parent-counter: 1 # or chapter, section, ...
+  kinds:
+    theorem:
+      prefix: thm
+      count-with: theorem # what do if empty? allow ref by prefixes?
+      style: specify here?
+
+  styling:
+    plain:    [Theorem]
+    plain-unnumbered: [Lemma, Proposition, Corollary]
+    definition:   [Definition,Conjecture,Example,Postulate,Problem]
+    definition-unnumbered:    []
+    remark:   [Case]
+    remark-unnumbered:    [Remark,Note]
+    proof:    [proof]
+```
+
+* `only-statement`: only Divs explicitly marked with the `statement` class
+  are processed.
+* `no-aliases`. By default statement kinds are identified by label `axiom`,
+  `theorem` and their aliases `axm`, `thm`. Set this to true to only allow...
+
+
+Resources
+=========
 
 Related filters
 ---------------
