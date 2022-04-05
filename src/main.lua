@@ -12,7 +12,7 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 ]]
 
 -- # Global variables
-stringify = pandoc.utils.stringifycd
+stringify = pandoc.utils.stringify
 
 -- options map
 options = {
@@ -49,12 +49,19 @@ LaTeX_levels[-2] = 'book'
 
 -- modules
 helpers = require('helpers')
+
 length_format = require('length_format')
+
 extract_first_balanced_brackets = require('extract_first_balanced_brackets')
-Statement = require('Statement.lua')
+
+Statement = require('Statement')
+
 setup = require('setup')
+
 walk_doc = require('walk_doc')
+
 update_meta = require('update_meta')
+
 -- end modules
 
 

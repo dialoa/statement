@@ -46,15 +46,15 @@ local function setup(meta)
 	-- KINDS_AMS.statement = KINDS_AMS.statement
 	local STYLES_NONE = {
 		empty = {
-			margin_top = '1em'
-			margin_bottom = '1em'
-			margin_left = '2em'
-			margin_right = '2em'
-			indent = '0pt'
-			head_font = nil
-			label_punctuation = '.'
-			space_after_head = nil
-			heading_pattern = nil
+			margin_top = '1em',
+			margin_bottom = '1em',
+			margin_left = '2em',
+			margin_right = '2em',
+			indent = '0pt',
+			head_font = nil,
+			label_punctuation = '.',
+			space_after_head = nil,
+			heading_pattern = nil,
 		},		
 	}
 	local STYLES_AMSTHM = {
