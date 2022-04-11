@@ -1,4 +1,4 @@
---- extract_first_bal_brackets: extract the first content found between 
+--- Statement:extract_fbb: extract the first content found between 
 -- balanced brackets from an Inlines list, searching forward or 
 -- backwards. Returns that content and the reminder, or nil and the 
 -- original content.
@@ -9,7 +9,7 @@
 -- @return bracketed Inlines, Inlines bracketed content found, or nil
 -- @return remainder Inlines, remainder of the content after extraction,
 -- 		or all the content if nothing has been found.
-function extract_first_bal_brackets(inlines, direction, delimiters)
+function Statement:extract_fbb(inlines, direction, delimiters)
 
 	-- check and load parameters
 	local bb, eb = '(', ')'

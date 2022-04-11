@@ -1,7 +1,8 @@
 --- walk_doc: processes the document.
 -- @param doc Pandoc document
+-- @param setup a Setup class object, the document's statement setup
 -- @return Pandoc document if modified or nil
-local function walk_doc(doc)
+local function walk_doc(doc,setup)
 
 	--- process_blocks: processes a list of blocks (pandoc Blocks)
 	-- @param blocks
@@ -22,11 +23,11 @@ local function walk_doc(doc)
 			if block.t == 'Div' then
 
 				-- try to create a statement
-				sta = Statement:new(block)
+				sta = Statement:new(block, setup)
 
 				-- replace the block with the formatted statement, if any
 				if sta then
-					result:extend(sta:format())
+					result:extend(sta:write())
 					is_modified = true
 				else
 					result:insert(block)

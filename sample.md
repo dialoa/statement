@@ -4,11 +4,11 @@ lang: fr
 numbersections: true
 statement:
   defaults: 
-  amsthm:
+  amsthm: no
   aliases: 
-  header: 
+  acronyms:
   swap-numbers: false
-  define-in-header: yes
+  define-in-header: no
   supply-header: yes
   only-statement: false
 ---
@@ -31,17 +31,17 @@ statement:
 
 :::
 
-::: unlabelled
+::: statement
 $X \subseteq Y$ if and only if every element of $X$ is an element of $Y$. 
 :::
 
 # More
 
-::: axiom
+::: {.axiom #ax:existence}
 __The Axiom of Existence__. There exists a set which has no elements.
 :::
 
-::: axiom
+::: {.axiom #sta:extensionality}
 If every element of $X$ is an element of $Y$ and every element
 of $Y$ an element of $X$ then $X=Y$. 
 :::
@@ -54,6 +54,11 @@ There exists only one set with no elements.
 The (unique) set with no elements is called the empty set and 
 denoted $\varnothing$.
 :::
+
+::: proof
+Immediate from (axiom) and (axiom).
+:::
+
 
 ::: theorem
 A theorem.

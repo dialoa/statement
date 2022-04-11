@@ -5,49 +5,33 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 
 @author Julien Dutant <julien.dutant@kcl.ac.uk>
 @author Thomas Hodgson <hello@twshodgson.net>
-@copyright 2021 Julien Dutant, Thomas Hodgson
+@copyright 2021-2022 Julien Dutant, Thomas Hodgson
 @license MIT - see LICENSE file for details.
 @release 0.3
+
+@TODO specify font style for empty label
+@TODO If empty has a label, delimiter should be '.'
+@TODO unnumbered class
+@TODO proof should be defined if not amsthm
+@TODO handle cross-references
+@TODO LaTeX hack for statements in list
+@TODO create and increment counters
+
+proof environement in LaTeX AMS:
+- does not define a new theorem kind and style
+- has a \proofname command to be redefined
+- has an optional argument for label
+\begin{proof}[label]
+\end{proof}
+how do we handle it in html, jats? best would be not to create 
+a new class every time, so mirror LaTeX. 
 
 ]]
 
 -- # Global variables
 stringify = pandoc.utils.stringify
 
--- options map
-options = {
-	amsthm = true, -- use the amsthm package in LaTeX
-	aliases = true, -- use aliases (prefixes, labels) for statement classes
-	swap_numbers = false, -- numbers before label
-	define_in_header = true, -- defs in header, not local
-	supply_header = true, -- modify header-includes 
-	only_statement = false, -- only process Divs of 'statement' class
-	fontsize = nil, -- document fontsize
-}
--- kinds map. statement must exist
-kinds = {
-	-- prefix = string, crossreference prefix
-	-- style = string, style (key of `styles`)
-	-- counter = string, counter ('none', 'self', heading level,
-	--			heading type, statement kind for shared counter)
-}
--- styles map
-styles = {}
--- alias map
-aliases = {}
--- material to add in header 
-header_includes = pandoc.List:new()
--- material to add in header (before defs) or at the first definition
--- make a list of blocks to trigger an insertion before first definition
-before_definitions_includes = nil
--- LaTeX levels map
-LaTeX_levels = {'section', 'subsection', 'subsubsection', 
-	'paragraph', 'subparagrah'}
-LaTeX_levels[0] = 'chapter'
-LaTeX_levels[-1] = 'part'
-LaTeX_levels[-2] = 'book'
-
--- modules
+-- # Filter components
 -- # Helper functions
 
 --- message: send message to std_error
@@ -82,11 +66,439 @@ local type = pandoc.utils.type or function (obj)
 function ensure_list(elem)
 	return type(elem) == 'List' and elem or pandoc.List:new({elem})
 end
---- length_format: parse a length in the desired format
+
+--- Setup class: statement filter setup.
+-- manages filter options, statement kinds, statement styles.
+Setup = {}
+
+--- Setup.options: global filter options
+Setup.options = {
+	amsthm = true, -- use the amsthm package in LaTeX
+	aliases = true, -- use aliases (prefixes, labels) for statement classes
+	acronyms = true, -- use acronyms in custom labels
+	swap_numbers = false, -- numbers before label
+	define_in_header = true, -- defs in header, not local
+	supply_header = true, -- modify header-includes 
+	only_statement = false, -- only process Divs of 'statement' class
+	language = 'en', -- LOCALE setting
+	fontsize = nil, -- document fontsize
+	LaTeX_section_level = 1, -- heading level for to LaTeX's 'section'
+}
+
+--- Setup.kinds: kinds of statement, e.g. 'theorem', 'proof'
+Setup.kinds = {
+	-- kindname = { 
+	--			prefix = string, crossreference prefix
+	-- 			style = string, style (key of `styles`)
+	-- 			counter = string, 'none', 'self', 
+	--								<kindname> string, kind for shared counter,
+	--								<level> number, heading level to count within
+}
+
+--- Setup.styles: styles of statement, e.g. 'plain', 'remark'
+Setup.styles = {
+	-- stylename = {
+	--			do_not_define_in_latex = bool, whether to define in LaTeX 
+	--	}
+}
+--- Setup.aliases: aliases for statement kind names ('thm' for 'theorem')
+Setup.aliases = {
+	-- aliasname = kindname string, key of the Setup:kinds table
+}
+
+-- Setup.includes: code to be included in header or before first statement
+Setup.includes = {
+	header = nil,
+	before_first = nil,
+}
+--- Setup.DEFAULTS: default sets of kinds and styles
+-- See amsthm documentation <https://www.ctan.org/pkg/amsthm>
+-- the 'none' definitions are always included but they can be 
+-- overridden by others default sets or the user.
+Setup.DEFAULTS = {}
+Setup.DEFAULTS.KINDS = {
+	none = {
+		statement = {prefix = 'sta', style = 'empty', counter='none'},
+	},
+	basic = {
+		theorem = { prefix = 'thm', style = 'plain', counter = 'section' },
+		lemma = { prefix = 'lem', style = 'plain', counter = 'theorem' },
+		corollary = { prefix = 'cor', style = 'plain', counter = 'theorem' },
+		proposition = {prefix = 'prop', style = 'plain', counter = 'theorem' },
+		conjecture = {prefix = 'conj', style = 'plain', counter = 'theorem' },
+		fact = { style = 'plain', counter = 'theorem'},
+		definition = {prefix = 'defn', style = 'definition', counter = 'theorem'},
+		problem = {prefix = 'prob', style = 'definition', counter = 'theorem'},
+		example = {prefix = 'exa', style = 'definition', counter = 'theorem'},
+		exercise = {prefix = 'xca', style = 'definition', counter = 'theorem'},
+		axiom = {prefix = 'ax', style = 'definition', counter = 'theorem'},
+		solution = {prefix = 'sol', style = 'definition', counter = 'theorem'},
+		remark = {prefix = 'rem', style = 'remark', counter = 'theorem'},
+		claim = {prefix = 'claim', style = 'remark', counter = 'theorem'},
+		proof = {prefix = 'claim', style = 'proof', counter = 'none',
+						do_not_define_in_latex = true},
+	},
+	advanced = {
+		theorem = { prefix = 'thm', style = 'plain', counter = 'section' },
+		lemma = { prefix = 'lem', style = 'plain', counter = 'theorem' },
+		corollary = { prefix = 'cor', style = 'plain', counter = 'theorem' },
+		proposition = {prefix = 'prop', style = 'plain', counter = 'theorem' },
+		conjecture = {prefix = 'conj', style = 'plain', counter = 'theorem' },
+		fact = { style = 'plain', counter = 'theorem'},
+		definition = {prefix = 'defn', style = 'definition', counter = 'theorem'},
+		problem = {prefix = 'prob', style = 'definition', counter = 'theorem'},
+		example = {prefix = 'exa', style = 'definition', counter = 'theorem'},
+		exercise = {prefix = 'xca', style = 'definition', counter = 'theorem'},
+		axiom = {prefix = 'ax', style = 'definition', counter = 'theorem'},
+		solution = {prefix = 'sol', style = 'definition', counter = 'theorem'},
+		remark = {prefix = 'rem', style = 'remark', counter = 'theorem'},
+		claim = {prefix = 'claim', style = 'remark', counter = 'theorem'},
+		proof = {prefix = 'claim', style = 'proof', counter = 'none'},
+		criterion = {prefix = 'crit', style = 'plain', counter = 'theorem'},
+		assumption = {prefix = 'ass', style = 'plain', counter = 'theorem'},
+		algorithm = {prefix = 'alg', style = 'definition', counter = 'theorem'},
+		condition = {prefix = 'cond', style = 'definition', counter = 'theorem'},
+		question = {prefix = 'qu', style = 'definition', counter = 'theorem'},
+		note = {prefix = 'note', style = 'remark', counter = 'theorem'},
+		summary = {prefix = 'sum', style = 'remark', counter = 'theorem'},
+		conclusion = {prefix = 'conc', style = 'remark', counter = 'theorem'},
+	}
+}
+Setup.DEFAULTS.STYLES = {
+	none = {
+		empty = {
+			margin_top = '1em',
+			margin_bottom = '1em',
+			margin_left = '2em',
+			margin_right = '2em',
+			body_font = '',
+			indent = '0pt',
+			head_font = nil,
+			label_punctuation = '',
+			space_after_head = ' ',
+			heading_pattern = nil,			
+		},
+	},
+	basic = {
+		plain = { do_not_define_in_latex = true },
+		definition = { do_not_define_in_latex = true },
+		remark = { do_not_define_in_latex = true },
+		proof = { do_not_define_in_latex = false }, -- let Statement.write_style take care of it
+	},
+	advanced = {
+		plain = { do_not_define_in_latex = true },
+		definition = { do_not_define_in_latex = true },
+		remark = { do_not_define_in_latex = true },
+		proof = { do_not_define_in_latex = false }, -- let Statement.write_style take care of it
+	},
+}
+
+--- Setup.LOCALE: localize statement labels
+Setup.LOCALE = {
+		de = {
+			theorem = 'Theorem',
+			corollary = 'Korollar',
+			lemma = 'Lemma',
+			proposition = 'Satz',
+			conjecture = 'Vermutung',
+			fact = 'Fakt',
+			definition = 'Definition',
+			example = 'Beispiel',
+			problem = 'Problem',
+			exercise = 'Aufgabe',
+			solution = 'Lösung',
+			remark = 'Bemerkung',
+			claim = 'Behauptung',
+			proof = 'Beweis',
+			axiom = 'Axiom',
+			criterion = 'Kriterium',
+			algorithm = 'Algorithmus',
+			condition = 'Bedingung',
+			note = 'Notiz',
+			notation = 'Notation',
+			summary = 'Zusammenfassung',
+			conclusion = 'Schlussfolgerung',
+			assumption = 'Annahame',
+			hypothesis = 'Annahame',
+			question = 'Frage',
+		},
+		en = {
+			theorem = 'Theorem',
+			corollary = 'Corollary',
+			lemma = 'Lemma',
+			proposition = 'Proposition',
+			conjecture = 'Conjecture',
+			fact = 'Fact',
+			definition = 'Definition',
+			example = 'Example',
+			problem = 'Problem',
+			exercise = 'Exercise',
+			solution = 'Solution',
+			remark = 'Remark',
+			claim = 'Claim',
+			proof = 'Proof',
+			axiom = 'Axiom',
+			criterion = 'Criterion',
+			algorithm = 'Algorithm',
+			condition = 'Condition',
+			note = 'Note',
+			notation = 'Notation',
+			summary = 'Summary',
+			conclusion = 'Conclusion',
+			assumption = 'Assumption',
+			hypothesis = 'Hypothesis',
+			question = 'Question',
+		},
+		es = {
+			theorem = 'Teorema',
+			corollary = 'Corolario',
+			lemma = 'Lema',
+			proposition = 'Proposición',
+			conjecture = 'Conjectura',
+			fact = 'Hecho',
+			definition = 'Definición',
+			example = 'Ejemplo',
+			problem = 'Problema',
+			exercise = 'Ejercicio',
+			solution = 'Solución',
+			remark = 'Observación',
+			claim = 'Afirmación',
+			proof = 'Demonstración',
+			axiom = 'Axioma',
+			criterion = 'Criterio',
+			algorithm = 'Algoritmo',
+			condition = 'Condición',
+			note = 'Nota',
+			notation = 'Notación',
+			summary = 'Resumen',
+			conclusion = 'Conclusión',
+			assumption = 'Suposición',
+			hypothesis = 'Hipótesis',
+			question = 'Frage',
+		},
+		fr = {
+			theorem = 'Théorème',
+			corollary = 'Corollaire',
+			lemma = 'Lemme',
+			proposition = 'Proposition',
+			conjecture = 'Conjecture',
+			fact = 'Note',
+			definition = 'Définition',
+			example = 'Example',
+			problem = 'Problème',
+			exercise = 'Exercice',
+			solution = 'Solution',
+			remark = 'Remarque',
+			claim = 'Affirmation',
+			proof = 'Démonstration',
+			axiom = 'Axiome',
+			criterion = 'Critère',
+			algorithm = 'Algorithme',
+			condition = 'Condition',
+			note = 'Note',
+			notation = 'Notation',
+			summary = 'Résumé',
+			conclusion = 'Conclusion',
+			assumption = 'Supposition',
+			hypothesis = 'Hypothèse',
+			question = 'Question',
+		},
+		it = {
+			theorem = 'Teorema',
+			corollary = 'Corollario',
+			lemma = 'Lemma',
+			proposition = 'Proposizione',
+			conjecture = 'Congettura',
+			fact = 'Fatto',
+			definition = 'Definizione',
+			example = 'Esempio',
+			problem = 'Problema',
+			exercise = 'Esercizio',
+			solution = 'Soluzione',
+			remark = 'Osservazione',
+			claim = 'Asserzione',
+			proof = 'Dimostrazione',
+			axiom = 'Assioma',
+			criterion = 'Criterio',
+			algorithm = 'Algoritmo',
+			condition = 'Condizione',
+			note = 'Nota',
+			notation = 'Notazione',
+			summary = 'Summario',
+			conclusion = 'Conclusione',
+			assumption = 'Assunzione',
+			hypothesis = 'Ipotesi',
+			question = 'Quesito',
+		}
+}
+
+--- Setup:read_options: read user options into the Setup.options table
+--@param meta pandoc Meta object, document's metadata
+--@return nil sets the Setup.options table
+function Setup:read_options(meta) 
+
+	-- language. Set language if we have a self.LOCALE value for it
+	if meta.lang then
+		-- change the language only if we have a self.LOCALE value for it
+		-- try the first two letters too
+		local lang_str = stringify(meta.lang)
+		if self.LOCALE[lang_str] then
+			self.options.language = lang_str
+		elseif self.LOCALE[lang_str:sub(1,2)] then
+			self.options.language = lang_str:sub(1,2)
+		end
+	end
+
+	-- pick the document fontsize, needed to convert some lengths
+	if meta.fontsize then
+		local fontstr = stringify(meta.fontsize)
+		local size, unit = fontstr:match('(%d*.%d*)(.*)')
+		if tonumber(size) then
+			unit = unit:gsub("%s+", "")
+			self.options.fontsize = {tonumber(size), unit}
+		end
+	end
+
+	-- determine which level corresponds to LaTeX's 'section'
+	self.LaTeX_section_level = self:get_LaTeX_section_level(meta)
+
+	if meta.statement then
+		-- read boolean options
+		local boolean_options = {
+			amsthm = 'amsthm',
+			aliases = 'aliases',
+			acronyms = 'acronyms',
+			swap_numbers = 'swap-numbers',
+			supply_header = 'supply-header',
+			only_statement = 'only-statement',
+			define_in_header = 'define-in-header',
+		}
+		for key,option in pairs(boolean_options) do
+			if type(meta.statement[option]) == 'boolean' then
+				self.options[key] = meta.statement[option]
+			end
+		end
+
+	end
+
+
+end
+
+--- Create kinds and styles
+-- Populates Setup.kinds and Setup.styles with
+-- default and user-defined kinds and styles
+--@param meta pandoc Meta object, document's metadata
+--@return nil sets the Setup.kinds, Setup.styles, Setup.aliases tables
+function Setup:create_kinds_and_styles(meta)
+	local default_keys = pandoc.List:new() -- list of DEFAULTS.KINDS keys
+	local chosen_defaults = 'basic' -- 'basic' unless user says otherwise
+	local language = self.options.language
+
+	-- make a list of defaults we have (overkill but future-proof)
+	-- check that there's a DEFAULTS.STYLES key too
+	default_keys = pandoc.List:new()
+	for key,_ in pairs(self.DEFAULTS.KINDS) do
+		if self.DEFAULTS.STYLES[key] then
+			default_keys:insert(key)
+		else
+			message('WARNING', 'DEFAULTS file misconfigured: no `'
+				..default_key..'` STYLES.')
+		end
+	end
+
+	-- user-selected defaults?
+	if not meta.statement and meta.statement.defaults
+		and default_keys:find(stringify(meta.statement.defaults)) then
+			chosen_defaults = stringify(meta.statement.defaults)
+	end
+
+	-- add the 'none' defaults no matter what
+	for kind,definition in pairs(self.DEFAULTS.KINDS.none) do
+		self.kinds[kind] = definition
+	end
+	for style,definition in pairs(self.DEFAULTS.STYLES.none) do
+		self.styles[style] = definition
+	end
+
+	-- add the chosen defaults
+	if chosen_defaults ~= 'none' then
+		for kind,definition in pairs(self.DEFAULTS.KINDS[chosen_defaults]) do
+			self.kinds[kind] = definition
+		end
+		for style,definition in pairs(self.DEFAULTS.STYLES[chosen_defaults]) do
+			self.styles[style] = definition
+		end
+	end
+
+	-- @TODO read kinds and styles definitions from `meta` here
+
+	-- ensure all labels are Inlines
+	-- localize statement labels that aren't yet defined
+	for kind_key, kind in pairs(self.kinds) do
+		if kind.label then
+			kind.label = pandoc.Inlines(kind.label)
+		elseif not kind.label and self.LOCALE[language][kind_key] then
+			kind.label = pandoc.Inlines(self.LOCALE[language][kind_key])
+		end
+	end
+
+
+	-- populate the aliases map (option 'aliases')
+	if self.options.aliases then
+
+		for kind_key,kind in pairs(self.kinds) do
+			-- use the kind's prefix as alias, if any
+			if kind.prefix then 
+				self.aliases[kind.prefix] = kind_key
+			end
+			-- us the kind's label (converted to plain text), if any
+			if kind.label then
+				local alias = pandoc.write(pandoc.Pandoc({kind.label}), 'plain')
+				alias = alias:gsub('\n','')
+				self.aliases[alias] = kind_key
+			end
+		end
+
+	end
+
+end
+
+---Setup:update_meta: update a document's metadata
+-- inserts the setup.includes.header in the document's metadata
+--@param meta Pandoc Meta object
+--@return meta Pandoc Meta object
+function Setup:update_meta(meta)
+
+	if self.options.supply_header and self.includes.header then
+
+		if meta['header-includes'] then
+
+			if type(meta['header-includes']) == 'List' then
+				meta['header-includes']:extend(self.includes.header)
+			else
+				self.includes.header:insert(1, meta['header-includes'])
+				meta['header-includes'] = self.includes.header
+			end
+
+		else
+
+			meta['header-includes'] = self.includes.header
+
+		end
+
+	end
+
+	return meta
+
+end
+
+
+--- Setup:length_format: parse a length in the desired format
+--@TODO what if a space is provided (space after head)
 -- @param len Inlines or string to be interpreted
 -- @param format (optional) desired format if other than FORMAT
 -- @return string specifying the length in the desired format or ''
-function length_format(str, format)
+function Setup:length_format(str, format)
 	local format = format or FORMAT
 	-- within this function, format is 'css' when css lengths are needed
 	if format:match('html') then
@@ -180,7 +592,7 @@ function length_format(str, format)
 			css = {0.8, 'em'},
 		},
 	}
-	-- add `\` to LATEX_LENGTHS keys
+	-- add `\` to LATEX_LENGTHS keys (can't be done directly)
 	local new_latex_lengths = {} -- needs to make a copy
 	for key,value in pairs(LATEX_LENGTHS) do
 		new_latex_lengths['\\'..key] = value
@@ -323,7 +735,255 @@ function length_format(str, format)
 	end
 
 end
---- extract_first_bal_brackets: extract the first content found between 
+
+--- Setup:new: construct a Setup object 
+--@param meta Pandoc Meta object
+--@return a Setup object
+function Setup:new(meta)
+
+		-- create an object of Statement class
+		local s = {}
+		self.__index = self 
+		setmetatable(s, self)
+
+		-- read options from document's meta
+		s:read_options(meta)
+
+		-- prepare Setup.includes
+		s:set_includes()
+
+		-- create kinds and styles
+		-- (localizes labels, builds alias map)
+		s:create_kinds_and_styles(meta)
+
+		return s
+end
+
+--- Setup:set_includes: prepare the Setup.includes table
+--@param format string (optional) Pandoc output format, defaults to FORMAT
+function Setup:set_includes(format)
+	local format = format or FORMAT
+
+	-- LaTeX specific
+	if format:match('latex') then
+
+		-- load amsthm package unless option `amsthm` is false
+		if self.options.amsthm then
+			if not self.includes.header then
+				self.includes.header = pandoc.List:new()
+			end
+			self.includes.header:insert(pandoc.MetaBlocks(pandoc.RawBlock(
+															'latex', '\\usepackage{amsthm}'
+															)))
+		end
+
+		-- \swapnumbers (amsthm package only)
+		-- place in header or in body before the first kind definition
+		if self.options.amsthm and self.options.swap_numbers then 
+
+			local block = pandoc.RawBlock('latex','\\swapnumbers')
+			if self.options.define_in_header then 
+					self.includes.header:insert(pandoc.MetaBlocks(block))
+			else
+				if not self.includes.before_first then
+					self.includes.before_first = pandoc.List:new()
+				end
+				self.includes.before_first:insert(block)
+			end
+
+		end
+
+	end
+
+end
+
+--- Setup:get_LaTeX_section_level: determine the heading level
+-- corresponding to LaTeX's 'section' and store it in Setup.options
+--@param meta document's metadata
+--@param format string (optional) output format (defaults to FORMAT)
+function Setup:get_LaTeX_section_level(meta,format)
+	local format = format or FORMAT
+	local top_level = PANDOC_WRITER_OPTIONS.top_level_division
+	top_level = top_level:gsub('top-level-','')
+
+	if top_level == 'section' then
+		return 1
+	elseif top_level == 'chapter' then
+		return 2
+	elseif top_level == 'part' then
+		return 3
+	end
+	-- top_level is default, infer from documentclass and classoption
+	if format == 'latex' and meta.documentclass then
+		-- book, scrbook, memoir: section is level 2
+		if meta.documentclass == 'book' or meta.documentclass == 'scrbook'
+			or meta.documentclass == 'report' then
+				return 2 
+		elseif meta.documentclass == 'memoir' then
+			local level = 2 -- default, unless option 'article' is set
+			if meta.classoption then
+				for _,option in ipairs(ensure_list(classoption)) do
+					if option == 'article' then
+						level = 1
+					end
+				end
+			end
+			return level
+		end
+	end
+	-- if everything else fails, assume section is 1
+	return 1
+end
+
+--- Setup:get_level_by_LaTeX_name: convert LaTeX name to Pandoc level
+--@param name string LaTeX name
+function Setup:get_level_by_LaTeX_name(name) 
+	local LaTeX_names = {'book', 'part', 'section', 'subsection', 
+						'subsubsection', 'paragraph', 'subparagraph'}
+	-- offset value. Pandoc level = LaTeX_names index - offset
+	local offset = 3 - self.options.LaTeX_section_level
+	-- determine whether `name` is in LaTeX names and where
+	for index,LaTeX_name in ipairs(LaTeX_names) do
+		if name == LaTeX_name then
+			return index - offset
+		end
+	end
+
+	return nil
+end
+
+--- Setup:get_LaTeX_name_by_level: convert Pandoc level to LaTeX name
+--@param level number 
+function Setup:get_LaTeX_name_by_level(level)
+	local LaTeX_names = {'book', 'part', 'section', 'subsection', 
+		'subsubsection', 'paragraph', 'subparagraph'}
+	-- LaTeX_names[level + offset] = LaTeX name
+	local offset = 3 - self.options.LaTeX_section_level
+
+	if type(level)=='number' then
+		return LaTeX_names[level + offset]
+	end
+
+	return nil
+end
+
+-- # Statement class
+
+--- Statement: class for statement objects.
+-- @field kind string the statement's kind (key of the `kinds` table)
+-- @field id string the statement's id
+-- @field cust_label Inlines the statement custom's label, if any
+-- @field info Inlines the statement's info
+Statement = {
+	kind = nil, -- string, key of `kinds`
+	id = nil, -- string, Pandoc id
+	custom_label = nil, -- Inlines, user-provided label
+	info = nil, -- Inlines, user-provided info
+	label = nil, -- Inlines, user-provided label
+	content = nil, -- Blocks, statement's content
+}
+--- create a statement object from a pandoc element.
+-- @param elem pandoc Div or list item (= table list of 2 elements)
+-- @param setup Setup class object, the document's statements setup
+-- @return statement object or nil if elem isn't a statement
+function Statement:new(elem, setup)
+
+	local kind = Statement:find_kind(elem, setup)
+	if kind then
+
+		-- create an object of Statement class
+		local o = {}
+		self.__index = self 
+		setmetatable(o, self)
+
+		-- populate the object
+		o.setup = setup -- filter setup
+		o.kind = kind -- element kind
+		o.content = elem.content -- element content
+		o:extract_label() -- extract label, acronym
+		o.id = elem.identifier or stringify(o.acronym) or nil -- element id
+		-- if custom label, create a new kind
+		if o.label then
+			o:new_kind_from_label()
+		end
+		o:extract_info() -- extract info
+
+		-- return
+		return o
+	
+	else
+		return nil
+	end
+
+end
+--- Statement:find_kind: find whether an element is a statement and of what kind
+--@param elem pandoc Div or item in a pandoc DefinitionList
+--@param setup Setup class object, filter setup
+--@return string or nil the key of `kinds` if found, nil otherwise
+function Statement:find_kind(elem, setup)
+	local kinds = setup.kinds -- points to the kinds table
+	local options = setup.options -- points to the options table
+	local aliases = setup.aliases -- points to the aliases table
+
+	if elem.t and elem.t == 'Div' then
+
+		-- collect the element's classes that match a statement kind
+		-- check aliases if `options.aliases` is true
+		local matches = pandoc.List:new()
+		for _,class in ipairs(elem.classes) do
+			if kinds[class] and not matches:find(class) then
+				matches:insert(class)
+			elseif options.aliases
+				and aliases[class] and not matches:find(aliases[class]) then
+				matches:insert(aliases[class])
+			end
+		end
+
+		-- return if no match
+		if #matches == 0 then return nil end
+		-- return if we only process 'statement' Divs and it isn't one
+		if options.only_statement and not matches:find('statement') then
+			return nil
+		end
+
+		-- if we have other matches that 'statement', remove the latter
+		if #matches > 1 and matches:includes('statement') then
+			local _, pos = matches:find('statement')
+			matches:remove(pos)
+		end
+
+		-- warn if we still have more than one match
+		if #matches > 1 then
+			local str = ''
+			for _,match in ipairs(matches) do
+				str = str .. ' ' .. match
+			end
+			message('WARNING', 'A Div matches several statement kinds: '
+				.. str .. '. Treated as kind '.. matches[1] ..'.')
+		end
+
+		-- return the first match, a key of `kinds`
+		return matches[1]
+
+	elseif type(elem) == 'table' then
+
+			message('WARNING', 'A non-Div element passed as potential statement. '
+				.. 'Not supported yet. Element content: '..stringify(elem))
+
+		-- process DefinitionList items here
+		-- they are table with two elements:
+		-- [1] Inlines, the definiens
+		-- [2] Blocks, the definiendum
+
+	else
+
+		return nil -- not a statement kind
+
+	end
+
+end
+
+--- Statement:extract_fbb: extract the first content found between 
 -- balanced brackets from an Inlines list, searching forward or 
 -- backwards. Returns that content and the reminder, or nil and the 
 -- original content.
@@ -334,7 +994,7 @@ end
 -- @return bracketed Inlines, Inlines bracketed content found, or nil
 -- @return remainder Inlines, remainder of the content after extraction,
 -- 		or all the content if nothing has been found.
-function extract_first_bal_brackets(inlines, direction, delimiters)
+function Statement:extract_fbb(inlines, direction, delimiters)
 
 	-- check and load parameters
 	local bb, eb = '(', ')'
@@ -465,170 +1125,53 @@ function extract_first_bal_brackets(inlines, direction, delimiters)
 	end
 
 end
--- # Statement class
-
---- Statement: class for statement objects.
--- @field kind string the statement's kind (key of the `kinds` table)
--- @field id string the statement's id
--- @field cust_label Inlines the statement custom's label, if any
--- @field info Inlines the statement's info
-Statement = {
-	kind = nil, -- string, key of `kinds`
-	id = nil, -- string, Pandoc id
-	cust_label = nil, -- Inlines, user-provided label
-	info = nil, -- Inlines, user-provided info
-	content = nil, -- Blocks, statement's content
-}
---- create a statement object from a pandoc element.
--- @param elem pandoc Div or list item (= table list of 2 elements)
--- @param kind string (optional) statement's kind (key of `kinds`)
--- @return statement object or nil if elem isn't a statement
-function Statement:new(elem)
-
-	local kind = Statement:find_kind(elem)
-	if kind then
-
-		-- create an object of Statement class
-		o = {}
-		self.__index = self 
-		setmetatable(o, self)
-
-		-- populate the object
-		-- kind
-		o.kind = kind
-		o.content = elem.content
-		o:extract_info()
-
-		-- return
-		return o
-	
-	else
-		return nil
-	end
-
-end
---- find_kind: find whether an element is a statement and of what kind
--- This function extracts custom label and info from self.content,
--- as these will be needed to determine the final kind.
--- @param elem pandoc Div or item in a pandoc DefinitionList
--- @return string or nil the key of `kinds` if found, nil otherwise
-function Statement:find_kind(elem)
-
-	if elem.t and elem.t == 'Div' then
-
-		-- collect the element's classes that match a statement kind
-		-- check aliases if `options.aliases` is true
-		local matches = pandoc.List:new()
-		for _,class in ipairs(elem.classes) do
-			if kinds[class] and not matches:find(class) then
-				matches:insert(class)
-			elseif options.aliases
-				and aliases[class] and not matches:find(aliases[class]) then
-				matches:insert(aliases[class])
-			end
-		end
-
-		-- return if no match
-		if #matches == 0 then return nil end
-		-- return if we only process 'statement' Divs and it isn't one
-		if options.only_statement and not matches:find('statement') then
-			return nil
-		end
-
-		-- if we have other matches that 'statement', remove the latter
-		if #matches > 1 and matches:includes('statement') then
-			local _, pos = matches:find('statement')
-			matches:remove(pos)
-		end
-
-		-- warn if we still have more than one match
-		if #matches > 1 then
-			local str = ''
-			for _,match in ipairs(matches) do
-				str = str .. ' ' .. match
-			end
-			message('WARNING', 'A Div matches several statement kinds: '
-				.. str .. '. Treated as kind '.. matches[1] ..'.')
-		end
-
-		-- extract custom label and info, if any
-
-
-
-		-- kind must be modified if the statement has a custom label
-		-- or has the 'unnumbered' class
-		local new_kind
-
-		-- return the first match, a key of `kinds`
-		return matches[1]
-
-	elseif type(elem) == 'table' then
-
-		-- process DefinitionList items here
-		-- they are table with two elements:
-		-- [1] Inlines, the definiens
-		-- [2] Blocks, the definiendum
-
-	end
-
-	return nil -- not a statement kind
-
-end
 
 --- extract_label: extract label and acronym from a statement Div.
---@TODO adapt to the class, use self.content
 -- A label is a Strong element at the beginning of the Div, ending or 
 -- followed by a dot. An acronym is between brackets, within the label
 -- at the end of the label. If the label only contains an acronym,
 -- it is used as label, brackets preserved.
--- if `acronym_mode` is set to false we do not search for acronyms. 
--- @param div a pandoc Div element (of class `statement`)
--- @param acronym_mode bool whether to search for an acronym
--- @param delimiters table acronym delimiters; default {'(',')'}
--- @return lab, acro, div, where`label` and `acronym` are Inlines or 
--- or nil, and `div` the pandoc Div element with label removed. 
-function Statement:extract_label(div, acronym_mode, delimiters)
-
-	if acronym_mode == false then else acronym_mode = true end
-	if not delimiters or type(delimiters) ~= 'table' 
-		or #delimiters ~= 2 then
-			delimiters = {'(',')'}
-	end
-
+-- if `acronym_mode` is set to false we do not search for acronyms.
+-- label (Inlines) placed in self.label
+-- acronym (Inlines) placed in self.acronym
+-- remainder of the content (Blocks) placed in self.content
+--@return nil 
+function Statement:extract_label()
+	local delimiters = {'(',')'} -- acronym delimiters
 	local first_block, lab, acro = nil, nil, nil
 	local has_label = false
 
 	-- first block must be a Para that starts with a Strong element
-	if not div.content[1] or div.content[1].t ~= 'Para' 
-		or not div.content[1].content
-		or div.content[1].content[1].t ~= 'Strong' then
-			return nil, nil, div
-	else
-		first_block = div.content[1]:clone() -- Para element
-		lab = first_block.content[1] -- Strong element
+	if self.content[1] and self.content[1].t == 'Para'
+			and self.content[1].content and self.content[1].content[1]
+			and self.content[1].content[1].t == 'Strong' then
+		first_block = self.content[1]:clone() -- Para element
+		lab = first_block.content[1].content -- content of the Strong element
 		first_block.content:remove(1) -- take the Strong elem out
+	else
+		return
 	end
 
 	-- the label must end by or be followed by a dot
 	-- if a dot is found, take it out.
 	-- ends by a dot?
-	if lab.content[#lab.content] 
-		and lab.content[#lab.content].t == 'Str'
-		and lab.content[#lab.content].text:match('%.$') then
+	if lab[#lab] 
+		and lab[#lab].t == 'Str'
+		and lab[#lab].text:match('%.$') then
 			-- remove the dot
-			if lab.content[#lab.content].text:len() > 1 then
-				lab.content[#lab.content].text =
-					lab.content[#lab.content].text:sub(1,-2)
+			if lab[#lab].text:len() > 1 then
+				lab[#lab].text =
+					lab[#lab].text:sub(1,-2)
 				has_label = true
 			else -- special case: Str was just a dot
-				lab.content:remove(#lab.content)
+				lab:remove(#lab)
 				-- remove trailing Space if needed
-				if lab.content[#lab.content]
-					and lab.content[#lab.content].t == 'Space' then
-						lab.content:remove(#lab.content)
+				if lab[#lab]
+					and lab[#lab].t == 'Space' then
+						lab:remove(#lab)
 				end
 				-- do not validate if empty
-				if #lab.content > 0 then
+				if #lab > 0 then
 					has_label = true
 				end
 			end
@@ -651,15 +1194,17 @@ function Statement:extract_label(div, acronym_mode, delimiters)
 
 	-- search for an acronym within the label
 	-- we only store it if removing it leaves some label
-	local saved_content = lab.content:clone()
-	acro, lab.content = extract_first_bal_brackets(lab.content, 'reverse')
-	if acro and #lab.content == 0 then
-		acro, lab.content = nil, saved_content
+	if self.setup.options.acronym then
+		local saved_content = lab:clone()
+		acro, lab = self:extract_fbb(lab, 'reverse')
+		if acro and #lab == 0 then
+			acro, lab = nil, saved_content
+		end
 	end
 
 	-- remove trailing Space on the label if needed
-	if #lab.content > 0 and lab.content[#lab.content].t == 'Space' then
-		lab.content:remove(#lab.content)
+	if #lab > 0 and lab[#lab].t == 'Space' then
+		lab:remove(#lab)
 	end
 
 	-- remove leading Space on the first block if needed
@@ -668,16 +1213,59 @@ function Statement:extract_label(div, acronym_mode, delimiters)
 			first_block.content:remove(1)
 	end
 
-	-- return label, modified div if label found, original div otherwise
+	-- store label, acronym modified content if label found
 	if has_label then
-		div.content[1] = first_block
-		return lab, acro, div
-	else
-		return nil, nil, div
+		self.content[1] = first_block
+		self.acronym = acro
+		self.label = lab
 	end
+
 end
 
---- extract_info: extra specified info from the statement's content.
+--- Statement:new_kind_from_label: create and set a new kind from a 
+-- statement's custom label. 
+-- updates the self.setup.kinds table with a new kind
+function Statement:new_kind_from_label()
+	local kind = kind or self.kind
+
+	-- create_key_from_label: turn inlines into a key that
+	-- can safely be used as LaTeX envt name and html class
+	local function create_key_from_label(inlines)
+		local result = stringify(inlines):gsub('[^%w]','_'):lower()
+		if result == '' then result = '_' end
+		return result
+	end
+
+	-- Main function body
+
+	if not self.label then
+		return
+	end
+
+	local kind_key = create_key_from_label(self.label)
+
+	-- ensure we use a new kind key
+	local n = 1
+	while self.setup.kinds[kind_key] do
+		kind_key = label_str..'-'..tostring(n)
+		n = n + 1
+	end
+
+	-- create the new kind by cloning the original one
+	-- set its new label to custom_label and its counter to 'none'
+	self.setup.kinds[kind_key] = {}
+	for k,v in pairs(self.setup.kinds[kind]) do
+		 self.setup.kinds[kind_key][k] = v
+	end
+	self.setup.kinds[kind_key].label = self.label -- Inlines
+	self.setup.kinds[kind_key].counter = 'none'
+
+	-- set this statement's kind to the new kind
+	self.kind = kind_key
+
+end
+
+--- Statement:extract_info: extra specified info from the statement's content.
 -- Scans the content's first block for an info specification (Cite
 -- or text within delimiters). If found, remove and place in the
 -- statement's `info` field.
@@ -703,7 +1291,7 @@ function Statement:extract_info()
 		else
 			-- bracketed content?
 			inf, first_block.content = 
-				extract_first_bal_brackets(first_block.content)
+				self:extract_fbb(first_block.content)
 		end
 
 		-- if info found, save it and save the modified block
@@ -716,88 +1304,221 @@ function Statement:extract_info()
 
 end
 
---- format_kind: format the statement's kind.
--- If the statement's kind is not yet define, create blocks to define
--- it in the desired output format. These blocks are added to
--- `header_includes` or returned to be added locally, depending
--- on the `options.define_in_header` setting.
+--- Statement:write_kind: write the statement's style definition as output string.
+-- If the statement's style is not yet defined, create blocks to define it
+-- in the desired output format. These blocks are added to
+-- `self.setup.includes.before_first` or returned to be added locally, 
+-- depending on the `setup.options.define_in_header` setting.
 -- @param kind string (optional) kind to be formatted, if not self.kind
 -- @param format string (optional) format desired if other than FORMAT
--- @return blocks or nil, blocks to be added locally if any
-function Statement:format_kind(kind, format)
-	local blocks = pandoc.List:new()
+-- @return blocks or {}, blocks to be added locally if any
+function Statement:write_style(style, format)
 	local format = format or FORMAT
-	local kind = kind or self.kind
+	local style = style or self.setup.kinds[self.kind].style
+	local blocks = pandoc.List:new() -- blocks to be written
 
-	-- check if the kind is already defined
-	if kinds[kind].is_defined then
-		return
+	-- check if the style is already defined or not to be defined
+	if self.setup.styles[style].is_defined 
+			or self.setup.styles[style]['do_not_define_in_'..format] then
+		return {}
 	else
-		kinds[kind].is_defined = true
-	end
-
-	-- do we have before_definitions_includes to include before any
-	-- definition? if yes include it here and wipe it out
-	if before_definitions_includes then
-		blocks:extend(before_definitions_includes)
-		before_definitions_includes = nil
+		self.setup.styles[style].is_defined = true
 	end
 
 	-- format
 	if format:match('latex') then
+
+		-- special case: proof environement
+		-- with amsthm this is already defined, we only set \proofname
+		-- without we must provide the environement and \proofname
+		if style == 'proof' then
+			local LaTeX_command = ''
+			if not self.setup.options.amsthm then
+				 LaTeX_command = LaTeX_command ..
+[[\makeatletter
+\ifx\proof\undefined
+\newenvironment{proof}[1][\protect\proofname]{\par
+	\normalfont\topsep6\p@\@plus6\p@\relax
+	\trivlist
+	\itemindent\parindent
+	\item[\hskip\labelsep\itshape #1.]\ignorespaces
+}{%
+	\endtrivlist\@endpefalse
+}
+\fi
+\makeatother
+]]
+			end
+			if self.setup.LOCALE[self.setup.options.language]['proof'] then
+				LaTeX_command = LaTeX_command 
+							.. '\\providecommand{\\proofname}{'
+							.. self.setup.LOCALE[self.setup.options.language]['proof']
+							.. '}'
+			else
+				LaTeX_command = LaTeX_command 
+							.. '\\providecommand{\\proofname}{Proof}'
+			end
+			blocks:insert(pandoc.RawBlock('latex', LaTeX_command))
+
+		-- \\theoremstyle requires amsthm
+		-- normal style, use \\theoremstyle if amsthm
+		elseif self.setup.options.amsthm then
+
+			-- LaTeX command
+			-- \\\newtheoremstyle{stylename}
+			-- 		{length} space above
+			-- 		{length} space below
+			-- 		{command} body font
+			-- 		{length} indent amount
+			-- 		{command} theorem head font
+			--		{string} punctuation after theorem head
+			--		{length} space after theorem head
+			--		{pattern} theorem heading pattern
+			local style_def = self.setup.styles[style]
+			local space_above = style_def.margin_top or '0pt'
+			local space_below = style_def.margin_bottom or '0pt'
+			local body_font = style_def.body_font or ''
+			if style_def.margin_right then
+				body_font = '\\addtolength{\\rightskip}{'..style_def.margin_left..'}'
+										..body_font
+			end
+			if style_def.margin_left then
+				body_font = '\\addtolength{\\leftskip}{'..style_def.margin_left..'}'
+										..body_font
+			end
+			local indent = style_def.indent or ''
+			local head_font = style_def.head_font or ''
+			local label_punctuation = style_def.label_punctuation or ''
+			-- NB, space_after_head can't be '' or LaTeX crashes. use ' ' or '0pt'
+			local space_after_head = style_def.space_after_head or ' ' 
+			local heading_pattern = style_def.heading_pattern or ''
+			local LaTeX_command = '\\newtheoremstyle{'..style..'}'
+										..'{'..space_above..'}'
+										..'{'..space_below..'}'
+										..'{'..body_font..'}'
+										..'{'..indent..'}'
+										..'{'..head_font..'}'
+										..'{'..label_punctuation..'}'
+										..'{'..space_after_head..'}'
+										..'{'..heading_pattern..'}\n'
+			blocks:insert(pandoc.RawBlock('latex',LaTeX_command))
+
+		end
 	
-		local label = kinds[kind].label 
+	elseif format:match('html') then
+
+	else -- any other format, no way to define statement kinds
+
+	end
+
+	-- place the blocks in header_includes or return them
+	if #blocks == 0 then
+		return {}
+	elseif self.setup.options.define_in_header then
+		if not self.setup.includes.header then
+			self.setup.includes.header = pandoc.List:new()
+		end
+		self.setup.includes.header:extend(blocks)
+		return {}
+	else
+		return blocks
+	end
+
+end
+
+--- Statement:write_kind: write the statement's kind definition as output string.
+-- If the statement's kind is not yet define, create blocks to define it
+-- in the desired output format. These blocks are added to
+-- `self.setup.includes.header` or returned to be added locally, 
+-- depending on the `setup.options.define_in_header` setting.
+-- @param kind string (optional) kind to be formatted, if not self.kind
+-- @param format string (optional) format desired if other than FORMAT
+-- @return blocks or {}, blocks to be added locally if any
+function Statement:write_kind(kind, format)
+	local format = format or FORMAT
+	local kind = kind or self.kind
+	local counter = self.setup.kinds[kind].counter or 'none'
+	local shared_counter, counter_within
+	local blocks = pandoc.List:new() -- blocks to be written
+
+	-- check if the kind is already defined
+	if self.setup.kinds[kind].is_defined then
+		return {}
+	else
+		self.setup.kinds[kind].is_defined = true
+	end
+
+	-- identify counter_within and shared_counter
+	if counter ~= 'none' and counter ~= 'self' then
+		if self.setup.kinds[counter] then
+			shared_counter = counter
+		elseif self.setup:get_level_by_LaTeX_name(counter) then
+			counter_within = counter
+		elseif self.setup:get_LaTeX_name_by_level(counter) then
+			counter_within = self.setup:get_LaTeX_name_by_level(counter)
+		else -- unintelligible, default to 'self'
+			message('WARNING', 'unintelligible counter for kind'
+				..kind.. '. Defaulting to `self`.')
+			counter = 'self'
+		end
+	end
+	-- if shared counter, ensure its kind is defined before
+	if shared_counter then
+		blocks:extend(self:write_kind(shared_counter))
+	end
+
+	-- write the style definition if needed
+	blocks:extend(self:write_style(self.setup.kinds[kind].style))
+
+	-- format
+	if format:match('latex') then
+	
+		local label = self.setup.kinds[kind].label 
 						or pandoc.Inlines(pandoc.Str(''))
-		local counter = kinds[kind].counter or 'none'
-		local shared_counter, counter_within
 
-		-- identify counter_within and shared_counter
-		if counter ~= 'none' and counter ~= 'self' then
-			if type(counter)=='number' and LaTeX_levels[counter] then
-				counter_within = LaTeX_levels[counter]
-			elseif kinds[counter] then
-				shared_counter = counter
-			else -- unintelligible, default to 'self'
-				message('WARNING', 'unintelligible counter for kind'
-					.. kind '. Defaulting to `self`.')
-				counter = 'self'
+		-- 'proof' statements are not defined
+		if kind == 'proof' then
+			-- nothing to be done
+
+		else
+
+			-- amsthm provides `newtheorem*` for unnumbered kinds
+			local latex_cmd = self.setup.options.amsthm and counter == 'none' 
+				and '\\newtheorem*' or '\\newtheorem'
+
+			-- LaTeX command:
+			-- \theoremstyle{style} (amsthm only)
+			-- \newtheorem{kind}{label}
+			-- \newtheorem{kind}[shared_counter]{label}
+			-- \newtheorem{kind}{label}[counter_within]
+
+			local inlines = pandoc.List:new()
+			if self.setup.options.amsthm then
+				inlines:insert(
+					pandoc.RawInline('latex','\\theoremstyle{'
+							.. self.setup.kinds[kind].style .. '}\n')
+					)
 			end
-		end
-		-- if shared counter, its kind must be defined before
-		if shared_counter then
-			local extra_blocks = self:format_kind(shared_counter)
-			if extra_blocks then
-				blocks:extend(extra_blocks)
+			inlines:insert(
+				pandoc.RawInline('latex', latex_cmd .. '{'
+					.. kind ..'}')
+			)
+			if shared_counter then
+				inlines:insert(
+				  pandoc.RawInline('latex', '['..shared_counter..']')
+				)
 			end
-		end
+			inlines:insert(pandoc.RawInline('latex','{'))
+			inlines:extend(label)
+			inlines:insert(pandoc.RawInline('latex','}'))
+			if counter_within then
+				inlines:insert(
+				  pandoc.RawInline('latex', '['..counter_within..']')
+				)
+			end
+			blocks:insert(pandoc.Plain(inlines))
 
-		-- amsthm provides `newtheorem*` for unnumbered kinds
-		local latex_cmd = options.amsthm and counter == 'none' 
-			and '\\newtheorem*' or '\\newtheorem'
-
-		-- \newtheorem{kind}{label}
-		-- \newtheorem{kind}[shared_counter]{label}
-		-- \newtheorem{kind}{label}[counter_within]
-
-		local inlines = pandoc.List:new()
-		inlines:insert(
-			pandoc.RawInline('latex', latex_cmd .. '{'
-				.. kind ..'}')
-		)
-		if shared_counter then
-			inlines:insert(
-			  pandoc.RawInline('latex', '['..shared_counter..']')
-			)
 		end
-		inlines:insert(pandoc.RawInline('latex','{'))
-		inlines:extend(label)
-		inlines:insert(pandoc.RawInline('latex','}'))
-		if counter_within then
-			inlines:insert(
-			  pandoc.RawInline('latex', '['..counter_within..']')
-			)
-		end
-		blocks:insert(pandoc.Plain(inlines))
 
 	elseif format:match('html') then
 
@@ -806,8 +1527,11 @@ function Statement:format_kind(kind, format)
 	end
 
 	-- place the blocks in header_includes or return them
-	if options.define_in_header then
-		header_includes:extend(blocks)
+	if self.setup.options.define_in_header then
+		if not self.setup.includes.header then
+			self.setup.includes.header = pandoc.List:new()
+		end
+		self.setup.includes.header:extend(blocks)
 		return {}
 	else
 		return blocks
@@ -815,18 +1539,26 @@ function Statement:format_kind(kind, format)
 
 end
 
---- format: format the statement.
+--- Statement:write: format the statement as an output string.
 -- @param format string (optional) format desired if other than FORMAT
 -- @return Blocks blocks to be inserted. 
-function Statement:format(format)
+function Statement:write(format)
 	local blocks = pandoc.List:new()
 	local format = format or FORMAT
+	local kinds = self.setup.kinds -- pointer to the kinds table
 
-	-- format the kind if needed
+	-- do we have before_first includes to include before any
+	-- definition? if yes include them here and wipe it out
+	if self.setup.includes.before_first then
+		blocks:extend(self.setup.includes.before_first)
+		self.setup.includes.before_first = nil
+	end
+
+	-- write the kind definition if needed
 	-- if local blocks are returned, insert them
-	local format_kind_local_blocks = self:format_kind()
-	if format_kind_local_blocks then
-		blocks:extend(format_kind_local_blocks)
+	local write_kind_local_blocks = self:write_kind()
+	if write_kind_local_blocks then
+		blocks:extend(write_kind_local_blocks)
 	end
 
 	-- format the statement
@@ -852,11 +1584,18 @@ function Statement:format(format)
 
 		-- prepare the statement heading
 		local heading = pandoc.List:new()
+		-- label?
 		if kinds[self.kind].label then
 			local inlines = pandoc.List:new()
+			if self.setup.options.swap_numbers then
+					inlines:insert(pandoc.Str('1.1')) -- placeholder for the counter
+					inlines:insert(pandoc.Space())
+			end
 			inlines:extend(kinds[self.kind].label)
-			inlines:insert(pandoc.Space())
-			inlines:insert(pandoc.Str('1.1')) -- placeholder for the counter
+			if self.setup.options.swap_numbers then
+					inlines:insert(pandoc.Space())
+					inlines:insert(pandoc.Str('1.1')) -- placeholder for the counter
+			end
 			inlines:insert(pandoc.Str('.')) -- delimiter
 			heading:insert(pandoc.Strong(inlines))
 		end
@@ -869,15 +1608,16 @@ function Statement:format(format)
 			heading:insert(pandoc.Str(')'))
 		end
 
+		-- insert heading
 		-- combine statement heading with the first paragraph if any
-		if self.content[1] and self.content[1].t == 'Para' then
-			heading:insert(pandoc.Space())
-			heading:extend(self.content[1].content)
-		end
-
-		-- insert the heading as first paragraph of content
 		if #heading > 0 then
-			self.content:insert(1, pandoc.Para(heading))
+			if self.content[1] and self.content[1].t == 'Para' then
+				heading:insert(pandoc.Space())
+				heading:extend(self.content[1].content)
+				self.content[1] = pandoc.Para(heading)
+			else
+				self.content:insert(1, pandoc.Para(heading))
+			end
 		end
 
 		-- place all the content blocks in blockquote
@@ -888,227 +1628,14 @@ function Statement:format(format)
 	return blocks
 
 end
---- setup: read options from meta and setup global variables
---@param meta document's Meta element
-local function setup(meta)
 
-	-- variables
-	local language = 'en'
 
-	-- constants: some defaults values for kinds and localisation
-	local KINDS_NONE = {
-		statement = {prefix = 'sta', style = 'empty', counter='none'},		
-	}
-	local KINDS_BASIC = {
-		theorem = { prefix = 'thm', style = 'plain', counter = 1 },
-		corollary = { prefix = 'cor', style = 'plain', counter = 'theorem' },
-		lemma = { prefix = 'lem', style = 'plain', counter = 'theorem' },
-		proposition = {prefix = 'prop', style = 'plain', counter = 'theorem' },
-		conjecture = {prefix = 'conj', style = 'plain', counter = 'theorem' },
-		fact = { style = 'plain', counter = 'theorem'},
-		definition = {prefix = 'defn', style = 'definition', counter = 'theorem'},
-		example = {prefix = 'exa', style = 'definition', counter = 'theorem'},
-		problem = {prefix = 'prob', style = 'definition', counter = 'theorem'},
-		exercise = {prefix = 'xca', style = 'definition', counter = 'theorem'},
-		solution = {prefix = 'sol', style = 'definition', counter = 'theorem'},
-		remark = {prefix = 'rem', style = 'remark', counter = 'theorem'},
-		claim = {prefix = 'claim', style = 'remark', counter = 'theorem'},
-		proof = {prefix = 'claim', style = 'proof', counter = 'none'},
-	}
-	KINDS_BASIC.statement = KINDS_NONE.statement
-	-- local KINDS_AMS = {
-	-- 	statement = {prefix = 'sta', style = 'empty', counter='none'},
-	-- 	theorem = { prefix = 'thm', style = 'plain', counter = 1 },
-	-- 	corollary = { prefix = 'cor', style = 'plain', counter = 'theorem' },
-	-- 	lemma = { prefix = 'lem', style = 'plain', counter = 'theorem' },
-	-- 	proposition = {prefix = 'prop', style = 'plain', counter = 'theorem' },
-	-- 	conjecture = {prefix = 'conj', style = 'plain', counter = 'theorem' },
-	-- 	fact = { style = 'plain', counter = 'theorem'},
-	-- 	definition = {prefix = 'defn', style = 'definition', counter = 'theorem'},
-	-- 	example = {prefix = 'exa', style = 'definition', counter = 'theorem'},
-	-- 	problem = {prefix = 'prob', style = 'definition', counter = 'theorem'},
-	-- 	exercise = {prefix = 'xca', style = 'definition', counter = 'theorem'},
-	-- 	solution = {prefix = 'sol', style = 'definition', counter = 'theorem'},
-	-- 	remark = {prefix = 'rem', style = 'remark', counter = 'theorem'},
-	-- 	claim = {prefix = 'claim', style = 'remark', counter = 'theorem'},
-	-- 	proof = {prefix = 'claim', style = 'proof', counter = 'theorem'},
-	-- }
-	-- KINDS_AMS.statement = KINDS_AMS.statement
-	local STYLES_NONE = {
-		empty = {
-			margin_top = '1em',
-			margin_bottom = '1em',
-			margin_left = '2em',
-			margin_right = '2em',
-			indent = '0pt',
-			head_font = nil,
-			label_punctuation = '.',
-			space_after_head = nil,
-			heading_pattern = nil,
-		},		
-	}
-	local STYLES_AMSTHM = {
-		plain = { do_not_define_in_latex = true },
-		definition = { do_not_define_in_latex = true },
-		remark = { do_not_define_in_latex = true },
-		proof = { do_not_define_in_latex = true },
-	}
-	STYLES_AMSTHM.empty = STYLES_NONE.empty
-	local LOCALIZE = {
-		en = {
-			theorem = 'Theorem',
-			corollary = 'Corollary',
-			lemma = 'Lemma',
-			proposition = 'Proposition',
-			conjecture = 'Conjecture',
-			fact = 'Fact',
-			definition = 'Definition',
-			example = 'Example',
-			problem = 'Problem',
-			exercise = 'Exercise',
-			solution = 'Solution',
-			remark = 'Remark',
-			claim = 'Claim',
-			proof = 'Proof',
-		},
-		fr = {
-			theorem = 'Théorème',
-			corollary = 'Corollaire',
-			lemma = 'Lemma',
-			proposition = 'Proposition',
-			conjecture = 'Conjecture',
-			fact = 'Fait',
-			definition = 'Définition',
-			example = 'Example',
-			problem = 'Problème',
-			exercise = 'Exercise',
-			solution = 'Solution',
-			remark = 'Remarque',
-			claim = 'Affirmation',
-			proof = 'Preuve',
-		},
-
-	}
-
-	--- prepare_aliases_map: make list of aliases for stateemnt Div classes.
-	-- A statement can be identified by its full kind name (`theorem`)
-	-- or its prefix (`thm`). We find prefixes to build a list of aliases.
-	-- This is deactivated by the option `no-aliases`. 
-	-- @return alias map of alias = kind name
-	local function prepare_aliases_map()
-
-		-- populate the aliases map
-		for kind_key,kind in pairs(kinds) do
-			-- use the kind's prefix as alias, if any
-			if kind.prefix then 
-				aliases[kind.prefix] = kind_key
-			end
-			-- us the kind's label (converted to plain text), if any
-			if kind.label then
-				local alias = pandoc.write(pandoc.Pandoc({kind.label}), 'plain')
-				alias = alias:gsub('\n','')
-				aliases[alias] = kind_key
-			end
-		end
-
-	end
-
-	-- FUNCTION MAIN BODY
-	-- if `statement` options map, process it
-	if meta.statement then
-
-		if meta.statement['defaults'] == 'basic' then
-			kinds = KINDS_BASIC
-			styles = STYLES_AMSTHM
-		elseif meta.statement['defaults'] == 'none' then
-			-- statement is required
-			kinds = KINDS_NONE
-			styles = STYLES_NONE
-		else -- 'defaults' absent or unintelligible
-			kinds = KINDS_BASIC
-			styles = STYLES_AMSTHM
-		end
-
-		-- process boolean options
-		local boolean_options = {
-			amsthm = 'amsthm',
-			aliases = 'aliases',
-			swap_numbers = 'swap-numbers',
-			supply_header = 'supply-header',
-			only_statement = 'only-statement',
-			define_in_header = 'define-in-header',
-		}
-		for key,option in pairs(boolean_options) do
-			if type(meta.statement[option]) == 'boolean' then
-				options[key] = meta.statement[option]
-			end
-		end
-
-	end -- ends reading `meta.statement`
-
-	-- PROCESS OPTIONS
-
-	-- language. Set language if we have a LOCALIZE value for it
-	if meta.lang then
-		-- change the language only if we have a LOCALIZE value for it
-		-- try the first two letters too
-		local lang_str = stringify(meta.lang)
-		if LOCALIZE[lang_str] then
-			language = lang_str
-		elseif LOCALIZE[lang_str:sub(1,2)] then
-			language = lang_str:sub(1,2)
-		end
-	end
-
-	-- pick the document fontsize, needed to convert some lengths
-	if meta.fontsize then
-		local fontstr = stringify(meta.fontsize)
-		local size, unit = fontstr:match('(%d*.%d*)(.*)')
-		if tonumber(size) then
-			unit = unit:gsub("%s+", "")
-			options.fontsize = {tonumber(size), unit}
-		end
-	end
-
-	-- populate labels
-	for kind_key, kind in pairs(kinds) do
-		-- populate labels
-		if not kind.label and LOCALIZE[language][kind_key] then
-			kind.label = pandoc.Inlines(LOCALIZE[language][kind_key])
-		end
-	end
-
-	-- prepare header_includes
-	if options.amsthm and FORMAT:match('latex') then
-		header_includes:insert(pandoc.MetaBlocks(pandoc.RawBlock(
-			'latex', '\\usepackage{amsthm}'
-			)))
-		-- \swapnumbers (amsthm package only),
-		-- place in header or in body before the first kind definition
-		if options.swap_numbers then
-			local block = pandoc.RawBlock('latex','\\swapnumbers')
-			if options.define_in_header then
-				header_includes:insert(pandoc.MetaBlocks(block))
-			else
-				before_definitions_includes = 
-					ensure_list(before_definitions_includes)
-				before_definitions_includes:insert(block)
-			end
-		end
-
-	end
-
-	-- prepare alias map
-	if options.aliases then
-		prepare_aliases_map()
-	end
-
-	return
-end
+-- # Main functions
 --- walk_doc: processes the document.
 -- @param doc Pandoc document
+-- @param setup a Setup class object, the document's statement setup
 -- @return Pandoc document if modified or nil
-local function walk_doc(doc)
+local function walk_doc(doc,setup)
 
 	--- process_blocks: processes a list of blocks (pandoc Blocks)
 	-- @param blocks
@@ -1129,11 +1656,11 @@ local function walk_doc(doc)
 			if block.t == 'Div' then
 
 				-- try to create a statement
-				sta = Statement:new(block)
+				sta = Statement:new(block, setup)
 
 				-- replace the block with the formatted statement, if any
 				if sta then
-					result:extend(sta:format())
+					result:extend(sta:write())
 					is_modified = true
 				else
 					result:insert(block)
@@ -1162,43 +1689,25 @@ local function walk_doc(doc)
 		return nil
 	end
 end
---- update_meta: update the document's Meta element
---@param meta document's Meta element
---@return meta pandoc Meta object, updated meta or nil
-local function update_meta(meta)
 
-	-- only return if updated
-	local is_updated = false
+function main(doc) 
 
-	-- update header-includes
-	if options.supply_header then
+	-- create a setup object that holds the filter settings
+	local setup = Setup:new(doc.meta)
 
-		if meta['header-includes'] then
-			meta['header-includes'] = 
-				ensure_list(meta['header-includes']):extend(header_includes)
-		else
-			meta['header-includes'] = header_includes
-		end
-		is_updated = true
+	-- walk the document; sets `doc` to nil if no modification
+	doc = walk_doc(doc,setup)
 
+	-- if the doc has been modified, update its meta and return it
+	if doc then
+		doc.meta = setup:update_meta(doc.meta)
+		return doc
 	end
-
-	return is_updated and meta or nil
 end
--- end modules
 
-
+--- Return main as a Pandoc object filter
 return {
-	-- process Meta for options first
 	{
-			Meta = setup		
-	},
-	-- process document, needs to be walked
-	{
-			Pandoc = walk_doc
-	},
-	-- update Meta 
-	{
-		Meta = update_meta
+			Pandoc = main
 	},
 }

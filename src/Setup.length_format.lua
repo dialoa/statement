@@ -1,8 +1,9 @@
---- length_format: parse a length in the desired format
+--- Setup:length_format: parse a length in the desired format
+--@TODO what if a space is provided (space after head)
 -- @param len Inlines or string to be interpreted
 -- @param format (optional) desired format if other than FORMAT
 -- @return string specifying the length in the desired format or ''
-function length_format(str, format)
+function Setup:length_format(str, format)
 	local format = format or FORMAT
 	-- within this function, format is 'css' when css lengths are needed
 	if format:match('html') then
@@ -96,7 +97,7 @@ function length_format(str, format)
 			css = {0.8, 'em'},
 		},
 	}
-	-- add `\` to LATEX_LENGTHS keys
+	-- add `\` to LATEX_LENGTHS keys (can't be done directly)
 	local new_latex_lengths = {} -- needs to make a copy
 	for key,value in pairs(LATEX_LENGTHS) do
 		new_latex_lengths['\\'..key] = value

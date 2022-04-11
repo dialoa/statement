@@ -65,7 +65,7 @@ statement-filter:
   no-aliases: false
   latex-inlist-skip:
   latex-inlist-rightskip:
-  default-kinds: basic # ams, none
+  defaults: basic # advanced, none
   new-styles:
     fancy:
       space-above:

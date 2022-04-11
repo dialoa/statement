@@ -1,217 +1,189 @@
---- setup: read options from meta and setup global variables
---@param meta document's Meta element
-local function setup(meta)
+--- Setup class: statement filter setup.
+-- manages filter options, statement kinds, statement styles.
+Setup = {}
 
-	-- variables
-	local language = 'en'
+--- Setup.options: global filter options
+Setup.options = {
+	amsthm = true, -- use the amsthm package in LaTeX
+	aliases = true, -- use aliases (prefixes, labels) for statement classes
+	acronyms = true, -- use acronyms in custom labels
+	swap_numbers = false, -- numbers before label
+	define_in_header = true, -- defs in header, not local
+	supply_header = true, -- modify header-includes 
+	only_statement = false, -- only process Divs of 'statement' class
+	language = 'en', -- LOCALE setting
+	fontsize = nil, -- document fontsize
+	LaTeX_section_level = 1, -- heading level for to LaTeX's 'section'
+}
 
-	-- constants: some defaults values for kinds and localisation
-	local KINDS_NONE = {
-		statement = {prefix = 'sta', style = 'empty', counter='none'},		
-	}
-	local KINDS_BASIC = {
-		theorem = { prefix = 'thm', style = 'plain', counter = 1 },
-		corollary = { prefix = 'cor', style = 'plain', counter = 'theorem' },
-		lemma = { prefix = 'lem', style = 'plain', counter = 'theorem' },
-		proposition = {prefix = 'prop', style = 'plain', counter = 'theorem' },
-		conjecture = {prefix = 'conj', style = 'plain', counter = 'theorem' },
-		fact = { style = 'plain', counter = 'theorem'},
-		definition = {prefix = 'defn', style = 'definition', counter = 'theorem'},
-		example = {prefix = 'exa', style = 'definition', counter = 'theorem'},
-		problem = {prefix = 'prob', style = 'definition', counter = 'theorem'},
-		exercise = {prefix = 'xca', style = 'definition', counter = 'theorem'},
-		solution = {prefix = 'sol', style = 'definition', counter = 'theorem'},
-		remark = {prefix = 'rem', style = 'remark', counter = 'theorem'},
-		claim = {prefix = 'claim', style = 'remark', counter = 'theorem'},
-		proof = {prefix = 'claim', style = 'proof', counter = 'none'},
-	}
-	KINDS_BASIC.statement = KINDS_NONE.statement
-	-- local KINDS_AMS = {
-	-- 	statement = {prefix = 'sta', style = 'empty', counter='none'},
-	-- 	theorem = { prefix = 'thm', style = 'plain', counter = 1 },
-	-- 	corollary = { prefix = 'cor', style = 'plain', counter = 'theorem' },
-	-- 	lemma = { prefix = 'lem', style = 'plain', counter = 'theorem' },
-	-- 	proposition = {prefix = 'prop', style = 'plain', counter = 'theorem' },
-	-- 	conjecture = {prefix = 'conj', style = 'plain', counter = 'theorem' },
-	-- 	fact = { style = 'plain', counter = 'theorem'},
-	-- 	definition = {prefix = 'defn', style = 'definition', counter = 'theorem'},
-	-- 	example = {prefix = 'exa', style = 'definition', counter = 'theorem'},
-	-- 	problem = {prefix = 'prob', style = 'definition', counter = 'theorem'},
-	-- 	exercise = {prefix = 'xca', style = 'definition', counter = 'theorem'},
-	-- 	solution = {prefix = 'sol', style = 'definition', counter = 'theorem'},
-	-- 	remark = {prefix = 'rem', style = 'remark', counter = 'theorem'},
-	-- 	claim = {prefix = 'claim', style = 'remark', counter = 'theorem'},
-	-- 	proof = {prefix = 'claim', style = 'proof', counter = 'theorem'},
-	-- }
-	-- KINDS_AMS.statement = KINDS_AMS.statement
-	local STYLES_NONE = {
-		empty = {
-			margin_top = '1em',
-			margin_bottom = '1em',
-			margin_left = '2em',
-			margin_right = '2em',
-			indent = '0pt',
-			head_font = nil,
-			label_punctuation = '.',
-			space_after_head = nil,
-			heading_pattern = nil,
-		},		
-	}
-	local STYLES_AMSTHM = {
-		plain = { do_not_define_in_latex = true },
-		definition = { do_not_define_in_latex = true },
-		remark = { do_not_define_in_latex = true },
-		proof = { do_not_define_in_latex = true },
-	}
-	STYLES_AMSTHM.empty = STYLES_NONE.empty
-	local LOCALIZE = {
-		en = {
-			theorem = 'Theorem',
-			corollary = 'Corollary',
-			lemma = 'Lemma',
-			proposition = 'Proposition',
-			conjecture = 'Conjecture',
-			fact = 'Fact',
-			definition = 'Definition',
-			example = 'Example',
-			problem = 'Problem',
-			exercise = 'Exercise',
-			solution = 'Solution',
-			remark = 'Remark',
-			claim = 'Claim',
-			proof = 'Proof',
-		},
-		fr = {
-			theorem = 'Théorème',
-			corollary = 'Corollaire',
-			lemma = 'Lemma',
-			proposition = 'Proposition',
-			conjecture = 'Conjecture',
-			fact = 'Fait',
-			definition = 'Définition',
-			example = 'Example',
-			problem = 'Problème',
-			exercise = 'Exercise',
-			solution = 'Solution',
-			remark = 'Remarque',
-			claim = 'Affirmation',
-			proof = 'Preuve',
-		},
+--- Setup.kinds: kinds of statement, e.g. 'theorem', 'proof'
+Setup.kinds = {
+	-- kindname = { 
+	--			prefix = string, crossreference prefix
+	-- 			style = string, style (key of `styles`)
+	-- 			counter = string, 'none', 'self', 
+	--								<kindname> string, kind for shared counter,
+	--								<level> number, heading level to count within
+}
 
-	}
+--- Setup.styles: styles of statement, e.g. 'plain', 'remark'
+Setup.styles = {
+	-- stylename = {
+	--			do_not_define_in_latex = bool, whether to define in LaTeX 
+	--	}
+}
+--- Setup.aliases: aliases for statement kind names ('thm' for 'theorem')
+Setup.aliases = {
+	-- aliasname = kindname string, key of the Setup:kinds table
+}
 
-	--- prepare_aliases_map: make list of aliases for stateemnt Div classes.
-	-- A statement can be identified by its full kind name (`theorem`)
-	-- or its prefix (`thm`). We find prefixes to build a list of aliases.
-	-- This is deactivated by the option `no-aliases`. 
-	-- @return alias map of alias = kind name
-	local function prepare_aliases_map()
+-- Setup.includes: code to be included in header or before first statement
+Setup.includes = {
+	header = nil,
+	before_first = nil,
+}
 
-		-- populate the aliases map
-		for kind_key,kind in pairs(kinds) do
-			-- use the kind's prefix as alias, if any
-			if kind.prefix then 
-				aliases[kind.prefix] = kind_key
+Setup.DEFAULTS = require('Setup.DEFAULTS') -- default kinds and styles
+
+Setup.LOCALE = require('Setup.LOCALE') -- Label translations
+
+Setup.read_options = require('Setup.read_options') -- function to read options
+
+Setup.create = require('Setup.create_kinds_and_styles') -- to create kinds and styles
+
+Setup.update_meta = require('Setup.update_meta') -- to update a document's meta
+
+Setup.length_format = require('Setup.length_format') -- to convert length values
+
+--- Setup:new: construct a Setup object 
+--@param meta Pandoc Meta object
+--@return a Setup object
+function Setup:new(meta)
+
+		-- create an object of Statement class
+		local s = {}
+		self.__index = self 
+		setmetatable(s, self)
+
+		-- read options from document's meta
+		s:read_options(meta)
+
+		-- prepare Setup.includes
+		s:set_includes()
+
+		-- create kinds and styles
+		-- (localizes labels, builds alias map)
+		s:create_kinds_and_styles(meta)
+
+		return s
+end
+
+--- Setup:set_includes: prepare the Setup.includes table
+--@param format string (optional) Pandoc output format, defaults to FORMAT
+function Setup:set_includes(format)
+	local format = format or FORMAT
+
+	-- LaTeX specific
+	if format:match('latex') then
+
+		-- load amsthm package unless option `amsthm` is false
+		if self.options.amsthm then
+			if not self.includes.header then
+				self.includes.header = pandoc.List:new()
 			end
-			-- us the kind's label (converted to plain text), if any
-			if kind.label then
-				local alias = pandoc.write(pandoc.Pandoc({kind.label}), 'plain')
-				alias = alias:gsub('\n','')
-				aliases[alias] = kind_key
-			end
+			self.includes.header:insert(pandoc.MetaBlocks(pandoc.RawBlock(
+															'latex', '\\usepackage{amsthm}'
+															)))
 		end
 
-	end
-
-	-- FUNCTION MAIN BODY
-	-- if `statement` options map, process it
-	if meta.statement then
-
-		if meta.statement['defaults'] == 'basic' then
-			kinds = KINDS_BASIC
-			styles = STYLES_AMSTHM
-		elseif meta.statement['defaults'] == 'none' then
-			-- statement is required
-			kinds = KINDS_NONE
-			styles = STYLES_NONE
-		else -- 'defaults' absent or unintelligible
-			kinds = KINDS_BASIC
-			styles = STYLES_AMSTHM
-		end
-
-		-- process boolean options
-		local boolean_options = {
-			amsthm = 'amsthm',
-			aliases = 'aliases',
-			swap_numbers = 'swap-numbers',
-			supply_header = 'supply-header',
-			only_statement = 'only-statement',
-			define_in_header = 'define-in-header',
-		}
-		for key,option in pairs(boolean_options) do
-			if type(meta.statement[option]) == 'boolean' then
-				options[key] = meta.statement[option]
-			end
-		end
-
-	end -- ends reading `meta.statement`
-
-	-- PROCESS OPTIONS
-
-	-- language. Set language if we have a LOCALIZE value for it
-	if meta.lang then
-		-- change the language only if we have a LOCALIZE value for it
-		-- try the first two letters too
-		local lang_str = stringify(meta.lang)
-		if LOCALIZE[lang_str] then
-			language = lang_str
-		elseif LOCALIZE[lang_str:sub(1,2)] then
-			language = lang_str:sub(1,2)
-		end
-	end
-
-	-- pick the document fontsize, needed to convert some lengths
-	if meta.fontsize then
-		local fontstr = stringify(meta.fontsize)
-		local size, unit = fontstr:match('(%d*.%d*)(.*)')
-		if tonumber(size) then
-			unit = unit:gsub("%s+", "")
-			options.fontsize = {tonumber(size), unit}
-		end
-	end
-
-	-- populate labels
-	for kind_key, kind in pairs(kinds) do
-		-- populate labels
-		if not kind.label and LOCALIZE[language][kind_key] then
-			kind.label = pandoc.Inlines(LOCALIZE[language][kind_key])
-		end
-	end
-
-	-- prepare header_includes
-	if options.amsthm and FORMAT:match('latex') then
-		header_includes:insert(pandoc.MetaBlocks(pandoc.RawBlock(
-			'latex', '\\usepackage{amsthm}'
-			)))
-		-- \swapnumbers (amsthm package only),
+		-- \swapnumbers (amsthm package only)
 		-- place in header or in body before the first kind definition
-		if options.swap_numbers then
+		if self.options.amsthm and self.options.swap_numbers then 
+
 			local block = pandoc.RawBlock('latex','\\swapnumbers')
-			if options.define_in_header then
-				header_includes:insert(pandoc.MetaBlocks(block))
+			if self.options.define_in_header then 
+					self.includes.header:insert(pandoc.MetaBlocks(block))
 			else
-				before_definitions_includes = 
-					ensure_list(before_definitions_includes)
-				before_definitions_includes:insert(block)
+				if not self.includes.before_first then
+					self.includes.before_first = pandoc.List:new()
+				end
+				self.includes.before_first:insert(block)
 			end
+
 		end
 
 	end
 
-	-- prepare alias map
-	if options.aliases then
-		prepare_aliases_map()
+end
+
+--- Setup:get_LaTeX_section_level: determine the heading level
+-- corresponding to LaTeX's 'section' and store it in Setup.options
+--@param meta document's metadata
+--@param format string (optional) output format (defaults to FORMAT)
+function Setup:get_LaTeX_section_level(meta,format)
+	local format = format or FORMAT
+	local top_level = PANDOC_WRITER_OPTIONS.top_level_division
+	top_level = top_level:gsub('top-level-','')
+
+	if top_level == 'section' then
+		return 1
+	elseif top_level == 'chapter' then
+		return 2
+	elseif top_level == 'part' then
+		return 3
+	end
+	-- top_level is default, infer from documentclass and classoption
+	if format == 'latex' and meta.documentclass then
+		-- book, scrbook, memoir: section is level 2
+		if meta.documentclass == 'book' 
+						or meta.documentclass == 'amsbook'
+						or meta.documentclass == 'scrbook'
+						or meta.documentclass == 'report' then
+				return 2 
+		elseif meta.documentclass == 'memoir' then
+			local level = 2 -- default, unless option 'article' is set
+			if meta.classoption then
+				for _,option in ipairs(ensure_list(classoption)) do
+					if option == 'article' then
+						level = 1
+					end
+				end
+			end
+			return level
+		end
+	end
+	-- if everything else fails, assume section is 1
+	return 1
+end
+
+--- Setup:get_level_by_LaTeX_name: convert LaTeX name to Pandoc level
+--@param name string LaTeX name
+function Setup:get_level_by_LaTeX_name(name) 
+	local LaTeX_names = {'book', 'part', 'section', 'subsection', 
+						'subsubsection', 'paragraph', 'subparagraph'}
+	-- offset value. Pandoc level = LaTeX_names index - offset
+	local offset = 3 - self.options.LaTeX_section_level
+	-- determine whether `name` is in LaTeX names and where
+	for index,LaTeX_name in ipairs(LaTeX_names) do
+		if name == LaTeX_name then
+			return index - offset
+		end
 	end
 
-	return
+	return nil
+end
+
+--- Setup:get_LaTeX_name_by_level: convert Pandoc level to LaTeX name
+--@param level number 
+function Setup:get_LaTeX_name_by_level(level)
+	local LaTeX_names = {'book', 'part', 'section', 'subsection', 
+		'subsubsection', 'paragraph', 'subparagraph'}
+	-- LaTeX_names[level + offset] = LaTeX name
+	local offset = 3 - self.options.LaTeX_section_level
+
+	if type(level)=='number' then
+		return LaTeX_names[level + offset]
+	end
+
+	return nil
 end

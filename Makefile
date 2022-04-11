@@ -2,7 +2,10 @@ DIFF ?= diff --strip-trailing-cr -u
 INFO = quiet
 SRC_FILES = $(wildcard src/*.lua)
 
-.PHONY: test
+.PHONY: tex
+
+statement.lua: $(SRC_FILES) lua-builder/lua-builder.lua
+	@lua lua-builder/lua-builder.lua src/main.lua -o statement.lua --verbose --recursive
 
 all: tex jats html docx
 
@@ -23,7 +26,7 @@ jats: sample.md statement.lua expected.xml
 
 docx: sample.md statement.lua expected.docx
 	@pandoc --lua-filter statement.lua -s --$(INFO) --to=docx $< \
-	    | $(DIFF) expected.xml -
+	    | $(DIFF) expected.docx -
 
 expected.pdf: sample.md statement.lua
 	@pandoc --lua-filter statement.lua -s --$(INFO) --to=pdf \
@@ -44,5 +47,3 @@ expected.html: sample.md statement.lua
 expected.docx: sample.md statement.lua
 	@pandoc --lua-filter statement.lua -s --$(INFO) --to=docx $< --output $@
 
-statement.lua: $(SRC_FILES) lua-builder/lua-builder.lua
-	@lua lua-builder/lua-builder.lua src/main.lua -o statement.lua --verbose
