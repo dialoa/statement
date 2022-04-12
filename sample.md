@@ -4,11 +4,11 @@ lang: fr
 numbersections: true
 statement:
   defaults: 
-  amsthm: no
+  amsthm:
   aliases: 
   acronyms:
   swap-numbers: false
-  define-in-header: no
+  define-in-header: yes
   supply-header: yes
   only-statement: false
 ---
@@ -35,11 +35,16 @@ statement:
 $X \subseteq Y$ if and only if every element of $X$ is an element of $Y$. 
 :::
 
+::: statement
+__Named principle (NP)__. This is a named principle with an acronym.
+:::
+
 # More
 
 ::: {.axiom #ax:existence}
 __The Axiom of Existence__. There exists a set which has no elements.
 :::
+### subsec
 
 ::: {.axiom #sta:extensionality}
 If every element of $X$ is an element of $Y$ and every element
@@ -49,6 +54,7 @@ of $Y$ an element of $X$ then $X=Y$.
 ::: {.lemma .lem}
 There exists only one set with no elements.
 :::
+### subsec
 
 ::: definition
 The (unique) set with no elements is called the empty set and 
@@ -59,8 +65,13 @@ denoted $\varnothing$.
 Immediate from (axiom) and (axiom).
 :::
 
+### subsec
 
-::: theorem
-A theorem.
+::: cor
+A corollary.
 :::
 
+::: axiom
+__Named principle__. This checks that two statements with the same custom
+label get different environments.
+:::

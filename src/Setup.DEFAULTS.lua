@@ -5,12 +5,15 @@
 Setup.DEFAULTS = {}
 Setup.DEFAULTS.KINDS = {
 	none = {
-		statement = {prefix = 'sta', style = 'empty', counter='none'},
+		statement = {prefix = 'sta', style = 'empty', counter='none',
+									custom_label_style = {
+											label_punctuation = '.',
+									}},
 	},
 	basic = {
 		theorem = { prefix = 'thm', style = 'plain', counter = 'section' },
 		lemma = { prefix = 'lem', style = 'plain', counter = 'theorem' },
-		corollary = { prefix = 'cor', style = 'plain', counter = 'theorem' },
+		corollary = { prefix = 'cor', style = 'plain', counter = 'subsubsection' },
 		proposition = {prefix = 'prop', style = 'plain', counter = 'theorem' },
 		conjecture = {prefix = 'conj', style = 'plain', counter = 'theorem' },
 		fact = { style = 'plain', counter = 'theorem'},
@@ -22,8 +25,7 @@ Setup.DEFAULTS.KINDS = {
 		solution = {prefix = 'sol', style = 'definition', counter = 'theorem'},
 		remark = {prefix = 'rem', style = 'remark', counter = 'theorem'},
 		claim = {prefix = 'claim', style = 'remark', counter = 'theorem'},
-		proof = {prefix = 'claim', style = 'proof', counter = 'none',
-						do_not_define_in_latex = true},
+		proof = {prefix = 'claim', style = 'proof', counter = 'none'},
 	},
 	advanced = {
 		theorem = { prefix = 'thm', style = 'plain', counter = 'section' },
@@ -60,7 +62,7 @@ Setup.DEFAULTS.STYLES = {
 			margin_right = '2em',
 			body_font = '',
 			indent = '0pt',
-			head_font = nil,
+			head_font = 'smallcaps',
 			label_punctuation = '',
 			space_after_head = ' ',
 			heading_pattern = nil,			

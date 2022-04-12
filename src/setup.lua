@@ -20,10 +20,12 @@ Setup.options = {
 Setup.kinds = {
 	-- kindname = { 
 	--			prefix = string, crossreference prefix
+	--			label = Inlines, statement's label e.g. "Theorem"
 	-- 			style = string, style (key of `styles`)
 	-- 			counter = string, 'none', 'self', 
 	--								<kindname> string, kind for shared counter,
 	--								<level> number, heading level to count within
+	--			count = nil or number, this kind's counter value
 }
 
 --- Setup.styles: styles of statement, e.g. 'plain', 'remark'
@@ -32,9 +34,25 @@ Setup.styles = {
 	--			do_not_define_in_latex = bool, whether to define in LaTeX 
 	--	}
 }
+
 --- Setup.aliases: aliases for statement kind names ('thm' for 'theorem')
 Setup.aliases = {
 	-- aliasname = kindname string, key of the Setup:kinds table
+}
+
+--- Setup.counters: list of level counters
+Setup.counters = {
+	-- 1 = { count = number, count of level 1 headings
+	--				 reset = {kind_keys}, list of kind_keys to reset when this counter is 
+	--															incremented
+	--				format = string, e.g. '%1.%2.' for level_1.level_2. 
+	--													or '%p.%s' for <parent string>.<self value>
+	--		}
+}
+
+--- Setup.labels_by_id: stored labels per statement id
+Setup.labels_by_id = {
+	-- identifier = Inlines
 }
 
 -- Setup.includes: code to be included in header or before first statement
@@ -51,9 +69,17 @@ Setup.read_options = require('Setup.read_options') -- function to read options
 
 Setup.create = require('Setup.create_kinds_and_styles') -- to create kinds and styles
 
+Setup.create_counters = require('Setup.create_counters') -- to create level counters
+
+Setup.write_counter = require('Setup.write_counter') -- to create level counters
+
+Setup.increment_counter = require('Setup.increment_counter') -- to incremeent a level counter
+
 Setup.update_meta = require('Setup.update_meta') -- to update a document's meta
 
 Setup.length_format = require('Setup.length_format') -- to convert length values
+
+Setup.font_format = require('Setup.font_format') -- to convert font features values
 
 --- Setup:new: construct a Setup object 
 --@param meta Pandoc Meta object
@@ -74,6 +100,9 @@ function Setup:new(meta)
 		-- create kinds and styles
 		-- (localizes labels, builds alias map)
 		s:create_kinds_and_styles(meta)
+
+		-- prepare counters
+		s:create_counters()
 
 		return s
 end

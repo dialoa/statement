@@ -5,6 +5,8 @@ function Statement:write(format)
 	local blocks = pandoc.List:new()
 	local format = format or FORMAT
 	local kinds = self.setup.kinds -- pointer to the kinds table
+	local label_inlines -- statement's label
+	local label_delimiter = '.'
 
 	-- do we have before_first includes to include before any
 	-- definition? if yes include them here and wipe it out
@@ -19,6 +21,8 @@ function Statement:write(format)
 	if write_kind_local_blocks then
 		blocks:extend(write_kind_local_blocks)
 	end
+
+	label_inlines = self:write_label() or pandoc.List:new()
 
 	-- format the statement
 	if format:match('latex') then
@@ -44,19 +48,10 @@ function Statement:write(format)
 		-- prepare the statement heading
 		local heading = pandoc.List:new()
 		-- label?
-		if kinds[self.kind].label then
-			local inlines = pandoc.List:new()
-			if self.setup.options.swap_numbers then
-					inlines:insert(pandoc.Str('1.1')) -- placeholder for the counter
-					inlines:insert(pandoc.Space())
-			end
-			inlines:extend(kinds[self.kind].label)
-			if self.setup.options.swap_numbers then
-					inlines:insert(pandoc.Space())
-					inlines:insert(pandoc.Str('1.1')) -- placeholder for the counter
-			end
-			inlines:insert(pandoc.Str('.')) -- delimiter
-			heading:insert(pandoc.Strong(inlines))
+		if #label_inlines > 0 then
+			label_inlines:insert(pandoc.Str(label_delimiter))
+			-- @TODO format according to statement kind
+			heading:insert(pandoc.Strong(label_inlines))
 		end
 
 		-- info?

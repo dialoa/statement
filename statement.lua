@@ -9,13 +9,10 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @license MIT - see LICENSE file for details.
 @release 0.3
 
-@TODO specify font style for empty label
-@TODO If empty has a label, delimiter should be '.'
 @TODO unnumbered class
-@TODO proof should be defined if not amsthm
-@TODO handle cross-references
+@TODO handle cross-references. in LaTeX \ref prints out number or section number if unnumbered
 @TODO LaTeX hack for statements in list
-@TODO create and increment counters
+@TODO html output, read Pandoc's number-offset option
 
 proof environement in LaTeX AMS:
 - does not define a new theorem kind and style
@@ -89,10 +86,12 @@ Setup.options = {
 Setup.kinds = {
 	-- kindname = { 
 	--			prefix = string, crossreference prefix
+	--			label = Inlines, statement's label e.g. "Theorem"
 	-- 			style = string, style (key of `styles`)
 	-- 			counter = string, 'none', 'self', 
 	--								<kindname> string, kind for shared counter,
 	--								<level> number, heading level to count within
+	--			count = nil or number, this kind's counter value
 }
 
 --- Setup.styles: styles of statement, e.g. 'plain', 'remark'
@@ -101,9 +100,25 @@ Setup.styles = {
 	--			do_not_define_in_latex = bool, whether to define in LaTeX 
 	--	}
 }
+
 --- Setup.aliases: aliases for statement kind names ('thm' for 'theorem')
 Setup.aliases = {
 	-- aliasname = kindname string, key of the Setup:kinds table
+}
+
+--- Setup.counters: list of level counters
+Setup.counters = {
+	-- 1 = { count = number, count of level 1 headings
+	--				 reset = {kind_keys}, list of kind_keys to reset when this counter is 
+	--															incremented
+	--				format = string, e.g. '%1.%2.' for level_1.level_2. 
+	--													or '%p.%s' for <parent string>.<self value>
+	--		}
+}
+
+--- Setup.labels_by_id: stored labels per statement id
+Setup.labels_by_id = {
+	-- identifier = Inlines
 }
 
 -- Setup.includes: code to be included in header or before first statement
@@ -118,12 +133,15 @@ Setup.includes = {
 Setup.DEFAULTS = {}
 Setup.DEFAULTS.KINDS = {
 	none = {
-		statement = {prefix = 'sta', style = 'empty', counter='none'},
+		statement = {prefix = 'sta', style = 'empty', counter='none',
+									custom_label_style = {
+											label_punctuation = '.',
+									}},
 	},
 	basic = {
 		theorem = { prefix = 'thm', style = 'plain', counter = 'section' },
 		lemma = { prefix = 'lem', style = 'plain', counter = 'theorem' },
-		corollary = { prefix = 'cor', style = 'plain', counter = 'theorem' },
+		corollary = { prefix = 'cor', style = 'plain', counter = 'subsubsection' },
 		proposition = {prefix = 'prop', style = 'plain', counter = 'theorem' },
 		conjecture = {prefix = 'conj', style = 'plain', counter = 'theorem' },
 		fact = { style = 'plain', counter = 'theorem'},
@@ -135,8 +153,7 @@ Setup.DEFAULTS.KINDS = {
 		solution = {prefix = 'sol', style = 'definition', counter = 'theorem'},
 		remark = {prefix = 'rem', style = 'remark', counter = 'theorem'},
 		claim = {prefix = 'claim', style = 'remark', counter = 'theorem'},
-		proof = {prefix = 'claim', style = 'proof', counter = 'none',
-						do_not_define_in_latex = true},
+		proof = {prefix = 'claim', style = 'proof', counter = 'none'},
 	},
 	advanced = {
 		theorem = { prefix = 'thm', style = 'plain', counter = 'section' },
@@ -173,7 +190,7 @@ Setup.DEFAULTS.STYLES = {
 			margin_right = '2em',
 			body_font = '',
 			indent = '0pt',
-			head_font = nil,
+			head_font = 'smallcaps',
 			label_punctuation = '',
 			space_after_head = ' ',
 			heading_pattern = nil,			
@@ -463,6 +480,113 @@ function Setup:create_kinds_and_styles(meta)
 
 end
 
+--- Setup:create_counters create level counters based on statement kinds
+--@return nil, modifies the self.counters table
+--@TODO html output, read Pandoc's number-offset option
+function Setup:create_counters()
+	-- default counter output: %s for counter value, 
+	-- %p for its parent's formatted output
+	local default_format = function (level)
+		return level == 1 and '%s' or '%p.%s'
+	end
+
+	-- only create counters from 1 to level required by some kind
+	for kind_key,definition in pairs(self.kinds) do
+		local level = tonumber(definition.counter) or 
+									self:get_level_by_LaTeX_name(definition.counter)
+		if level then
+			if level >= 1 and level <= 6 then
+
+				-- create counters up to level if needed
+				for i = 1, level do
+					if not self.counters[i] then
+							self.counters[i] = {
+																		count = 0,
+																		reset = pandoc.List:new(),
+																		format = default_format(i),
+																	}
+					end
+				end
+				self.counters[level].reset:insert(kind_key)
+
+			else
+
+				message('WARNING','Kind '..kind_key..' was assigned level '..tostring(level)
+													..', which is outside the range 1-6 of Pandoc levels.'
+													..' Counters for these statement will probably not work as desired.')
+
+			end
+
+		end
+
+	end
+
+end
+
+--- Setup:write_counter: format a counter as string
+--@param level number, counter level
+--@return string formatted counter
+function Setup:write_counter(level)
+
+	-- counter_format: function to be used in recursion
+	-- The recursion list tracks the levels encountered in recursion
+	-- to ensure the function doesn't get into an infinite loop.
+	local function counter_format(lvl, recursion)
+		local recursion = recursion or pandoc.List:new()
+		local result = ''
+
+		if not self.counters[lvl] then
+			message('WARNING', 'No counter for lvl '..tostring(lvl)..'.')
+			result = '??'
+		else
+			result = self.counters[lvl].format or '%s'
+			-- remember that we're currently processing this lvl
+			recursion:insert(lvl)
+			-- replace %s by the value of this counter
+			local self_count = self.counters[lvl].count or 0
+			result = result:gsub('%%s', tostring(self_count))
+			-- replace %p by the formatted previous lvl counter
+			-- unless we're already processing that lvl in recursion
+			if lvl > 1 and not recursion:find(lvl-1) then
+				result = result:gsub('%%p',counter_format(lvl-1, recursion))
+			end
+			-- replace %1, %2, ... by the value of the corresponding counter
+			-- unless we're already processing them in recursion
+			for i = 1, 6 do
+				if result:match('%%'..tostring(i)) and not recursion:find(i) then
+					result = result:gsub('%%'..tostring(i), 
+																counter_format(i, recursion))
+				end
+			end
+		end
+
+		return result
+
+	end
+
+	return counter_format(level)
+
+end
+
+---Setup:increment_counter: increment the counter of a level
+-- Increments a level's counter and reset any statement
+-- count that is counted within that level.
+-- The counters table tells us which statement counters to reset.
+--@param level number, the level to be incremented
+function Setup:increment_counter(level)
+	if self.counters[level] then
+
+		self.counters[level].count = self.counters[level].count + 1
+
+		if self.counters[level].reset then
+			for _,kind_key in ipairs(self.counters[level].reset) do
+				self.kinds[kind_key].count = 0
+			end
+		end
+
+	end
+end
+
 ---Setup:update_meta: update a document's metadata
 -- inserts the setup.includes.header in the document's metadata
 --@param meta Pandoc Meta object
@@ -736,6 +860,56 @@ function Setup:length_format(str, format)
 
 end
 
+--- Setup:length_format: parse font features into the desired format
+--@TODO what if a space is provided (space after head)
+-- @param len Inlines or string to be interpreted
+-- @param format (optional) desired format if other than FORMAT
+-- @return string specifying font features in the desired format or ''
+function Setup:font_format(str, format)
+	local format = format or FORMAT
+	local result = ''
+	if type(str) ~= 'string' then
+		str = stringify(str)
+	end
+
+	-- within this function, format is 'css' when css features are needed
+	if format:match('html') then
+		format = 'css'
+	end
+
+	-- FEATURES and their conversion
+	local FEATURES = {
+		upright = {
+			latex = '\\upshape',
+			css = 'font-style: italic;',
+		},
+		italics = {
+			latex = '\\itshape',
+			css = 'font-style: italic;',
+		},
+		smallcaps = {
+			latex = '\\scshape',
+			css = 'font-variant: small-caps;',
+		},
+		bold = {
+			latex = '\\bfseries',
+			css = 'font-weight: bold;'
+		},
+	}
+	-- provide 'small-caps' alias
+	-- nb, we use the table key as a matching pattern, so `-` is escaped
+	FEATURES['small%-caps'] = FEATURES.smallcaps
+
+	for feature,definition in pairs(FEATURES) do
+		if str:match(feature) and definition[format] then
+			result = result..definition[format]
+		end
+	end
+
+	return result
+
+end
+
 --- Setup:new: construct a Setup object 
 --@param meta Pandoc Meta object
 --@return a Setup object
@@ -755,6 +929,9 @@ function Setup:new(meta)
 		-- create kinds and styles
 		-- (localizes labels, builds alias map)
 		s:create_kinds_and_styles(meta)
+
+		-- prepare counters
+		s:create_counters()
 
 		return s
 end
@@ -816,8 +993,10 @@ function Setup:get_LaTeX_section_level(meta,format)
 	-- top_level is default, infer from documentclass and classoption
 	if format == 'latex' and meta.documentclass then
 		-- book, scrbook, memoir: section is level 2
-		if meta.documentclass == 'book' or meta.documentclass == 'scrbook'
-			or meta.documentclass == 'report' then
+		if meta.documentclass == 'book' 
+						or meta.documentclass == 'amsbook'
+						or meta.documentclass == 'scrbook'
+						or meta.documentclass == 'report' then
 				return 2 
 		elseif meta.documentclass == 'memoir' then
 			local level = 2 -- default, unless option 'article' is set
@@ -878,9 +1057,12 @@ Statement = {
 	kind = nil, -- string, key of `kinds`
 	id = nil, -- string, Pandoc id
 	custom_label = nil, -- Inlines, user-provided label
+	crossref_label = nil, -- Inlines, label used to crossreference the statement
+	label = nil, -- Inlines, formatted label to display
+	acronym = nil, -- Inlines, acronym
 	info = nil, -- Inlines, user-provided info
-	label = nil, -- Inlines, user-provided label
 	content = nil, -- Blocks, statement's content
+	is_numbered = true, -- whether a statement is numbered
 }
 --- create a statement object from a pandoc element.
 -- @param elem pandoc Div or list item (= table list of 2 elements)
@@ -901,12 +1083,17 @@ function Statement:new(elem, setup)
 		o.kind = kind -- element kind
 		o.content = elem.content -- element content
 		o:extract_label() -- extract label, acronym
-		o.id = elem.identifier or stringify(o.acronym) or nil -- element id
 		-- if custom label, create a new kind
-		if o.label then
+		if o.custom_label then
 			o:new_kind_from_label()
 		end
 		o:extract_info() -- extract info
+		o:set_identifier(elem) -- set identifier based on elem.identifier or acroynym
+		o:set_is_numbered(elem) -- set self.is_numbered
+		if o.is_numbered then
+			o:increment_count() -- update the kind's counter
+		end
+		o:set_crossref_label() -- set crossref label
 
 		-- return
 		return o
@@ -1132,9 +1319,10 @@ end
 -- at the end of the label. If the label only contains an acronym,
 -- it is used as label, brackets preserved.
 -- if `acronym_mode` is set to false we do not search for acronyms.
--- label (Inlines) placed in self.label
--- acronym (Inlines) placed in self.acronym
--- remainder of the content (Blocks) placed in self.content
+-- Updates:
+--		self.custom_label Inlines or nil, content of the label if found
+--		self.acronym Inlines or nil, acronym
+--		self.content Blocks, remainder of the statement after extraction
 --@return nil 
 function Statement:extract_label()
 	local delimiters = {'(',')'} -- acronym delimiters
@@ -1194,11 +1382,11 @@ function Statement:extract_label()
 
 	-- search for an acronym within the label
 	-- we only store it if removing it leaves some label
-	if self.setup.options.acronym then
-		local saved_content = lab:clone()
-		acro, lab = self:extract_fbb(lab, 'reverse')
-		if acro and #lab == 0 then
-			acro, lab = nil, saved_content
+	if self.setup.options.acronyms then
+		local bracketed, remainder = self:extract_fbb(lab, 'reverse')
+		if bracketed and #remainder > 0 then
+			acro = bracketed
+			lab = remainder
 		end
 	end
 
@@ -1217,7 +1405,7 @@ function Statement:extract_label()
 	if has_label then
 		self.content[1] = first_block
 		self.acronym = acro
-		self.label = lab
+		self.custom_label = lab
 	end
 
 end
@@ -1227,6 +1415,7 @@ end
 -- updates the self.setup.kinds table with a new kind
 function Statement:new_kind_from_label()
 	local kind = kind or self.kind
+	local kind_key, style_key
 
 	-- create_key_from_label: turn inlines into a key that
 	-- can safely be used as LaTeX envt name and html class
@@ -1238,11 +1427,37 @@ function Statement:new_kind_from_label()
 
 	-- Main function body
 
-	if not self.label then
+	if not self.custom_label then
 		return
 	end
 
-	local kind_key = create_key_from_label(self.label)
+	local label_str = create_key_from_label(self.custom_label)
+	kind_key = label_str
+	style_key = self.setup.kinds[kind].style -- original style
+
+	-- do we need a new style too?
+	if self.setup.kinds[kind].custom_label_style then
+		local new_style = {}
+		-- copy the fields from the original statement style
+		-- except 'is_defined'
+		for k,v in pairs(self.setup.styles[style_key]) do
+			if k ~= 'is_defined' then
+				new_style[k] = v
+			end
+		end
+		-- insert the custom_label_style modifications
+		for k,v in pairs(self.setup.kinds[kind].custom_label_style) do
+			new_style[k] = v
+		end
+		-- ensure we use a new style key
+		style_key = label_str
+		local n = 1
+		while self.setup.styles[style_key] do
+			style_key = label_str..'-'..tostring(n)
+		end
+		-- store the new style
+		self.setup.styles[style_key] = new_style
+	end
 
 	-- ensure we use a new kind key
 	local n = 1
@@ -1251,13 +1466,13 @@ function Statement:new_kind_from_label()
 		n = n + 1
 	end
 
-	-- create the new kind by cloning the original one
-	-- set its new label to custom_label and its counter to 'none'
+	-- create the new kind
+	-- keep the original prefix; new style if needed
+	-- set its new label to custom_label; set its counter to 'none'
 	self.setup.kinds[kind_key] = {}
-	for k,v in pairs(self.setup.kinds[kind]) do
-		 self.setup.kinds[kind_key][k] = v
-	end
-	self.setup.kinds[kind_key].label = self.label -- Inlines
+	self.setup.kinds[kind_key].prefix = self.setup.kinds[kind].prefix
+	self.setup.kinds[kind_key].style = style_key
+	self.setup.kinds[kind_key].label = self.custom_label -- Inlines
 	self.setup.kinds[kind_key].counter = 'none'
 
 	-- set this statement's kind to the new kind
@@ -1300,6 +1515,141 @@ function Statement:extract_info()
 			self.content[1] = first_block
 		end
 
+	end
+
+end
+
+--- Statement:set_identifier: set an element's id
+-- store it with the crossref label in setup.labels_by_id
+function Statement:set_identifier(elem)
+	local id
+
+	if elem.identifier and elem.identifier ~= '' then
+		id = elem.identifier
+	elseif self.acronym then
+		id = stringify(self.acronym):gsub('[^%w]','-')
+	end
+
+	if id and id ~= '' then
+		if self.setup.labels_by_id[id] then
+			message('WARNING', 'Two statements with the same identifier: '..id..'.'
+								..' The second is ignored.')
+		else
+					self.id = id
+					self.setup.labels_by_id[id] = 'CROSSREF'
+		end
+	end
+
+end
+
+--- Statement:set_is_numbered: determine whether a statement is numbered
+-- Checks if the element has a 'unnumbered' attribute or 'none' counter.
+-- Updates:
+--	self.is_numbered Bool whether the statement is numbered
+--@param elem the statement element Div or item in Definition list
+--@return nil
+function Statement:set_is_numbered(elem)
+	kinds = self.setup.kinds -- pointer to the kinds table
+
+	-- is_counter: whether a counter is a level, LaTeX level or 'self'
+	local function is_counter(counter) 
+		return counter == 'self'
+					or (type(counter) == 'number' and counter >= 1 and counter <= 6)
+					or self.setup:get_level_by_LaTeX_name(counter)
+		end
+
+	if elem.t == 'Div' and elem.classes:includes('unnumbered') then
+
+			self.is_numbered = false
+
+	elseif kinds[self.kind] and kinds[self.kind].counter then
+		-- check if this is a counting counter
+		local counter = kinds[self.kind].counter
+		-- if shared counter, switch to that counter
+		if kinds[counter] then
+			counter = kinds[counter].counter
+		end
+		-- check this is a counting counter
+		if is_counter(counter) then
+			self.is_numbered = true
+		else
+			self.is_numbered = false
+		end
+
+	else -- 'none' or something unintelligible
+
+		self.is_numbered = false
+		
+	end
+end
+
+
+---Statement:increment_count: increment a statement kind's counter
+-- Increments the kind's count of this statement kind or
+-- its shared counter's kind.
+function Statement:increment_count()
+	kinds = self.setup.kinds -- pointer to the kinds table
+	kind_key = self.kind
+	-- shared counter?
+	if kinds[kind_key].counter and kinds[kinds[kind_key].counter] then
+		kind_key = kinds[kind_key].counter
+	end
+	kinds[kind_key].count = kinds[kind_key].count 
+													and kinds[kind_key].count + 1
+													or 1
+
+end
+
+--- Statement:set_crossref_label
+-- Set a statement's crossref label, i.e. the text that will be
+-- used in crossreferences to the statement.
+-- priority:
+--		- use self.crossref_label, if user set
+-- 		- use self.acronym, otherwise
+--		- use self.label (custom label), otherwise
+--		- use formatted statement count
+--		- '??'
+--@return nil sets self.crossref_label, pandoc Inlines
+function Statement:set_crossref_label()
+	local delimiter = '.' -- separates section counter and statement counter
+	local kinds = self.setup.kinds -- pointer to the kinds table
+	local counters = self.setup.counters -- pointer to the counters table
+
+	-- use self.crossref_label if set
+	if self.crossref_label then
+	-- or use acronym
+	elseif self.acronym then
+		self.crossref_label = self.acronym
+	-- or custom label
+	elseif self.custom_label then
+		self.crossref_label = self.custom_label
+	-- or formatted statement count
+	elseif self.is_numbered then
+		-- if shared counter, switch kind to the shared counter's kind
+		local kind = self.kind
+		local counter = kinds[self.kind].counter
+		if kinds[counter] then
+			kind = counter
+			counter = kinds[counter].counter
+		end
+		-- format result depending of 'self', <level> or 'none'/unintelligible
+		if counter =='self' then
+			local count = kinds[kind].count or 0
+			self.crossref_label = pandoc.Inlines(pandoc.Str(tostring(count)))
+		elseif type(counter) == 'number' 
+			or self.setup:get_level_by_LaTeX_name(counter) then
+			if type(counter) ~= 'number' then
+				counter = self.setup:get_level_by_LaTeX_name(counter)
+			end
+			local count = kinds[kind].count or 0
+			local prefix = self.setup:write_counter(counter)
+			local str = prefix..delimiter..tostring(count)
+			self.crossref_label = pandoc.Inlines(pandoc.Str(str))
+		else
+			self.crossref_label = pandoc.Inlines(pandoc.Str('??'))
+		end
+	else
+		self.crossref_label = pandoc.Inlines(pandoc.Str('??'))
 	end
 
 end
@@ -1377,7 +1727,7 @@ function Statement:write_style(style, format)
 			local style_def = self.setup.styles[style]
 			local space_above = style_def.margin_top or '0pt'
 			local space_below = style_def.margin_bottom or '0pt'
-			local body_font = style_def.body_font or ''
+			local body_font = self.setup:font_format(style_def.body_font)
 			if style_def.margin_right then
 				body_font = '\\addtolength{\\rightskip}{'..style_def.margin_left..'}'
 										..body_font
@@ -1387,7 +1737,7 @@ function Statement:write_style(style, format)
 										..body_font
 			end
 			local indent = style_def.indent or ''
-			local head_font = style_def.head_font or ''
+			local head_font = self.setup:font_format(style_def.head_font)
 			local label_punctuation = style_def.label_punctuation or ''
 			-- NB, space_after_head can't be '' or LaTeX crashes. use ' ' or '0pt'
 			local space_after_head = style_def.space_after_head or ' ' 
@@ -1431,7 +1781,7 @@ end
 -- in the desired output format. These blocks are added to
 -- `self.setup.includes.header` or returned to be added locally, 
 -- depending on the `setup.options.define_in_header` setting.
--- @param kind string (optional) kind to be formatted, if not self.kind
+-- @param kind string (optional) kind to be formatted, if not kind
 -- @param format string (optional) format desired if other than FORMAT
 -- @return blocks or {}, blocks to be added locally if any
 function Statement:write_kind(kind, format)
@@ -1539,6 +1889,58 @@ function Statement:write_kind(kind, format)
 
 end
 
+--- Statement:write_label write the statement's full label
+-- If numbered, use the kind label and statement numbering.
+-- If custom label and acronym, use them. Otherwise no label.
+-- Uses
+--	self.is_numbered to tell whether the statement is numbered
+--	self.setup.options.swap_numbers to swap numbers
+-- 	self.custom_label, if any
+-- 	self.crossref_label if numbered, this contains the numbering
+-- 	self.setup.kinds[self.kind].label the kind's label, if any
+--@return inlines statement label inlines
+function Statement:write_label()
+	kinds = self.setup.kinds -- pointer to the kinds table
+	bb, eb = '(', ')' 
+	inlines = pandoc.List:new()
+	
+	if self.is_numbered then
+
+		-- add kind label
+		if kinds[self.kind] and kinds[self.kind].label then
+			inlines:extend(kinds[self.kind].label)
+		end
+		-- insert numbering from self.crossref_label
+		if self.crossref_label then
+			if self.setup.options.swap_numbers then
+				if #inlines > 0 then
+					inlines:insert(1, pandoc.Space())
+				end
+				inlines = self.crossref_label:__concat(inlines) 
+			else
+				if #inlines > 0 then
+					inlines:insert(pandoc.Space())
+				end
+				inlines:extend(self.crossref_label)
+			end
+		end
+
+	elseif self.custom_label then
+
+		inlines:extend(self.custom_label)
+		if self.acronym then
+			inlines:insert(pandoc.Space())
+			inlines:insert(pandoc.Str(bb))
+			inlines:extend(self.acronym)			
+			inlines:insert(pandoc.Str(eb))
+		end
+
+	end
+
+	return inlines
+
+end
+
 --- Statement:write: format the statement as an output string.
 -- @param format string (optional) format desired if other than FORMAT
 -- @return Blocks blocks to be inserted. 
@@ -1546,6 +1948,8 @@ function Statement:write(format)
 	local blocks = pandoc.List:new()
 	local format = format or FORMAT
 	local kinds = self.setup.kinds -- pointer to the kinds table
+	local label_inlines -- statement's label
+	local label_delimiter = '.'
 
 	-- do we have before_first includes to include before any
 	-- definition? if yes include them here and wipe it out
@@ -1560,6 +1964,8 @@ function Statement:write(format)
 	if write_kind_local_blocks then
 		blocks:extend(write_kind_local_blocks)
 	end
+
+	label_inlines = self:write_label() or pandoc.List:new()
 
 	-- format the statement
 	if format:match('latex') then
@@ -1585,19 +1991,10 @@ function Statement:write(format)
 		-- prepare the statement heading
 		local heading = pandoc.List:new()
 		-- label?
-		if kinds[self.kind].label then
-			local inlines = pandoc.List:new()
-			if self.setup.options.swap_numbers then
-					inlines:insert(pandoc.Str('1.1')) -- placeholder for the counter
-					inlines:insert(pandoc.Space())
-			end
-			inlines:extend(kinds[self.kind].label)
-			if self.setup.options.swap_numbers then
-					inlines:insert(pandoc.Space())
-					inlines:insert(pandoc.Str('1.1')) -- placeholder for the counter
-			end
-			inlines:insert(pandoc.Str('.')) -- delimiter
-			heading:insert(pandoc.Strong(inlines))
+		if #label_inlines > 0 then
+			label_inlines:insert(pandoc.Str(label_delimiter))
+			-- @TODO format according to statement kind
+			heading:insert(pandoc.Strong(label_inlines))
 		end
 
 		-- info?
@@ -1653,7 +2050,13 @@ local function walk_doc(doc,setup)
 		for i = 1, #blocks do
 			local block = blocks[i]
 
-			if block.t == 'Div' then
+			-- headers: increment counters if they exist
+			if setup.counters and block.t == 'Header' then
+
+					setup:increment_counter(block.level)
+					result:insert(block)
+
+			elseif block.t == 'Div' then
 
 				-- try to create a statement
 				sta = Statement:new(block, setup)
@@ -1666,7 +2069,7 @@ local function walk_doc(doc,setup)
 					result:insert(block)
 				end
 
-			else
+			else -- if not a statement, we simply add the block
 
 				result:insert(block)
 

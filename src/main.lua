@@ -9,13 +9,10 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @license MIT - see LICENSE file for details.
 @release 0.3
 
-@TODO specify font style for empty label
-@TODO If empty has a label, delimiter should be '.'
 @TODO unnumbered class
-@TODO proof should be defined if not amsthm
-@TODO handle cross-references
+@TODO handle cross-references. in LaTeX \ref prints out number or section number if unnumbered
 @TODO LaTeX hack for statements in list
-@TODO create and increment counters
+@TODO html output, read Pandoc's number-offset option
 
 proof environement in LaTeX AMS:
 - does not define a new theorem kind and style

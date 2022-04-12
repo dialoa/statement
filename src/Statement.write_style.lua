@@ -71,7 +71,7 @@ function Statement:write_style(style, format)
 			local style_def = self.setup.styles[style]
 			local space_above = style_def.margin_top or '0pt'
 			local space_below = style_def.margin_bottom or '0pt'
-			local body_font = style_def.body_font or ''
+			local body_font = self.setup:font_format(style_def.body_font)
 			if style_def.margin_right then
 				body_font = '\\addtolength{\\rightskip}{'..style_def.margin_left..'}'
 										..body_font
@@ -81,7 +81,7 @@ function Statement:write_style(style, format)
 										..body_font
 			end
 			local indent = style_def.indent or ''
-			local head_font = style_def.head_font or ''
+			local head_font = self.setup:font_format(style_def.head_font)
 			local label_punctuation = style_def.label_punctuation or ''
 			-- NB, space_after_head can't be '' or LaTeX crashes. use ' ' or '0pt'
 			local space_after_head = style_def.space_after_head or ' ' 

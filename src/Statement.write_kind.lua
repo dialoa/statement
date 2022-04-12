@@ -3,7 +3,7 @@
 -- in the desired output format. These blocks are added to
 -- `self.setup.includes.header` or returned to be added locally, 
 -- depending on the `setup.options.define_in_header` setting.
--- @param kind string (optional) kind to be formatted, if not self.kind
+-- @param kind string (optional) kind to be formatted, if not kind
 -- @param format string (optional) format desired if other than FORMAT
 -- @return blocks or {}, blocks to be added locally if any
 function Statement:write_kind(kind, format)

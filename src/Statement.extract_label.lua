@@ -4,9 +4,10 @@
 -- at the end of the label. If the label only contains an acronym,
 -- it is used as label, brackets preserved.
 -- if `acronym_mode` is set to false we do not search for acronyms.
--- label (Inlines) placed in self.label
--- acronym (Inlines) placed in self.acronym
--- remainder of the content (Blocks) placed in self.content
+-- Updates:
+--		self.custom_label Inlines or nil, content of the label if found
+--		self.acronym Inlines or nil, acronym
+--		self.content Blocks, remainder of the statement after extraction
 --@return nil 
 function Statement:extract_label()
 	local delimiters = {'(',')'} -- acronym delimiters
@@ -66,11 +67,11 @@ function Statement:extract_label()
 
 	-- search for an acronym within the label
 	-- we only store it if removing it leaves some label
-	if self.setup.options.acronym then
-		local saved_content = lab:clone()
-		acro, lab = self:extract_fbb(lab, 'reverse')
-		if acro and #lab == 0 then
-			acro, lab = nil, saved_content
+	if self.setup.options.acronyms then
+		local bracketed, remainder = self:extract_fbb(lab, 'reverse')
+		if bracketed and #remainder > 0 then
+			acro = bracketed
+			lab = remainder
 		end
 	end
 
@@ -89,7 +90,7 @@ function Statement:extract_label()
 	if has_label then
 		self.content[1] = first_block
 		self.acronym = acro
-		self.label = lab
+		self.custom_label = lab
 	end
 
 end

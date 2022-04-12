@@ -20,7 +20,13 @@ local function walk_doc(doc,setup)
 		for i = 1, #blocks do
 			local block = blocks[i]
 
-			if block.t == 'Div' then
+			-- headers: increment counters if they exist
+			if setup.counters and block.t == 'Header' then
+
+					setup:increment_counter(block.level)
+					result:insert(block)
+
+			elseif block.t == 'Div' then
 
 				-- try to create a statement
 				sta = Statement:new(block, setup)
@@ -33,7 +39,7 @@ local function walk_doc(doc,setup)
 					result:insert(block)
 				end
 
-			else
+			else -- if not a statement, we simply add the block
 
 				result:insert(block)
 
