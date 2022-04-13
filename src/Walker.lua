@@ -7,6 +7,8 @@ Walker.collect_ids = require('Walker.collect_ids') -- to collect non-statement i
 
 Walker.crossreferences = require('Walker.crossreferences') -- to collect non-statement ids
 
+Walker.statements_in_lists = require('Walker.statements_in_lists') -- filter, LaTeX hack for statements within lists
+
 -- Walker:new: create a Walker class object based on document's setup
 --@param setup a Setup class object
 --@param doc Pandoc document
@@ -43,7 +45,7 @@ function Walker:walk(blocks)
 															{'BlockQuote', 'Div', 'Note'})
 	-- element types with elem.content a list of Blocks type
 	local content_is_list_of_blocks = pandoc.List:new(
-							{'BulletList', 'DefinitionList', 'OrderedList', 'Note'})
+							{'BulletList', 'DefinitionList', 'OrderedList'})
 	local result = pandoc.List:new()
 	local is_modified = false
 

@@ -52,6 +52,9 @@ function main(doc)
 	-- create a new document walker based on the setting
 	local walker = Walker:new(setup, doc)
 
+	-- protect statements in lists in LaTeX by applying the statement_in_lists filter
+	walker.blocks = pandoc.Blocks(walker.blocks):walk(walker:statements_in_lists())
+
 	-- walk the document; returns nil if no modification
 	local blocks = walker:walk()
 	-- process crossreferences if statements were created

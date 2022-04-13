@@ -15,6 +15,8 @@ Setup.options = {
 	language = 'en', -- LOCALE setting
 	fontsize = nil, -- document fontsize
 	LaTeX_section_level = 1, -- heading level for to LaTeX's 'section'
+	LaTeX_in_list_afterskip = '.5em', -- space after statement first item in list
+	LaTeX_in_list_rightskip = '2em', -- right margin for statement first item in list
 }
 
 --- Setup.kinds: kinds of statement, e.g. 'theorem', 'proof'

@@ -87,6 +87,8 @@ Setup.options = {
 	language = 'en', -- LOCALE setting
 	fontsize = nil, -- document fontsize
 	LaTeX_section_level = 1, -- heading level for to LaTeX's 'section'
+	LaTeX_in_list_afterskip = '.5em', -- space after statement first item in list
+	LaTeX_in_list_rightskip = '2em', -- right margin for statement first item in list
 }
 
 --- Setup.kinds: kinds of statement, e.g. 'theorem', 'proof'
@@ -2310,6 +2312,78 @@ function Walker:crossreferences()
 
 end
 
+---Walker.statements_in_lists: filter to handle statements within
+-- lists in LaTeX.
+-- In LaTeX a statement at the first line of a list item creates an
+-- unwanted empty line. We wrap it in a LaTeX minipage to avoid this.
+-- Uses
+--		self.setup (passed to Statement.kinds_matched)
+--		self.setup.options.LaTeX_in_list_afterskip
+-- @TODO This is hack, probably prevents page breaks within the statement
+-- @TODO The skip below the statement is rigid, it should pick the
+-- skip that statement kind
+function Walker:statements_in_lists()
+	filter = {}
+
+	-- wrap: wraps the first element of a list of blocks
+  -- store the parindent value before, as minipage resets it to zero
+  -- \docparindent will contain it, but needs to be picked before
+  -- the list!
+  -- with minipage commands
+  local function wrap(blocks)
+    blocks:insert(1, pandoc.RawBlock('latex',
+      '\\begin{minipage}[t]{\\textwidth}\\parindent \\docparindent'
+      ))
+    blocks:insert(3, pandoc.RawBlock('latex',
+      '\\end{minipage}'
+      .. '\\vskip ' .. self.setup.options.LaTeX_in_list_afterskip
+      ))
+    -- add a right skip declaration within the statement Div
+    blocks[2].content:insert(1, pandoc.RawBlock('latex',
+      '\\addtolength{\\rightskip}{'
+      .. self.setup.options.LaTeX_in_list_rightskip .. '}'
+      )
+    )
+
+    return blocks
+  end
+
+  -- process: processes a BulletList or OrderedList element
+  -- return nil if nothing done
+  function process(elem)
+  	if FORMAT:match('latex') or FORMAT:match('native')
+    		or FORMAT:match('json') then
+ 				
+			local list_updated = false
+	    -- go through list items, check if they start with a statement Div
+      for i = 1, #elem.content do
+        if elem.content[i][1] 
+	        	and (elem.content[i][1].t == 'Div' or elem.content[i][1].t)
+	          and Statement:kinds_matched(elem.content[i][1],self.setup) then
+          elem.content[i] = wrap(elem.content[i])
+          list_updated = true
+        end
+      end
+
+      -- if list has been updated, we need to add a line at the beginning
+      -- to store the document's `\parindent` value
+      if list_updated == true then
+      	return pandoc.Blocks({
+          pandoc.RawBlock('latex',
+            '\\edef\\docparindent{\\the\\parindent}\n'),
+          elem      		
+      	})
+      end
+
+    end
+  end
+
+  -- return the filter
+  return {BulletList = process,
+  	OrderedList = process}
+
+end
+
 -- Walker:new: create a Walker class object based on document's setup
 --@param setup a Setup class object
 --@param doc Pandoc document
@@ -2346,7 +2420,7 @@ function Walker:walk(blocks)
 															{'BlockQuote', 'Div', 'Note'})
 	-- element types with elem.content a list of Blocks type
 	local content_is_list_of_blocks = pandoc.List:new(
-							{'BulletList', 'DefinitionList', 'OrderedList', 'Note'})
+							{'BulletList', 'DefinitionList', 'OrderedList'})
 	local result = pandoc.List:new()
 	local is_modified = false
 
@@ -2440,6 +2514,9 @@ function main(doc)
 
 	-- create a new document walker based on the setting
 	local walker = Walker:new(setup, doc)
+
+	-- protect statements in lists in LaTeX by applying the statement_in_lists filter
+	walker.blocks = pandoc.Blocks(walker.blocks):walk(walker:statements_in_lists())
 
 	-- walk the document; returns nil if no modification
 	local blocks = walker:walk()
