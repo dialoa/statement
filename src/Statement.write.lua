@@ -22,7 +22,12 @@ function Statement:write(format)
 		blocks:extend(write_kind_local_blocks)
 	end
 
+	-- prepare the label inlines (only needed for non-LaTeX formats)
 	label_inlines = self:write_label() or pandoc.List:new()
+	-- insert a span in content as link target if the statement has an identifier
+	if self.identifier then
+		self.content[1].content:insert(1, pandoc.Span({},pandoc.Attr(self.identifier)))
+	end
 
 	-- format the statement
 	if format:match('latex') then
@@ -41,7 +46,7 @@ function Statement:write(format)
 		blocks:insert(pandoc.RawBlock('latex',
 							'\\end{' .. self.kind .. '}'))
 
-	elseif format:match('html') then
+	--elseif format:match('html') then
 
 	else -- other formats, use blockquote
 

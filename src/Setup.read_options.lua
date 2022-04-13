@@ -38,6 +38,7 @@ function Setup:read_options(meta)
 			supply_header = 'supply-header',
 			only_statement = 'only-statement',
 			define_in_header = 'define-in-header',
+			citations = 'citations',
 		}
 		for key,option in pairs(boolean_options) do
 			if type(meta.statement[option]) == 'boolean' then

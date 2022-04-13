@@ -1,5 +1,8 @@
 -- # Helper functions
 
+--- stringify: Pandoc's stringify function
+stringify = pandoc.utils.stringify
+
 --- message: send message to std_error
 -- @param type string INFO, WARNING, ERROR
 -- @param text string message text

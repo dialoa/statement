@@ -9,11 +9,16 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @license MIT - see LICENSE file for details.
 @release 0.3
 
-@TODO unnumbered class
+@TODO preserve Div attributes in html and generic output
+@TODO set Div id when automatically generating an identifier (for Links)
 @TODO handle cross-references. in LaTeX \ref prints out number or section number if unnumbered
 @TODO LaTeX hack for statements in list
-@TODO html output, read Pandoc's number-offset option
+@TODO in html output, read Pandoc's number-offset option
+@TODO handle DefinitionList inputs (pandoc-theorem)?
+@TODO handle pandoc-amsthm style Div attributes?
+@TODO handle the Case environment?
 
+@TODO proof environment in non-LaTeX outputs
 proof environement in LaTeX AMS:
 - does not define a new theorem kind and style
 - has a \proofname command to be redefined
@@ -25,11 +30,11 @@ a new class every time, so mirror LaTeX.
 
 ]]
 
--- # Global variables
-stringify = pandoc.utils.stringify
-
--- # Filter components
+-- # Global helper functions
 -- # Helper functions
+
+--- stringify: Pandoc's stringify function
+stringify = pandoc.utils.stringify
 
 --- message: send message to std_error
 -- @param type string INFO, WARNING, ERROR
@@ -64,6 +69,7 @@ function ensure_list(elem)
 	return type(elem) == 'List' and elem or pandoc.List:new({elem})
 end
 
+-- # Filter components
 --- Setup class: statement filter setup.
 -- manages filter options, statement kinds, statement styles.
 Setup = {}
@@ -77,6 +83,7 @@ Setup.options = {
 	define_in_header = true, -- defs in header, not local
 	supply_header = true, -- modify header-includes 
 	only_statement = false, -- only process Divs of 'statement' class
+	citations = true, -- allow citation syntax for crossreferences
 	language = 'en', -- LOCALE setting
 	fontsize = nil, -- document fontsize
 	LaTeX_section_level = 1, -- heading level for to LaTeX's 'section'
@@ -116,9 +123,12 @@ Setup.counters = {
 	--		}
 }
 
---- Setup.labels_by_id: stored labels per statement id
-Setup.labels_by_id = {
-	-- identifier = Inlines
+--- Setup.identifiers: document identifiers. Populated as we walk the doc
+Setup.identifiers = {
+	-- identifier = {
+	--									is_statement = bool, whether it's a statement
+	--									crossref_label = inlines, label to use in crossreferences
+	--							}
 }
 
 -- Setup.includes: code to be included in header or before first statement
@@ -389,6 +399,7 @@ function Setup:read_options(meta)
 			supply_header = 'supply-header',
 			only_statement = 'only-statement',
 			define_in_header = 'define-in-header',
+			citations = 'citations',
 		}
 		for key,option in pairs(boolean_options) do
 			if type(meta.statement[option]) == 'boolean' then
@@ -1055,7 +1066,7 @@ end
 -- @field info Inlines the statement's info
 Statement = {
 	kind = nil, -- string, key of `kinds`
-	id = nil, -- string, Pandoc id
+	identifier = nil, -- string, Pandoc identifier
 	custom_label = nil, -- Inlines, user-provided label
 	crossref_label = nil, -- Inlines, label used to crossreference the statement
 	label = nil, -- Inlines, formatted label to display
@@ -1065,106 +1076,151 @@ Statement = {
 	is_numbered = true, -- whether a statement is numbered
 }
 --- create a statement object from a pandoc element.
--- @param elem pandoc Div or list item (= table list of 2 elements)
+-- @param elem pandoc Div or DefinitionList
 -- @param setup Setup class object, the document's statements setup
 -- @return statement object or nil if elem isn't a statement
 function Statement:new(elem, setup)
 
-	local kind = Statement:find_kind(elem, setup)
-	if kind then
+	-- create an object of Statement class
+	local o = {}
+	self.__index = self 
+	setmetatable(o, self)
 
-		-- create an object of Statement class
-		local o = {}
-		self.__index = self 
-		setmetatable(o, self)
+	o.setup = setup
+	-- determine if it has a statement kind or return nil
+	o.kind = o:find_kind(elem)
 
-		-- populate the object
-		o.setup = setup -- filter setup
-		o.kind = kind -- element kind
+	if o.kind then
+
 		o.content = elem.content -- element content
+		-- extract label, acronym
 		o:extract_label() -- extract label, acronym
 		-- if custom label, create a new kind
 		if o.custom_label then
 			o:new_kind_from_label()
 		end
-		o:extract_info() -- extract info
-		o:set_identifier(elem) -- set identifier based on elem.identifier or acroynym
+		-- if unnumbered, we may need to create a new kind
 		o:set_is_numbered(elem) -- set self.is_numbered
+		if not o.is_numbered then
+			o:new_kind_unnumbered()
+		end
+		o:extract_info() -- extract info
+		o:set_crossref_label() -- set crossref label
+		o:set_identifier(elem) -- set identifier, store crossref label for id
 		if o.is_numbered then
 			o:increment_count() -- update the kind's counter
 		end
-		o:set_crossref_label() -- set crossref label
 
 		-- return
 		return o
-	
+
 	else
 		return nil
 	end
 
 end
+---Statement:kinds_matched Determines whether an element is a
+-- statement and return the kinds it matches. 
+--@param elem pandoc element, should be Div or DefinitionList
+--@param setup (optional) a Setup class object, to be used when
+--			the function is called from the setup object
+--@return list, a pandoc List of matched kinds or nil
+function Statement:kinds_matched(elem,setup)
+	setup = setup or self.setup
+	local options = setup.options -- pointer to the options table
+	local kinds = setup.kinds -- pointer to the kinds table
+	local aliases = setup.aliases -- pointed to the aliases table
+
+	if elem.t then
+		if elem.t == 'Div' then
+			-- collect the element's classes that match a statement kind
+			-- check aliases if `options.aliases` is true
+			local matches = pandoc.List:new()
+			for _,class in ipairs(elem.classes) do
+				if kinds[class] and not matches:find(class) then
+					matches:insert(class)
+				elseif options.aliases
+					and aliases[class] and not matches:find(aliases[class]) then
+					matches:insert(aliases[class])
+				end
+			end
+
+			-- return nil if no match, or if options requires a statement
+			-- class and we don't have it
+			if #matches == 0 
+				or options.only_statement and not matches:find('statement') then
+					return nil
+			else
+					return matches
+			end
+
+		--@TODO process DefinitionList
+		elseif elem.t == 'DefinitionList' then
+
+			--@TODO
+
+		end
+
+	end
+
+end
+	
+
 --- Statement:find_kind: find whether an element is a statement and of what kind
 --@param elem pandoc Div or item in a pandoc DefinitionList
---@param setup Setup class object, filter setup
 --@return string or nil the key of `kinds` if found, nil otherwise
-function Statement:find_kind(elem, setup)
-	local kinds = setup.kinds -- points to the kinds table
+function Statement:find_kind(elem)
+	local setup = self.setup -- points to the setup table
 	local options = setup.options -- points to the options table
+	local kinds = setup.kinds -- points to the kinds table
 	local aliases = setup.aliases -- points to the aliases table
 
 	if elem.t and elem.t == 'Div' then
 
-		-- collect the element's classes that match a statement kind
-		-- check aliases if `options.aliases` is true
-		local matches = pandoc.List:new()
-		for _,class in ipairs(elem.classes) do
-			if kinds[class] and not matches:find(class) then
-				matches:insert(class)
-			elseif options.aliases
-				and aliases[class] and not matches:find(aliases[class]) then
-				matches:insert(aliases[class])
-			end
-		end
+		local kinds_matched = self:kinds_matched(elem)
 
-		-- return if no match
-		if #matches == 0 then return nil end
-		-- return if we only process 'statement' Divs and it isn't one
-		if options.only_statement and not matches:find('statement') then
+		-- if kinds matched, find king
+		if kinds_matched then
+
+			-- remove 'statement' if it's redundant
+			if #kinds_matched > 1 and kinds_matched:includes('statement') then
+				local _, pos = kinds_matched:find('statement')
+				kinds_matched:remove(pos)
+			end
+			-- warn if there's still more than one kind
+			if #kinds_matched > 1 then
+				local str = ''
+				for _,match in ipairs(kinds_matched) do
+					str = str .. ' ' .. match
+				end
+				message('WARNING', 'A Div kinds_matched several statement kinds: '
+					.. str .. '. Treated as kind '.. kinds_matched[1] ..'.')
+			end
+			-- return the first match, a key of `kinds`
+			return kinds_matched[1]
+
+		else -- no match
+
 			return nil
+
 		end
 
-		-- if we have other matches that 'statement', remove the latter
-		if #matches > 1 and matches:includes('statement') then
-			local _, pos = matches:find('statement')
-			matches:remove(pos)
-		end
+	-- @TOOO process DefinitionList
 
-		-- warn if we still have more than one match
-		if #matches > 1 then
-			local str = ''
-			for _,match in ipairs(matches) do
-				str = str .. ' ' .. match
-			end
-			message('WARNING', 'A Div matches several statement kinds: '
-				.. str .. '. Treated as kind '.. matches[1] ..'.')
-		end
-
-		-- return the first match, a key of `kinds`
-		return matches[1]
-
-	elseif type(elem) == 'table' then
-
-			message('WARNING', 'A non-Div element passed as potential statement. '
-				.. 'Not supported yet. Element content: '..stringify(elem))
-
-		-- process DefinitionList items here
-		-- they are table with two elements:
+		-- process DefinitionLists
+		-- list of items
+		-- each item is a table with two elements:
 		-- [1] Inlines, the definiens
-		-- [2] Blocks, the definiendum
+		-- [2] the definienda, a list of definitions
+		--			where each definition is Blocks
 
+	-- other element types passed, warn
 	else
 
-		return nil -- not a statement kind
+		local type_str = elem.t and 'Element type: '..elem.t..'.' or ''
+
+			message('WARNING', 'A wrong element passed as potential statement. '
+				.. type.str .. 'Element content: '..stringify(elem) )
 
 	end
 
@@ -1480,6 +1536,57 @@ function Statement:new_kind_from_label()
 
 end
 
+---Statement:new_kind_unnumbered create a new unnumbered kind
+-- if needed, based on a statement's kind
+-- Uses and updates:
+--		self.kind, this statement's current kind
+--		self.setup.kinds the kinds table
+--		self.setup.styles the styles table
+function Statement:new_kind_unnumbered()
+	local kinds = self.setup.kinds -- pointer to the kinds table
+	local styles = self.setup.styles -- pointer to the styles table	
+	local kind = self.kind
+	local kind_key, style_key
+
+	-- do nothing if this statement's kind is already unumbered
+	if kinds[kind] and kinds[kind].counter
+			and kinds[kind].counter == 'none' then
+		return
+	end
+
+	-- if there's already a `-unnumbered` variant for this kind
+	-- switch the kind to this
+	kind_key = kind..'-unnumbered'
+	if kinds[kind_key] and kinds[kind_key].counter
+			and kinds[kind_key].counter == 'none' then
+		self.kind = kind_key
+		return
+	end
+
+	-- otherwise create a new unnumbered variant
+	kind_key = kind..'-unnumbered'
+	style_key = kinds[kind].style -- use the original style
+
+	-- ensure the kind key is new
+	local n = 0
+	while kinds[kind_key] do
+		n = n + 1
+		kind_key = kind..'-unnumbered-'..tostring(n)
+	end
+
+	-- create the new kind
+	-- keep the original prefix and label; set its counter to 'none'
+	self.setup.kinds[kind_key] = {}
+	self.setup.kinds[kind_key].prefix = kinds[kind].prefix
+	self.setup.kinds[kind_key].style = style_key
+	self.setup.kinds[kind_key].label = kinds[kind].label -- Inlines
+	self.setup.kinds[kind_key].counter = 'none'
+
+	-- set this statement's kind to the new kind
+	self.kind = kind_key
+
+end
+
 --- Statement:extract_info: extra specified info from the statement's content.
 -- Scans the content's first block for an info specification (Cite
 -- or text within delimiters). If found, remove and place in the
@@ -1521,23 +1628,57 @@ end
 
 --- Statement:set_identifier: set an element's id
 -- store it with the crossref label in setup.labels_by_id
+-- Updates:
+--		self.identifier
+--		self.setup.identifiers
+--@param elem pandoc element for which we want to create an id
+--@return nil
 function Statement:set_identifier(elem)
+	local identifiers = self.setup.identifiers -- pointer to identifiers table
 	local id
 
-	if elem.identifier and elem.identifier ~= '' then
-		id = elem.identifier
-	elseif self.acronym then
-		id = stringify(self.acronym):gsub('[^%w]','-')
+	-- register: register id and crossref_label in the identifiers table
+	--@param id string the identifier to be registered
+	function register(id)
+		if id ~= '' then 
+			identifiers[id] = {
+				statement = true,
+				crossref_label = self.crossref_label
+			}
+			self.identifier = id
+		end
+	end
+	-- safe_register: register id or id-1, id-2 avoiding duplicates
+	function safe_register(id)
+		local n = 0
+		local str = id
+		while identifiers[str] do
+			n = n + 1
+			str = id..'-'..tostring(n)
+		end
+		register(str)
 	end
 
-	if id and id ~= '' then
-		if self.setup.labels_by_id[id] then
-			message('WARNING', 'Two statements with the same identifier: '..id..'.'
-								..' The second is ignored.')
-		else
-					self.id = id
-					self.setup.labels_by_id[id] = 'CROSSREF'
-		end
+	-- Function body: try to create an identifier
+	local id = elem.identifier or ''
+	--		user-specified id?
+	if id ~= '' then 
+			if identifiers[id] then
+				message('WARNING', "A statement's identifier is a duplicate:"
+					..' '..id..'. It is ignored, crossreferences may fail.')
+			else
+				register(id)
+			end
+
+	-- 		acronym?
+	elseif self.acronym then
+		id = stringify(self.acronym):gsub('[^%w]','-')
+		safe_register(id)
+
+	--	custom label?
+	elseif self.custom_label then
+		id = stringify(self.custom_label):lower():gsub('[^%w]','-')
+		safe_register(id)
 	end
 
 end
@@ -1648,6 +1789,7 @@ function Statement:set_crossref_label()
 		else
 			self.crossref_label = pandoc.Inlines(pandoc.Str('??'))
 		end
+	-- or set it to '??'
 	else
 		self.crossref_label = pandoc.Inlines(pandoc.Str('??'))
 	end
@@ -1965,7 +2107,12 @@ function Statement:write(format)
 		blocks:extend(write_kind_local_blocks)
 	end
 
+	-- prepare the label inlines (only needed for non-LaTeX formats)
 	label_inlines = self:write_label() or pandoc.List:new()
+	-- insert a span in content as link target if the statement has an identifier
+	if self.identifier then
+		self.content[1].content:insert(1, pandoc.Span({},pandoc.Attr(self.identifier)))
+	end
 
 	-- format the statement
 	if format:match('latex') then
@@ -1984,7 +2131,7 @@ function Statement:write(format)
 		blocks:insert(pandoc.RawBlock('latex',
 							'\\end{' .. self.kind .. '}'))
 
-	elseif format:match('html') then
+	--elseif format:match('html') then
 
 	else -- other formats, use blockquote
 
@@ -2027,82 +2174,283 @@ function Statement:write(format)
 end
 
 
--- # Main functions
---- walk_doc: processes the document.
--- @param doc Pandoc document
--- @param setup a Setup class object, the document's statement setup
--- @return Pandoc document if modified or nil
-local function walk_doc(doc,setup)
+-- # Walker class
 
-	--- process_blocks: processes a list of blocks (pandoc Blocks)
-	-- @param blocks
-	-- @return blocks or nil if not modified
-	local function process_blocks( blocks )
+--- Walker: class to hold methods that walk through the document
+Walker = {}
+---Walker:collect_ids: Collect ids of non-statement in a document
+-- Updates self.setup.identifiers
+--@param blocks (optional) pandoc Blocks, a list of Block elements
+--								defaults to self.blocks
+--@return nil
+function Walker:collect_ids(blocks)
+	local blocks = blocks or self.blocks
+	local identifiers = self.setup.identifiers -- identifiers table
+	local types_with_identifier = { 'CodeBlock', 'Div', 'Header', 
+						'Table', 'Code', 'Image', 'Link', 'Span',	}
+	local filter = {} -- filter to be applied to blocks
 
-		result = pandoc.List:new()
-		is_modified = false
+	-- register_or_warn: register element's id if any; warning if duplicate
+	local function register_or_warn(elem) 
+		if elem.identifier and elem.identifier ~= '' then
+			if identifiers[elem.identifier] then 
+				message('WARNING', 'Duplicate identifier: '
+													..elem.identifier..'.')
+			else
+				identifiers[elem.identifier] = {statement = false}
+			end
+		end
+	end
 
-		-- go through the document's element in order
-		-- find statement Divs and process them
-		-- find headings and update counters
-		-- @todo: recursive processing where needed
+	-- Div: register only if not a statement
+	filter.Div = function (elem)
+		if elem.identifier and elem.identifier ~= ''
+				and not Statement:kinds_matched(elem,self.setup) then
+					register_or_warn(elem)
+			end
+	end
 
-		for i = 1, #blocks do
-			local block = blocks[i]
+	--@TODO DefinitionList: register only if not a statement
 
-			-- headers: increment counters if they exist
-			if setup.counters and block.t == 'Header' then
+	-- Generic function for remaining types
+	for _,type in ipairs(types_with_identifier) do
+		filter[type] = filter[type] or register_or_warn
+	end
 
-					setup:increment_counter(block.level)
-					result:insert(block)
+	-- apply the filter to blocks
+	blocks:walk(filter)
 
-			elseif block.t == 'Div' then
+end
 
-				-- try to create a statement
-				sta = Statement:new(block, setup)
 
-				-- replace the block with the formatted statement, if any
-				if sta then
-					result:extend(sta:write())
+
+
+---Walker:crossreferences: creates a Blocks filter to 
+-- handle crossreferences.
+-- Links with empty content get crossref_label as their content
+-- Uses:
+--	self.setup.options.citations: whether to use citation syntax
+-- Uses and updates:
+-- 	self.blocks, the document's blocks
+--@param blocks blocks to be processed
+--@return nil
+function Walker:crossreferences()
+	local identifiers = self.setup.identifiers -- pointer to identifiers table
+	local filter = {}
+
+	filter.Link = function (link)
+		if #link.content == 0 and link.target:sub(1,1) == '#' then
+			local target_id = link.target:sub(2,-1)
+			if identifiers[target_id] 
+					and identifiers[target_id].statement == true then
+				link.content = identifiers[target_id].crossref_label or link.content
+				return link
+			end
+		end
+	end
+
+	-- if citation syntax is enabled, add a Cite filter
+	if self.setup.options.citations then
+		filter.Cite = function(cite)
+
+			local has_statement_ref, has_biblio_ref
+
+			-- warn if the citations mix cross-label refs with standard ones
+	    for _,citation in ipairs(cite.citations) do
+	        if identifiers[citation.id] then
+	            has_statement_ref = true
+	        else
+	            has_biblio_ref = true
+	        end
+	    end
+	    if has_statement_ref and has_biblio_ref then
+        message('WARNING', 'A citation mixes bibliographic references \
+            with custom label references '
+            .. pandoc.utils.stringify(cite.content) )
+        return
+   		end
+
+   		-- if statement crossreferences, turn Cite into Link(s)
+	    if has_statement_ref then
+
+        -- get style from the first citation
+        local bracketed = true 
+        if cite.citations[1].mode == 'AuthorInText' then
+            bracketed = false
+        end
+
+        local inlines = pandoc.List:new()
+
+        -- create link(s)
+
+        for i = 1, #cite.citations do
+           inlines:insert(pandoc.Link(
+                identifiers[cite.citations[i].id].crossref_label,
+                '#' .. cite.citations[i].id
+            ))
+            -- add separator if needed
+            if #cite.citations > 1 and i < #cite.citations then
+                inlines:insert(pandoc.Str('; '))
+            end
+        end
+
+        -- adds brackets if needed
+        if bracketed then
+            inlines:insert(1, pandoc.Str('('))
+            inlines:insert(pandoc.Str(')'))
+        end
+
+        return inlines
+
+	    end -- end of `if has_statement_ref...`
+		end -- end of filter.Cite function
+	end -- end of `if self.setup.options.citations ...`
+
+	return filter
+
+end
+
+-- Walker:new: create a Walker class object based on document's setup
+--@param setup a Setup class object
+--@param doc Pandoc document
+--@return Walker class object
+function Walker:new(setup, doc)
+
+	-- create an object of the Walker class
+	local o = {}
+	self.__index = self 
+	setmetatable(o, self)
+
+	-- pointer to the setup table
+	o.setup = setup
+	o.blocks = doc.blocks
+
+	-- collect ids of non-statement elements
+	-- this is to ensure that automatic statement id creation doesn't
+	-- create duplicates
+	o:collect_ids()
+
+	return o
+
+end
+
+--- Walker:walk: walk through a list of blocks, processing statements
+--@param blocks (optional) pandoc Blocks to be processed
+--								defaults to self.blocks
+function Walker:walk(blocks)
+	local blocks = blocks or self.blocks
+	-- recursion setup
+	-- NB, won't look for statements in table cells
+	-- element types with elem.content of Blocks type
+	local content_is_blocks = pandoc.List:new(
+															{'BlockQuote', 'Div', 'Note'})
+	-- element types with elem.content a list of Blocks type
+	local content_is_list_of_blocks = pandoc.List:new(
+							{'BulletList', 'DefinitionList', 'OrderedList', 'Note'})
+	local result = pandoc.List:new()
+	local is_modified = false
+
+	-- go through the blocks in order
+	--		- find headings and update counters
+	--		- find statements and process them
+	for _,block in ipairs(blocks) do
+
+		-- headers: increment counters if they exist
+		-- ignore 'unnumbered' headers: <https://pandoc.org/MANUAL.html#extension-header_attributes>
+		if self.setup.counters and block.t == 'Header' 
+			and not block.classes:includes('unnumbered') then
+
+				self.setup:increment_counter(block.level)
+				result:insert(block)
+
+		elseif block.t == 'Div' then
+
+			-- try to create a statement
+			sta = Statement:new(block, self.setup)
+
+			-- replace the block with the formatted statement, if any
+			if sta then
+				result:extend(sta:write())
+				is_modified = true
+
+			-- if none, process the Div's contents
+			else
+
+				local sub_blocks = self:walk(block.content)
+				if sub_blocks then
+					block.content = sub_blocks
 					is_modified = true
+					result:insert(block)
 				else
 					result:insert(block)
 				end
 
-			else -- if not a statement, we simply add the block
-
-				result:insert(block)
-
 			end
+
+		--recursively process elements whose content is blocks
+		elseif content_is_blocks:includes(block.t) then
+
+			local sub_blocks = self:walk(block.content)
+			if sub_blocks then
+				block.content = sub_blocks
+				is_modified = true
+				result:insert(block)
+			else
+				result:insert(block)
+			end
+
+		elseif content_is_list_of_blocks:includes(block.t) then
+
+			-- rebuild the list item by item, processing each
+			local content = pandoc.List:new()
+			for _,item in ipairs(block.content) do
+				local sub_blocks = self:walk(item)
+				if sub_blocks then
+					is_modified = true
+					content:insert(sub_blocks)
+				else
+					content:insert(item)
+				end
+			end
+			if is_modified then
+				block.content = content
+				result:insert(block)
+			else
+				result:insert(block)
+			end
+
+		else -- any other element, just insert the block
+
+			result:insert(block)
 
 		end
 
-		return is_modified and result or nil
-
 	end
 
-	-- FUNCTION BODY
-	-- only return something if doc modified
-	local new_blocks = process_blocks(doc.blocks)
+	return is_modified and result or nil
 
-	if new_blocks then
-		doc.blocks = new_blocks
-		return doc
-	else
-		return nil
-	end
 end
+
+-- # Main function
 
 function main(doc) 
 
 	-- create a setup object that holds the filter settings
 	local setup = Setup:new(doc.meta)
 
-	-- walk the document; sets `doc` to nil if no modification
-	doc = walk_doc(doc,setup)
+	-- create a new document walker based on the setting
+	local walker = Walker:new(setup, doc)
+
+	-- walk the document; returns nil if no modification
+	local blocks = walker:walk()
+	-- process crossreferences if statements were created
+	if blocks then
+		blocks = pandoc.Blocks(blocks):walk(walker:crossreferences())
+	end
 
 	-- if the doc has been modified, update its meta and return it
-	if doc then
+	if blocks then
+		doc.blocks = blocks
 		doc.meta = setup:update_meta(doc.meta)
 		return doc
 	end

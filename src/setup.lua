@@ -11,6 +11,7 @@ Setup.options = {
 	define_in_header = true, -- defs in header, not local
 	supply_header = true, -- modify header-includes 
 	only_statement = false, -- only process Divs of 'statement' class
+	citations = true, -- allow citation syntax for crossreferences
 	language = 'en', -- LOCALE setting
 	fontsize = nil, -- document fontsize
 	LaTeX_section_level = 1, -- heading level for to LaTeX's 'section'
@@ -50,9 +51,12 @@ Setup.counters = {
 	--		}
 }
 
---- Setup.labels_by_id: stored labels per statement id
-Setup.labels_by_id = {
-	-- identifier = Inlines
+--- Setup.identifiers: document identifiers. Populated as we walk the doc
+Setup.identifiers = {
+	-- identifier = {
+	--									is_statement = bool, whether it's a statement
+	--									crossref_label = inlines, label to use in crossreferences
+	--							}
 }
 
 -- Setup.includes: code to be included in header or before first statement

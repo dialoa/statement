@@ -9,11 +9,16 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @license MIT - see LICENSE file for details.
 @release 0.3
 
-@TODO unnumbered class
+@TODO preserve Div attributes in html and generic output
+@TODO set Div id when automatically generating an identifier (for Links)
 @TODO handle cross-references. in LaTeX \ref prints out number or section number if unnumbered
 @TODO LaTeX hack for statements in list
-@TODO html output, read Pandoc's number-offset option
+@TODO in html output, read Pandoc's number-offset option
+@TODO handle DefinitionList inputs (pandoc-theorem)?
+@TODO handle pandoc-amsthm style Div attributes?
+@TODO handle the Case environment?
 
+@TODO proof environment in non-LaTeX outputs
 proof environement in LaTeX AMS:
 - does not define a new theorem kind and style
 - has a \proofname command to be redefined
@@ -25,31 +30,38 @@ a new class every time, so mirror LaTeX.
 
 ]]
 
--- # Global variables
-stringify = pandoc.utils.stringify
-
--- # Filter components
+-- # Global helper functions
 
 helpers = require('helpers')
+
+-- # Filter components
 
 Setup = require('Setup')
 
 Statement = require('Statement')
 
--- # Main functions
+Walker = require('Walker')
 
-walk_doc = require('walk_doc')
+-- # Main function
 
 function main(doc) 
 
 	-- create a setup object that holds the filter settings
 	local setup = Setup:new(doc.meta)
 
-	-- walk the document; sets `doc` to nil if no modification
-	doc = walk_doc(doc,setup)
+	-- create a new document walker based on the setting
+	local walker = Walker:new(setup, doc)
+
+	-- walk the document; returns nil if no modification
+	local blocks = walker:walk()
+	-- process crossreferences if statements were created
+	if blocks then
+		blocks = pandoc.Blocks(blocks):walk(walker:crossreferences())
+	end
 
 	-- if the doc has been modified, update its meta and return it
-	if doc then
+	if blocks then
+		doc.blocks = blocks
 		doc.meta = setup:update_meta(doc.meta)
 		return doc
 	end

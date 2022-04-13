@@ -1,65 +1,58 @@
 --- Statement:find_kind: find whether an element is a statement and of what kind
 --@param elem pandoc Div or item in a pandoc DefinitionList
---@param setup Setup class object, filter setup
 --@return string or nil the key of `kinds` if found, nil otherwise
-function Statement:find_kind(elem, setup)
-	local kinds = setup.kinds -- points to the kinds table
+function Statement:find_kind(elem)
+	local setup = self.setup -- points to the setup table
 	local options = setup.options -- points to the options table
+	local kinds = setup.kinds -- points to the kinds table
 	local aliases = setup.aliases -- points to the aliases table
 
 	if elem.t and elem.t == 'Div' then
 
-		-- collect the element's classes that match a statement kind
-		-- check aliases if `options.aliases` is true
-		local matches = pandoc.List:new()
-		for _,class in ipairs(elem.classes) do
-			if kinds[class] and not matches:find(class) then
-				matches:insert(class)
-			elseif options.aliases
-				and aliases[class] and not matches:find(aliases[class]) then
-				matches:insert(aliases[class])
-			end
-		end
+		local kinds_matched = self:kinds_matched(elem)
 
-		-- return if no match
-		if #matches == 0 then return nil end
-		-- return if we only process 'statement' Divs and it isn't one
-		if options.only_statement and not matches:find('statement') then
+		-- if kinds matched, find king
+		if kinds_matched then
+
+			-- remove 'statement' if it's redundant
+			if #kinds_matched > 1 and kinds_matched:includes('statement') then
+				local _, pos = kinds_matched:find('statement')
+				kinds_matched:remove(pos)
+			end
+			-- warn if there's still more than one kind
+			if #kinds_matched > 1 then
+				local str = ''
+				for _,match in ipairs(kinds_matched) do
+					str = str .. ' ' .. match
+				end
+				message('WARNING', 'A Div kinds_matched several statement kinds: '
+					.. str .. '. Treated as kind '.. kinds_matched[1] ..'.')
+			end
+			-- return the first match, a key of `kinds`
+			return kinds_matched[1]
+
+		else -- no match
+
 			return nil
+
 		end
 
-		-- if we have other matches that 'statement', remove the latter
-		if #matches > 1 and matches:includes('statement') then
-			local _, pos = matches:find('statement')
-			matches:remove(pos)
-		end
+	-- @TOOO process DefinitionList
 
-		-- warn if we still have more than one match
-		if #matches > 1 then
-			local str = ''
-			for _,match in ipairs(matches) do
-				str = str .. ' ' .. match
-			end
-			message('WARNING', 'A Div matches several statement kinds: '
-				.. str .. '. Treated as kind '.. matches[1] ..'.')
-		end
-
-		-- return the first match, a key of `kinds`
-		return matches[1]
-
-	elseif type(elem) == 'table' then
-
-			message('WARNING', 'A non-Div element passed as potential statement. '
-				.. 'Not supported yet. Element content: '..stringify(elem))
-
-		-- process DefinitionList items here
-		-- they are table with two elements:
+		-- process DefinitionLists
+		-- list of items
+		-- each item is a table with two elements:
 		-- [1] Inlines, the definiens
-		-- [2] Blocks, the definiendum
+		-- [2] the definienda, a list of definitions
+		--			where each definition is Blocks
 
+	-- other element types passed, warn
 	else
 
-		return nil -- not a statement kind
+		local type_str = elem.t and 'Element type: '..elem.t..'.' or ''
+
+			message('WARNING', 'A wrong element passed as potential statement. '
+				.. type.str .. 'Element content: '..stringify(elem) )
 
 	end
 

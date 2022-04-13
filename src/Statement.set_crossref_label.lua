@@ -46,6 +46,7 @@ function Statement:set_crossref_label()
 		else
 			self.crossref_label = pandoc.Inlines(pandoc.Str('??'))
 		end
+	-- or set it to '??'
 	else
 		self.crossref_label = pandoc.Inlines(pandoc.Str('??'))
 	end

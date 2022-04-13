@@ -15,7 +15,7 @@ statement:
 
 # Mathematical theorems
 
-::: {.statement .example}
+::: {.statement .example .unnumbered}
 
 (a) The set of all prime divisors of $324$.
 (b) The set of all numbers divisible by 0.
@@ -25,21 +25,31 @@ statement:
 
 :::
 
-::: exa
+::: {.exa .unnumbered}
 
 [@reference] another example
 
 :::
 
-::: statement
-$X \subseteq Y$ if and only if every element of $X$ is an element of $Y$. 
+::: my-div
+
+Recursion test. he two following statements are within list items within a Div element.
+
+1. :::::: statement
+   $X \subseteq Y$ if and only if every element of $X$ is an element of $Y$. 
+   ::::::
+2. :::::: statement
+   __Named principle (NP)__. This is a named principle with an acronym.
+   ::::::
+
 :::
 
-::: statement
-__Named principle (NP)__. This is a named principle with an acronym.
-:::
+Crossreference test. See ([](#NP)) or ([](#named-principle))! And citation
+syntax [@named-principle].
 
 # More
+
+![image](image.jpg){#no-statement}
 
 ::: {.axiom #ax:existence}
 __The Axiom of Existence__. There exists a set which has no elements.
