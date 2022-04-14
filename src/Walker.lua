@@ -3,11 +3,11 @@
 --- Walker: class to hold methods that walk through the document
 Walker = {}
 
-Walker.collect_ids = require('Walker.collect_ids') -- to collect non-statement ids
+!input Walker.collect_ids -- function to collect non-statement ids
 
-Walker.crossreferences = require('Walker.crossreferences') -- to collect non-statement ids
+!input Walker.crossreferences -- filter to process crossreferences to statements
 
-Walker.statements_in_lists = require('Walker.statements_in_lists') -- filter, LaTeX hack for statements within lists
+!input Walker.statements_in_lists -- filter, LaTeX hack for statements within lists
 
 -- Walker:new: create a Walker class object based on document's setup
 --@param setup a Setup class object

@@ -33,15 +33,15 @@ a new class every time, so mirror LaTeX.
 
 -- # Global helper functions
 
-helpers = require('helpers')
+!input helpers -- a few helper functions
 
 -- # Filter components
 
-Setup = require('Setup')
+!input Setup -- the Setup class
 
-Statement = require('Statement')
+!input Statement -- the Statement class
 
-Walker = require('Walker')
+!input Walker -- the Walker class
 
 -- # Main function
 

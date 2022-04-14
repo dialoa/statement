@@ -67,25 +67,25 @@ Setup.includes = {
 	before_first = nil,
 }
 
-Setup.DEFAULTS = require('Setup.DEFAULTS') -- default kinds and styles
+!input Setup.DEFAULTS -- default kinds and styles
 
-Setup.LOCALE = require('Setup.LOCALE') -- Label translations
+!input Setup.LOCALE -- Label translations
 
-Setup.read_options = require('Setup.read_options') -- function to read options
+!input Setup.read_options -- function to read options
 
-Setup.create = require('Setup.create_kinds_and_styles') -- to create kinds and styles
+!input Setup.create_kinds_and_styles -- to create kinds and styles
 
-Setup.create_counters = require('Setup.create_counters') -- to create level counters
+!input Setup.create_counters -- to create level counters
 
-Setup.write_counter = require('Setup.write_counter') -- to create level counters
+!input Setup.write_counter -- to create level counters
 
-Setup.increment_counter = require('Setup.increment_counter') -- to incremeent a level counter
+!input Setup.increment_counter -- to incremeent a level counter
 
-Setup.update_meta = require('Setup.update_meta') -- to update a document's meta
+!input Setup.update_meta -- to update a document's meta
 
-Setup.length_format = require('Setup.length_format') -- to convert length values
+!input Setup.length_format -- to convert length values
 
-Setup.font_format = require('Setup.font_format') -- to convert font features values
+!input Setup.font_format -- to convert font features values
 
 --- Setup:new: construct a Setup object 
 --@param meta Pandoc Meta object
