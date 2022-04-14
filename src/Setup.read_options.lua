@@ -6,8 +6,9 @@ function Setup:read_options(meta)
 	-- language. Set language if we have a self.LOCALE value for it
 	if meta.lang then
 		-- change the language only if we have a self.LOCALE value for it
+		-- in the LOCALE table languages are encoded zh_CN rather than zh-CN
 		-- try the first two letters too
-		local lang_str = stringify(meta.lang)
+		local lang_str = stringify(meta.lang):lower():gsub('-','_')
 		if self.LOCALE[lang_str] then
 			self.options.language = lang_str
 		elseif self.LOCALE[lang_str:sub(1,2)] then

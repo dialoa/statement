@@ -21,7 +21,7 @@ function Setup:create_kinds_and_styles(meta)
 	end
 
 	-- user-selected defaults?
-	if not meta.statement and meta.statement.defaults
+	if meta.statement and meta.statement.defaults
 		and default_keys:find(stringify(meta.statement.defaults)) then
 			chosen_defaults = stringify(meta.statement.defaults)
 	end

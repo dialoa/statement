@@ -9,6 +9,7 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @license MIT - see LICENSE file for details.
 @release 0.3
 
+@TODO process user definitions
 @TODO preserve Div attributes in html and generic output
 @TODO set Div id when automatically generating an identifier (for Links)
 @TODO handle cross-references. in LaTeX \ref prints out number or section number if unnumbered

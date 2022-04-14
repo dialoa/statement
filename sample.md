@@ -25,7 +25,7 @@ statement:
 
 :::
 
-::: {.exa .unnumbered}
+::: {.fact .unnumbered}
 
 [@reference] another example
 
