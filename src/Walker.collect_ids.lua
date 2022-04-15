@@ -25,7 +25,7 @@ function Walker:collect_ids(blocks)
 	-- Div: register only if not a statement
 	filter.Div = function (elem)
 		if elem.identifier and elem.identifier ~= ''
-				and not Statement:kinds_matched(elem,self.setup) then
+				and not Statement:Div_is_statement(elem,self.setup) then
 					register_or_warn(elem)
 			end
 	end

@@ -9,7 +9,9 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @license MIT - see LICENSE file for details.
 @release 0.3
 
+@TODO jats and html output, simple!
 @TODO provide 'break-after-head' style field
+@TODO provide head-pattern, '<label> <num>. **<info>**', relying on Pandoc's rawinline parsing
 @TODO parse DefinitionList and Divs; refactor statement parsing to make it clearer
 @TODO preserve Div attributes in html and generic output
 @TODO set Div id when automatically generating an identifier (for Links)
@@ -53,7 +55,9 @@ function main(doc)
 	-- create a new document walker based on the setting
 	local walker = Walker:new(setup, doc)
 
-	-- protect statements in lists in LaTeX by applying the statement_in_lists filter
+	-- Protect statements in lists in LaTeX 
+	-- by applying the `statement_in_lists` filter
+	-- See this function for details.
 	walker.blocks = pandoc.Blocks(walker.blocks):walk(walker:statements_in_lists())
 
 	-- walk the document; returns nil if no modification

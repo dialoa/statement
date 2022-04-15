@@ -3,7 +3,7 @@
 -- In LaTeX a statement at the first line of a list item creates an
 -- unwanted empty line. We wrap it in a LaTeX minipage to avoid this.
 -- Uses
---		self.setup (passed to Statement.kinds_matched)
+--		self.setup (passed to Statement:Div_is_statement)
 --		self.setup.options.LaTeX_in_list_afterskip
 -- @TODO This is hack, probably prevents page breaks within the statement
 -- @TODO The skip below the statement is rigid, it should pick the
@@ -41,13 +41,16 @@ function Walker:statements_in_lists()
     		or FORMAT:match('json') then
  				
 			local list_updated = false
-	    -- go through list items, check if they start with a statement Div
+	    -- go through list items, check if they start with a statement
       for i = 1, #elem.content do
-        if elem.content[i][1] 
-	        	and (elem.content[i][1].t == 'Div' or elem.content[i][1].t)
-	          and Statement:kinds_matched(elem.content[i][1],self.setup) then
-          elem.content[i] = wrap(elem.content[i])
-          list_updated = true
+        if elem.content[i][1] then
+          if elem.content[i][1].t and elem.content[i][1].t == 'Div'
+                and Statement:Div_is_statement(elem.content[i][1],self.setup) then
+            elem.content[i] = wrap(elem.content[i])
+            list_updated = true
+          elseif elem.content[i][1].t and elem.content[i][1].t == 'DefinitionList' then
+            --@TODO handle DefinitionLists here 
+          end
         end
       end
 

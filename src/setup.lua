@@ -18,6 +18,8 @@ Setup.options = {
 	LaTeX_section_level = 1, -- heading level for to LaTeX's 'section'
 	LaTeX_in_list_afterskip = '.5em', -- space after statement first item in list
 	LaTeX_in_list_rightskip = '2em', -- right margin for statement first item in list
+	acronym_delimiters = {'(',')'}, -- in case we want to open this to the user
+	info_delimiters = {'(',')'}, -- in case we want to open this to the user
 }
 
 --- Setup.kinds: kinds of statement, e.g. 'theorem', 'proof'

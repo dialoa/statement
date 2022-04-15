@@ -32,53 +32,31 @@ function Statement:new(elem, setup)
 	o.setup = setup -- points to the setup, needed by the class's methods
 	o.element = elem -- points to the original element
 
-	if o:is_statement() then
-
-		-- find the statement's original kind
-		o.kind = o:find_kind(elem)
-		o.content = elem.content -- element content
-		-- extract label, acronym
-		o:extract_label() -- extract label, acronym
-		-- if custom label, create a new kind
-		if o.custom_label then
-			o:new_kind_from_label()
+	if o.element.t then
+		if o.element.t == 'Div' and o:Div_is_statement() then
+			o:parse_Div()
+			return o
+		elseif o.element.t == 'DefinitionList' then -- and o:DefinitionList_is_statement()
+			-- @TODO parse Def List statements
+			-- return o
 		end
-		-- if unnumbered, we may need to create a new kind
-		o:set_is_numbered(elem) -- set self.is_numbered
-		if not o.is_numbered then
-			o:new_kind_unnumbered()
-		end
-		o:extract_info() -- extract info
-		o:set_crossref_label() -- set crossref label
-		o:set_identifier(elem) -- set identifier, store crossref label for id
-		if o.is_numbered then
-			o:increment_count() -- update the kind's counter
-		end
-
-		-- return statement object
-		return o
-
-	else
-		return nil
 	end
 
 end
 
 !input Statement.is_statement -- to tell whether an element is a statement, and what kind it matches
 
-!input Statement.kinds_matched -- tells whether an element is a statement
+!input Statement.Div_is_statement -- to tell whether an element is a statement, and what kind it matches
 
-!input Statement.find_kind -- to decide an element's main kind
+!input Statement.parse_Div -- parse Div element as statement
+
+!input Statement.parse_Div_heading -- parse Div element as statement
 
 !input Statement.extract_fbb -- to extract content between first balanced brackets
-
-!input Statement.extract_label -- to extract a statement's label
 
 !input Statement.new_kind_from_label -- to create a new kind from the statement's label
 
 !input Statement.new_kind_unnumbered -- to create a new kind from the statement's label
-
-!input Statement.extract_info -- to extract a statement's info field
 
 !input Statement.set_identifier -- to set id and store it
 

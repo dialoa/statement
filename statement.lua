@@ -9,7 +9,9 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @license MIT - see LICENSE file for details.
 @release 0.3
 
+@TODO jats and html output, simple!
 @TODO provide 'break-after-head' style field
+@TODO provide head-pattern, '<label> <num>. **<info>**', relying on Pandoc's rawinline parsing
 @TODO parse DefinitionList and Divs; refactor statement parsing to make it clearer
 @TODO preserve Div attributes in html and generic output
 @TODO set Div id when automatically generating an identifier (for Links)
@@ -91,6 +93,8 @@ Setup.options = {
 	LaTeX_section_level = 1, -- heading level for to LaTeX's 'section'
 	LaTeX_in_list_afterskip = '.5em', -- space after statement first item in list
 	LaTeX_in_list_rightskip = '2em', -- right margin for statement first item in list
+	acronym_delimiters = {'(',')'}, -- in case we want to open this to the user
+	info_delimiters = {'(',')'}, -- in case we want to open this to the user
 }
 
 --- Setup.kinds: kinds of statement, e.g. 'theorem', 'proof'
@@ -2206,161 +2210,323 @@ function Statement:new(elem, setup)
 	o.setup = setup -- points to the setup, needed by the class's methods
 	o.element = elem -- points to the original element
 
-	if o:is_statement() then
-
-		-- find the statement's original kind
-		o.kind = o:find_kind(elem)
-		o.content = elem.content -- element content
-		-- extract label, acronym
-		o:extract_label() -- extract label, acronym
-		-- if custom label, create a new kind
-		if o.custom_label then
-			o:new_kind_from_label()
+	if o.element.t then
+		if o.element.t == 'Div' and o:Div_is_statement() then
+			o:parse_Div()
+			return o
+		elseif o.element.t == 'DefinitionList' then -- and o:DefinitionList_is_statement()
+			-- @TODO parse Def List statements
+			-- return o
 		end
-		-- if unnumbered, we may need to create a new kind
-		o:set_is_numbered(elem) -- set self.is_numbered
-		if not o.is_numbered then
-			o:new_kind_unnumbered()
-		end
-		o:extract_info() -- extract info
-		o:set_crossref_label() -- set crossref label
-		o:set_identifier(elem) -- set identifier, store crossref label for id
-		if o.is_numbered then
-			o:increment_count() -- update the kind's counter
-		end
-
-		-- return statement object
-		return o
-
-	else
-		return nil
 	end
 
 end
 ---Statement:is_statement Whether an element is a statement.
--- Simple wrapper for the kinds_matched function, makes for more
--- legible code elsewhere.
+-- Simple wrapper for the Div_is_statement and 
+-- DefinitionList_is_statement functions.
 --@param elem pandoc element, should be Div or DefinitionList
 --@param setup (optional) a Setup class object, to be used when
 --			the function is called from the setup object
---@return bool whether the element is a statement
+--@return list or nil, pandoc List of kinds matched
 function Statement:is_statement(elem,setup)
-	if self:kinds_matched(elem,setup) then
-		return true
-	else
-		return false
+	if elem.t then
+		if elem.t == 'Div' then
+			return self:Div_is_statement(elem,setup)
+		elseif elem.t == 'DefinitionList' then
+			return -- self:DefinitionList_is_statement
+		end
 	end
 end
 
----Statement:kinds_matched Determines whether an element is a
--- statement and return the kinds it matches. 
---@param elem (optional) pandoc element, should be Div or DefinitionList
---							default to self.element
+---Statement:Div_is_statement Whether an Div element is a statement.
+-- If yes, returns a list of kinds the element matches.
+--@param elem (optional) pandoc Div element, defaults to self.element
 --@param setup (optional) a Setup class object, to be used when
 --			the function is called from the setup object
---@return list, a pandoc List of matched kinds or nil
-function Statement:kinds_matched(elem,setup)
+--@return List or nil, pandoc List of kinds the element matches
+function Statement:Div_is_statement(elem,setup)
 	setup = setup or self.setup
 	elem = elem or self.element
 	local options = setup.options -- pointer to the options table
 	local kinds = setup.kinds -- pointer to the kinds table
 	local aliases = setup.aliases -- pointed to the aliases table
 
-	if elem.t then
-		if elem.t == 'Div' then
-			-- collect the element's classes that match a statement kind
-			-- check aliases if `options.aliases` is true
-			local matches = pandoc.List:new()
-			for _,class in ipairs(elem.classes) do
-				if kinds[class] and not matches:find(class) then
-					matches:insert(class)
-				elseif options.aliases
-					and aliases[class] and not matches:find(aliases[class]) then
-					matches:insert(aliases[class])
-				end
-			end
+	-- safety check
+	if not elem.t or elem.t ~= 'Div' then
+		message('ERROR', 	'Non-Div element passed to the Div_is_statement function,'
+											..' this should not have happened.')
+		return
+	end
 
-			-- return nil if no match, or if options requires a statement
-			-- class and we don't have it
-			if #matches == 0 
-				or options.only_statement and not matches:find('statement') then
-					return nil
-			else
-					return matches
-			end
-
-		--@TODO process DefinitionList
-		elseif elem.t == 'DefinitionList' then
-
-			--@TODO
-
+	-- collect the element's classes that match a statement kind
+	-- check aliases if `options.aliases` is true
+	local matches = pandoc.List:new()
+	for _,class in ipairs(elem.classes) do
+		if kinds[class] and not matches:find(class) then
+			matches:insert(class)
+		elseif options.aliases
+			and aliases[class] and not matches:find(aliases[class]) then
+			matches:insert(aliases[class])
 		end
+	end
 
+	-- fail if no match, or if the options require every statement to
+	-- have the `statement` kind and we don't have it. 
+	-- if success, remove the statement kind if we have another kind as well.
+	if #matches == 0 
+		or (options.only_statement and not matches:find('statement')) then
+			return nil
+	else
+		if #matches > 1 and matches:includes('statement') then
+			local _, pos = matches:find('statement')
+			matches:remove(pos)
+		end
+		return matches
 	end
 
 end
-	
 
---- Statement:find_kind: find whether an element is a statement and of what kind
---@param elem pandoc Div or item in a pandoc DefinitionList
---@return string or nil the key of `kinds` if found, nil otherwise
-function Statement:find_kind(elem)
+-- !input Statement.kinds_matched -- tells whether an element is a statement
+---Statement:parse_Div parse a Div element into a statement
+-- Parses a pandoc Div element into a statement, setting its
+-- kind, identifier, label, info, acronym, content. 
+-- Creates new kinds and styles as needed.
+-- Updates:
+--		self.content
+--		self.identifier
+-- 		self.label
+--		self.custom_label
+--		self.kind
+--		self.acronym
+--		self.crossref_label
+-- 		
+--@param elem pandoc Div element (optional) element to be parsed
+--											defaults to self.element
+--@return bool true if successful, false if not
+function Statement:parse_Div(elem)
 	local setup = self.setup -- points to the setup table
 	local options = setup.options -- points to the options table
 	local kinds = setup.kinds -- points to the kinds table
 	local aliases = setup.aliases -- points to the aliases table
+	elem = elem or self.element
+	local kind
 
-	if elem.t and elem.t == 'Div' then
+	-- safety check
+	if not elem.t or elem.t ~= 'Div' then
+		message('ERROR', 	'Non-Div element passed to the parse Div function,'
+											..' this should not have happened.')
+		return
+	end
 
-		local kinds_matched = self:kinds_matched(elem)
+	-- find the element's basic kind
+	--	Div_is_statement() returns the kinds matched by self.element
+	local kinds_matched = self:Div_is_statement()
+	if not kinds_matched then 
+		message('ERROR', 	'Div element passed to the parse Div function,'
+											..' without Div_is_statement check,'
+											..'this should not have happened.')
+		return 
+	end
+	-- warn if there's still more than one kind
+	if #kinds_matched > 1 then
+		local str = ''
+		for _,match in ipairs(kinds_matched) do
+			str = str .. ' ' .. match
+		end
+		message('WARNING', 'A Div matched several statement kinds: '
+			.. str .. '. Treated as kind '.. kinds_matched[1] ..'.')
+	end
+	self.kind = kinds_matched[1]
 
-		-- if kinds matched, find king
-		if kinds_matched then
+	-- store statement content
+	self.content = elem.content -- element content
+	
+	-- extract any label, info, acronym
+	-- @TODO if attributes_syntax is enabled, parse the attribute syntax
+	-- Cf. <https://github.com/ickc/pandoc-amsthm>
+	self:parse_Div_heading()
 
-			-- remove 'statement' if it's redundant
-			if #kinds_matched > 1 and kinds_matched:includes('statement') then
-				local _, pos = kinds_matched:find('statement')
-				kinds_matched:remove(pos)
-			end
-			-- warn if there's still more than one kind
-			if #kinds_matched > 1 then
-				local str = ''
-				for _,match in ipairs(kinds_matched) do
-					str = str .. ' ' .. match
-				end
-				message('WARNING', 'A Div kinds_matched several statement kinds: '
-					.. str .. '. Treated as kind '.. kinds_matched[1] ..'.')
-			end
-			-- return the first match, a key of `kinds`
-			return kinds_matched[1]
+--	self:extract_label()
 
-		else -- no match
+	-- if custom label, create a new kind
+	if self.custom_label then
+		self:new_kind_from_label()
+	end
+	-- if unnumbered, we may need to create a new kind
+	self:set_is_numbered(elem) -- set self.is_numbered
+	if not self.is_numbered then
+		self:new_kind_unnumbered()
+	end
 
-			return nil
+--	self:extract_info() -- extract info
 
+	self:set_crossref_label() -- set crossref label
+	self:set_identifier(elem) -- set identifier, store crossref label for id
+	if self.is_numbered then
+		self:increment_count() -- update the kind's counter
+	end
+
+	return true
+
+end
+
+--- Statement:parse_Div_heading: parse Div heading into custom label,
+-- acronym, info if present, and extract it from the content.
+-- Expected format, where [...] means optional:
+--		[**[[Acronym] Custom Label] [Info1].**] [Info2[.]] Content
+--		[**[[Acronym] Custom Label] [Info1]**.] [Info2[.]] Content
+-- Where:
+--		- Acronym is Inlines delimited by matching parentheses, e.g. (NPE)
+--		- Info1, Info2 are either Inlines delimited by matching 
+--			parentheses, or a Cite element,
+--		- only one of Info1 or Info2 is present. The latter is treated
+--			as part of the content otherwise.
+--		- single spaces before the heading or surrounding the dot
+--			are tolerated.
+-- Updates:
+--		self.custom_label Inlines or nil, content of the label if found
+--		self.acronym Inlines or nil, acronym
+--		self.content Blocks, remainder of the statement after extraction
+--@return nil 
+function Statement:parse_Div_heading()
+	local content = self.content
+	local acro_delimiters = self.setup.options.acronym_delimiters 
+											or {'(',')'} -- acronym delimiters
+	local info_delimiters = self.setup.options.info_delimiters 
+											or {'(',')'} -- info delimiters
+	local para, custom_label, acronym, info
+	local is_modified = false
+
+	--- trim_dot_space: remove leading/trailing dot space.
+	--@param inlines pandoc Inlines
+	--@param direction 'reverse' for trailing, otherwise leading
+	--@return result pandoc Inlines
+	function trim_dot_space(inlines, direction)
+		local reverse = false
+		if direction == 'reverse' then reverse = true end
+		
+		-- function to return first position in the desired direction
+		function firstpos(list)
+			return reverse and #list or 1
 		end
 
-	-- @TOOO process DefinitionList
+		-- safety check
+		if #inlines == 0 then return inlines end
 
-		-- process DefinitionLists
-		-- list of items
-		-- each item is a table with two elements:
-		-- [1] Inlines, the definiens
-		-- [2] the definienda, a list of definitions
-		--			where each definition is Blocks
+		-- remove space, dot, space
+		if inlines[firstpos(inlines)].t == 'Space' then
+			inlines:remove(firstpos(inlines))
+		end
+		if inlines[firstpos(inlines)].t == 'Str' 
+				and inlines[firstpos(inlines)].text:match('%.$') then
+			if inlines[firstpos(inlines)].text == '.' then
+				inlines:remove(firstpos(inlines))
+			else
+				local str = inlines[firstpos(inlines)].text:match('(.*)%.$')
+				inlines[firstpos(inlines)] = pandoc.Str(str)
+			end
+		end
+		if inlines[firstpos(inlines)].t == 'Space' then
+			inlines:remove(firstpos(inlines))
+		end
+		return inlines
+	end
 
-	-- other element types passed, warn
+	--- parse_Strong: try to parse a Strong element into acronym,
+	-- label and info.
+	-- @param elem pandoc Strong element
+	-- @return info, Inlines or Cite information if found
+	-- @return cust_lab, Inlines custom label if found
+	-- @return acronym, Inlines, acronym if found
+	function parse_Strong(elem)
+		-- must clone to avoid changing the original element 
+		-- in case parsing fails
+		local result = elem.content:clone()
+		local info, cust_lab, acro
+
+		-- remove trailing space / dot
+		result = trim_dot_space(result, 'reverse')
+
+		-- Info is first Cite or content between balanced brackets 
+		-- encountered in reverse order.
+		if result[#result].t == 'Cite' then
+			info = pandoc.Inlines(result[#result])
+			result:remove(#result)
+			result = trim_dot_space(result, 'reverse')
+		else
+			info, result = self:extract_fbb(result, 'reverse', info_delimiters)
+			result = trim_dot_space(result, 'reverse')
+		end
+
+		-- Acronym is first content between balanced brackets
+		-- encountered in forward order
+		if #result > 0 then
+			acro, result = self:extract_fbb(result, 'forward', acro_delimiters)
+			trim_dot_space(result, 'forward')
+		end
+			
+		-- Custom label is whatever remains
+		if #result > 0 then
+			cust_lab = result
+		end
+
+		-- If we have acro but not cust_label that's a failure
+		if acro and not cust_lab then
+			return nil, nil, nil
+		else
+			return info, cust_lab, acro
+		end
+	end
+
+	-- FUNCTION BODY
+
+	-- the first block must be a Para; we clone it for processing
+	if content[1] and content[1].t and content[1].t == 'Para' then
+		para = content[1]:clone()
 	else
+		return
+	end
 
-		local type_str = elem.t and 'Element type: '..elem.t..'.' or ''
+	-- Para starts with Strong?
+	-- if yes, try to parse and remove if successful
+	if para.content and para.content[1].t == 'Strong' then
+		info, custom_label, acronym = parse_Strong(para.content[1])
+		if custom_label or info then
+			para.content:remove(1)
+			para.content = trim_dot_space(para.content, 'forward')
+		end
+	end
 
-			message('WARNING', 'A wrong element passed as potential statement. '
-				.. type.str .. 'Element content: '..stringify(elem) )
 
+	-- if we don't have info yet, try to find it at the beginning
+	-- of (what remains of) the Para's content.
+	if not info then
+		if para.content[1] and para.content[1].t == 'Cite' then
+			info = pandoc.Inlines(para.content[1])
+			para.content:remove(1)
+			para.content = trim_dot_space(para.content, 'forward')
+		else
+			info, para.content = self:extract_fbb(para.content, 
+																	'forward', info_delimiters)
+			para.content = trim_dot_space(para.content, 'forward')
+		end
+
+	end
+
+	-- if we found anything, store components and update statement's 
+	-- first block.
+	if custom_label or info then
+		if acronym then
+			self.acronym = acronym
+		end
+		self.custom_label = custom_label
+		self.info = info
+		self.content[1] = para
 	end
 
 end
 
+-- !input Statement.find_kind -- to decide an element's main kind
 --- Statement:extract_fbb: extract the first content found between 
 -- balanced brackets from an Inlines list, searching forward or 
 -- backwards. Returns that content and the reminder, or nil and the 
@@ -2504,103 +2670,7 @@ function Statement:extract_fbb(inlines, direction, delimiters)
 
 end
 
---- extract_label: extract label and acronym from a statement Div.
--- A label is a Strong element at the beginning of the Div, ending or 
--- followed by a dot. An acronym is between brackets, within the label
--- at the end of the label. If the label only contains an acronym,
--- it is used as label, brackets preserved.
--- if `acronym_mode` is set to false we do not search for acronyms.
--- Updates:
---		self.custom_label Inlines or nil, content of the label if found
---		self.acronym Inlines or nil, acronym
---		self.content Blocks, remainder of the statement after extraction
---@return nil 
-function Statement:extract_label()
-	local delimiters = {'(',')'} -- acronym delimiters
-	local first_block, lab, acro = nil, nil, nil
-	local has_label = false
-
-	-- first block must be a Para that starts with a Strong element
-	if self.content[1] and self.content[1].t == 'Para'
-			and self.content[1].content and self.content[1].content[1]
-			and self.content[1].content[1].t == 'Strong' then
-		first_block = self.content[1]:clone() -- Para element
-		lab = first_block.content[1].content -- content of the Strong element
-		first_block.content:remove(1) -- take the Strong elem out
-	else
-		return
-	end
-
-	-- the label must end by or be followed by a dot
-	-- if a dot is found, take it out.
-	-- ends by a dot?
-	if lab[#lab] 
-		and lab[#lab].t == 'Str'
-		and lab[#lab].text:match('%.$') then
-			-- remove the dot
-			if lab[#lab].text:len() > 1 then
-				lab[#lab].text =
-					lab[#lab].text:sub(1,-2)
-				has_label = true
-			else -- special case: Str was just a dot
-				lab:remove(#lab)
-				-- remove trailing Space if needed
-				if lab[#lab]
-					and lab[#lab].t == 'Space' then
-						lab:remove(#lab)
-				end
-				-- do not validate if empty
-				if #lab > 0 then
-					has_label = true
-				end
-			end
-	end
-	-- followed by a dot?
-	if first_block.content[1]
-		and first_block.content[1].t == 'Str'
-		and first_block.content[1].text:match('^%.') then
-			-- remove the dot
-			if first_block.content[1].text:len() > 1 then
-				first_block.content[1].text =
-					first_block.content[1].text:sub(2,-1)
-					has_label = true
-			else -- special case: Str was just a dot
-				first_block.content:remove(1)
-				-- validate even if empty
-				has_label = true
-			end
-	end
-
-	-- search for an acronym within the label
-	-- we only store it if removing it leaves some label
-	if self.setup.options.acronyms then
-		local bracketed, remainder = self:extract_fbb(lab, 'reverse')
-		if bracketed and #remainder > 0 then
-			acro = bracketed
-			lab = remainder
-		end
-	end
-
-	-- remove trailing Space on the label if needed
-	if #lab > 0 and lab[#lab].t == 'Space' then
-		lab:remove(#lab)
-	end
-
-	-- remove leading Space on the first block if needed
-	if first_block.content[1] 
-		and first_block.content[1].t == 'Space' then
-			first_block.content:remove(1)
-	end
-
-	-- store label, acronym modified content if label found
-	if has_label then
-		self.content[1] = first_block
-		self.acronym = acro
-		self.custom_label = lab
-	end
-
-end
-
+-- !input Statement.extract_label -- to extract a statement's label
 --- Statement:new_kind_from_label: create and set a new kind from a 
 -- statement's custom label. 
 -- updates the self.setup.kinds table with a new kind
@@ -2722,45 +2792,7 @@ function Statement:new_kind_unnumbered()
 
 end
 
---- Statement:extract_info: extra specified info from the statement's content.
--- Scans the content's first block for an info specification (Cite
--- or text within delimiters). If found, remove and place in the
--- statement's `info` field.
--- This should be run after extracting any custom label. 
-function Statement:extract_info()
-
-	-- first block must be Para or Plain
-	if self.content and 
-	  (self.content[1].t=='Para' or self.content[1].t=='Plain') then
-
-	  	local first_block = self.content[1]:clone()
-	  	local inf
-
-		-- remove one leading space if any
-		if first_block.content[1].t == 'Space' then
-			first_block:remove(1)
-		end
-
-		-- info must be a Cite element, or bracketed content - not both
-		if first_block.content[1].t == 'Cite' then
-			inf = pandoc.Inlines(first_block.content[1])
-			first_block.content:remove(1)
-		else
-			-- bracketed content?
-			inf, first_block.content = 
-				self:extract_fbb(first_block.content)
-		end
-
-		-- if info found, save it and save the modified block
-		if inf then
-			self.info = inf
-			self.content[1] = first_block
-		end
-
-	end
-
-end
-
+-- !input Statement.extract_info -- to extract a statement's info field
 --- Statement:set_identifier: set an element's id
 -- store it with the crossref label in setup.labels_by_id
 -- Updates:
@@ -3343,7 +3375,7 @@ function Walker:collect_ids(blocks)
 	-- Div: register only if not a statement
 	filter.Div = function (elem)
 		if elem.identifier and elem.identifier ~= ''
-				and not Statement:kinds_matched(elem,self.setup) then
+				and not Statement:Div_is_statement(elem,self.setup) then
 					register_or_warn(elem)
 			end
 	end
@@ -3453,7 +3485,7 @@ end
 -- In LaTeX a statement at the first line of a list item creates an
 -- unwanted empty line. We wrap it in a LaTeX minipage to avoid this.
 -- Uses
---		self.setup (passed to Statement.kinds_matched)
+--		self.setup (passed to Statement:Div_is_statement)
 --		self.setup.options.LaTeX_in_list_afterskip
 -- @TODO This is hack, probably prevents page breaks within the statement
 -- @TODO The skip below the statement is rigid, it should pick the
@@ -3491,13 +3523,16 @@ function Walker:statements_in_lists()
     		or FORMAT:match('json') then
  				
 			local list_updated = false
-	    -- go through list items, check if they start with a statement Div
+	    -- go through list items, check if they start with a statement
       for i = 1, #elem.content do
-        if elem.content[i][1] 
-	        	and (elem.content[i][1].t == 'Div' or elem.content[i][1].t)
-	          and Statement:kinds_matched(elem.content[i][1],self.setup) then
-          elem.content[i] = wrap(elem.content[i])
-          list_updated = true
+        if elem.content[i][1] then
+          if elem.content[i][1].t and elem.content[i][1].t == 'Div'
+                and Statement:Div_is_statement(elem.content[i][1],self.setup) then
+            elem.content[i] = wrap(elem.content[i])
+            list_updated = true
+          elseif elem.content[i][1].t and elem.content[i][1].t == 'DefinitionList' then
+            --@TODO handle DefinitionLists here 
+          end
         end
       end
 
@@ -3651,7 +3686,9 @@ function main(doc)
 	-- create a new document walker based on the setting
 	local walker = Walker:new(setup, doc)
 
-	-- protect statements in lists in LaTeX by applying the statement_in_lists filter
+	-- Protect statements in lists in LaTeX 
+	-- by applying the `statement_in_lists` filter
+	-- See this function for details.
 	walker.blocks = pandoc.Blocks(walker.blocks):walk(walker:statements_in_lists())
 
 	-- walk the document; returns nil if no modification
