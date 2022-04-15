@@ -46,15 +46,24 @@ function Setup:font_format(str, format)
 		}
 	}
 	-- provide some aliases
-	FEATURES.italic = FEATURES.italics
-	FEATURES.normalfont = FEATURES.normal
-	-- provide 'small-caps' alias
-	-- nb, we use the table key as a matching pattern, so `-` must be escaped
-	FEATURES['small%-caps'] = FEATURES.smallcaps
+	local ALIASES = {
+		italics = {'italic'},
+		normal = {'normalfont'},
+		smallcaps = {'small%-caps'}, -- used as a pattern, so `-` must be escaped
+	}
 
 	for feature,definition in pairs(FEATURES) do
 		if str:match(feature) and definition[format] then
 			result = result..definition[format]
+		-- avoid multiple copies by only looking for aliases
+		-- if main feature key not found and breaking if we find any alias 
+		elseif ALIASES[feature] then 
+			for _,alias in ipairs(ALIASES[feature]) do
+				if str:match(alias) and definition[format] then
+					result = result..definition[format]
+					break -- ensures no multiple copies
+				end
+			end
 		end
 	end
 

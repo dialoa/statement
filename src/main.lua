@@ -9,11 +9,11 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @license MIT - see LICENSE file for details.
 @release 0.3
 
-@TODO process user definitions
+@TODO provide 'break-after-head' style field
+@TODO parse DefinitionList and Divs; refactor statement parsing to make it clearer
 @TODO preserve Div attributes in html and generic output
 @TODO set Div id when automatically generating an identifier (for Links)
-@TODO handle cross-references. in LaTeX \ref prints out number or section number if unnumbered
-@TODO LaTeX hack for statements in list
+@TODO provide \ref \label crossreferences in LaTeX?
 @TODO in html output, read Pandoc's number-offset option
 @TODO handle DefinitionList inputs (pandoc-theorem)?
 @TODO handle pandoc-amsthm style Div attributes?

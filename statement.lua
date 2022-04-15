@@ -9,11 +9,11 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @license MIT - see LICENSE file for details.
 @release 0.3
 
-@TODO process user definitions
+@TODO provide 'break-after-head' style field
+@TODO parse DefinitionList and Divs; refactor statement parsing to make it clearer
 @TODO preserve Div attributes in html and generic output
 @TODO set Div id when automatically generating an identifier (for Links)
-@TODO handle cross-references. in LaTeX \ref prints out number or section number if unnumbered
-@TODO LaTeX hack for statements in list
+@TODO provide \ref \label crossreferences in LaTeX?
 @TODO in html output, read Pandoc's number-offset option
 @TODO handle DefinitionList inputs (pandoc-theorem)?
 @TODO handle pandoc-amsthm style Div attributes?
@@ -1338,12 +1338,18 @@ function Setup:create_kinds_and_styles(meta)
 	end
 
 	-- DEBUG display results
-	for kind,definition in pairs(self.kinds) do
-		print("Kind", kind)
-		for key, value in pairs(definition) do
-			print('\t',key,stringify(value))
-		end
-	end
+	-- for style,definition in pairs(self.styles) do
+	-- 	print("Style", style)
+	-- 	for key, value in pairs(definition) do
+	-- 		print('\t',key,stringify(value) or '')
+	-- 	end
+	-- end
+	-- for kind,definition in pairs(self.kinds) do
+	-- 	print("Kind", kind)
+	-- 	for key, value in pairs(definition) do
+	-- 		print('\t',key,stringify(value) or '')
+	-- 	end
+	-- end
 
 	-- ensure all labels are Inlines
 	-- localize statement labels that aren't yet defined
@@ -2005,15 +2011,24 @@ function Setup:font_format(str, format)
 		}
 	}
 	-- provide some aliases
-	FEATURES.italic = FEATURES.italics
-	FEATURES.normalfont = FEATURES.normal
-	-- provide 'small-caps' alias
-	-- nb, we use the table key as a matching pattern, so `-` must be escaped
-	FEATURES['small%-caps'] = FEATURES.smallcaps
+	local ALIASES = {
+		italics = {'italic'},
+		normal = {'normalfont'},
+		smallcaps = {'small%-caps'}, -- used as a pattern, so `-` must be escaped
+	}
 
 	for feature,definition in pairs(FEATURES) do
 		if str:match(feature) and definition[format] then
 			result = result..definition[format]
+		-- avoid multiple copies by only looking for aliases
+		-- if main feature key not found and breaking if we find any alias 
+		elseif ALIASES[feature] then 
+			for _,alias in ipairs(ALIASES[feature]) do
+				if str:match(alias) and definition[format] then
+					result = result..definition[format]
+					break -- ensures no multiple copies
+				end
+			end
 		end
 	end
 

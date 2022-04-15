@@ -49,7 +49,7 @@ statement-styles:
         body-font: italics
         head-font: bold
         punctuation: '.'
-        space-after-head: \newline
+        space-after-head: \newline 
 references:
 - type: article-journal
   id: thatone
