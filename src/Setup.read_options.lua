@@ -27,9 +27,10 @@ function Setup:read_options(meta)
 	end
 
 	-- determine which level corresponds to LaTeX's 'section'
-	self.LaTeX_section_level = self:get_LaTeX_section_level(meta)
+	self.LaTeX_section_level = self:set_LaTeX_section_level(meta)
 
 	if meta.statement then
+
 		-- read boolean options
 		local boolean_options = {
 			amsthm = 'amsthm',
@@ -44,6 +45,16 @@ function Setup:read_options(meta)
 		for key,option in pairs(boolean_options) do
 			if type(meta.statement[option]) == 'boolean' then
 				self.options[key] = meta.statement[option]
+			end
+		end
+
+		-- read count-within option, level or LaTeX level name
+		if meta.statement['count-within'] then
+			local count_within = stringify(meta.statement['count-within']):lower()
+			if self:get_level_by_LaTeX_name(count_within) then
+				self.options.count_within = count_within
+			elseif self:get_level_by_LaTeX_name(count_within) then
+				self.options.count_within = count_within
 			end
 		end
 

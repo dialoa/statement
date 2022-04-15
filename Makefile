@@ -1,5 +1,5 @@
 DIFF ?= diff --strip-trailing-cr -u
-INFO = quiet
+INFO = quiet # use make INFO=verbose to get Pandoc verbose output
 SRC_FILES = $(wildcard src/*.lua)
 
 .PHONY: tex

@@ -8,15 +8,16 @@
 -- @return blocks or {}, blocks to be added locally if any
 function Statement:write_style(style, format)
 	local format = format or FORMAT
+	local styles = self.setup.styles -- points to the styles table
 	local style = style or self.setup.kinds[self.kind].style
 	local blocks = pandoc.List:new() -- blocks to be written
 
 	-- check if the style is already defined or not to be defined
-	if self.setup.styles[style].is_defined 
-			or self.setup.styles[style]['do_not_define_in_'..format] then
+	if styles[style].is_defined 
+			or styles[style]['do_not_define_in_'..format] then
 		return {}
 	else
-		self.setup.styles[style].is_defined = true
+		styles[style].is_defined = true
 	end
 
 	-- format
@@ -68,23 +69,25 @@ function Statement:write_style(style, format)
 			--		{string} punctuation after theorem head
 			--		{length} space after theorem head
 			--		{pattern} theorem heading pattern
-			local style_def = self.setup.styles[style]
-			local space_above = style_def.margin_top or '0pt'
-			local space_below = style_def.margin_bottom or '0pt'
-			local body_font = self.setup:font_format(style_def.body_font)
-			if style_def.margin_right then
+			local style_def = styles[style]
+			local space_above = self.setup:length_format(style_def.margin_top) or '0pt'
+			local space_below = self.setup:length_format(style_def.margin_bottom) or '0pt'
+			local margin_right = self.setup:length_format(style_def.margin_right)
+			local margin_left = self.setup:length_format(style_def.margin_right)
+			local body_font = self.setup:font_format(style_def.body_font) or ''
+			if margin_right then
 				body_font = '\\addtolength{\\rightskip}{'..style_def.margin_left..'}'
 										..body_font
 			end
-			if style_def.margin_left then
+			if margin_left then
 				body_font = '\\addtolength{\\leftskip}{'..style_def.margin_left..'}'
 										..body_font
 			end
-			local indent = style_def.indent or ''
-			local head_font = self.setup:font_format(style_def.head_font)
-			local label_punctuation = style_def.label_punctuation or ''
+			local indent = self.setup:length_format(style_def.indent) or ''
+			local head_font = self.setup:font_format(style_def.head_font) or ''
+			local punctuation = style_def.punctuation or ''
 			-- NB, space_after_head can't be '' or LaTeX crashes. use ' ' or '0pt'
-			local space_after_head = style_def.space_after_head or ' ' 
+			local space_after_head = self.setup:length_format(style_def.space_after_head) or ' '
 			local heading_pattern = style_def.heading_pattern or ''
 			local LaTeX_command = '\\newtheoremstyle{'..style..'}'
 										..'{'..space_above..'}'
@@ -92,7 +95,7 @@ function Statement:write_style(style, format)
 										..'{'..body_font..'}'
 										..'{'..indent..'}'
 										..'{'..head_font..'}'
-										..'{'..label_punctuation..'}'
+										..'{'..punctuation..'}'
 										..'{'..space_after_head..'}'
 										..'{'..heading_pattern..'}\n'
 			blocks:insert(pandoc.RawBlock('latex',LaTeX_command))

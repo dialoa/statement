@@ -87,6 +87,7 @@ Setup.options = {
 	citations = true, -- allow citation syntax for crossreferences
 	language = 'en', -- LOCALE setting
 	fontsize = nil, -- document fontsize
+	count_within = nil, -- default count-within
 	LaTeX_section_level = 1, -- heading level for to LaTeX's 'section'
 	LaTeX_in_list_afterskip = '.5em', -- space after statement first item in list
 	LaTeX_in_list_rightskip = '2em', -- right margin for statement first item in list
@@ -107,7 +108,18 @@ Setup.kinds = {
 --- Setup.styles: styles of statement, e.g. 'plain', 'remark'
 Setup.styles = {
 	-- stylename = {
-	--			do_not_define_in_latex = bool, whether to define in LaTeX 
+	--			do_not_define_in_latex = bool, whether to define in LaTeX amsthm
+	--		based_on = 'plain' -- base on another style
+	--		margin_top = '\\baselineskip', -- space before
+	--		margin_bottom = '\\baselineskip', -- space after
+	--		margin_left = nil, -- left skip
+	--		margin_right = nil, -- right skip
+	--		body_font = 'italics', -- body font
+	--		indent = nil, -- indent amount
+	--		head_font = 'bold', -- head font
+	--		punctuation = '.', -- punctuation after statement heading
+	--		space_after_head = '1em', -- horizontal space after heading 
+	--		heading_pattern = nil, -- heading pattern (not used yet)
 	--	}
 }
 
@@ -148,28 +160,11 @@ Setup.DEFAULTS.KINDS = {
 	none = {
 		statement = {prefix = 'sta', style = 'empty', counter='none',
 									custom_label_style = {
-											label_punctuation = '.',
+											punctuation = '.',
 									}},
 	},
 	basic = {
-		theorem = { prefix = 'thm', style = 'plain', counter = 'section' },
-		lemma = { prefix = 'lem', style = 'plain', counter = 'theorem' },
-		corollary = { prefix = 'cor', style = 'plain', counter = 'subsubsection' },
-		proposition = {prefix = 'prop', style = 'plain', counter = 'theorem' },
-		conjecture = {prefix = 'conj', style = 'plain', counter = 'theorem' },
-		fact = { style = 'plain', counter = 'theorem'},
-		definition = {prefix = 'defn', style = 'definition', counter = 'theorem'},
-		problem = {prefix = 'prob', style = 'definition', counter = 'theorem'},
-		example = {prefix = 'exa', style = 'definition', counter = 'theorem'},
-		exercise = {prefix = 'xca', style = 'definition', counter = 'theorem'},
-		axiom = {prefix = 'ax', style = 'definition', counter = 'theorem'},
-		solution = {prefix = 'sol', style = 'definition', counter = 'theorem'},
-		remark = {prefix = 'rem', style = 'remark', counter = 'theorem'},
-		claim = {prefix = 'claim', style = 'remark', counter = 'theorem'},
-		proof = {prefix = 'claim', style = 'proof', counter = 'none'},
-	},
-	advanced = {
-		theorem = { prefix = 'thm', style = 'plain', counter = 'section' },
+		theorem = { prefix = 'thm', style = 'plain', counter = 'self' },
 		lemma = { prefix = 'lem', style = 'plain', counter = 'theorem' },
 		corollary = { prefix = 'cor', style = 'plain', counter = 'theorem' },
 		proposition = {prefix = 'prop', style = 'plain', counter = 'theorem' },
@@ -204,22 +199,38 @@ Setup.DEFAULTS.STYLES = {
 			body_font = '',
 			indent = '0pt',
 			head_font = 'smallcaps',
-			label_punctuation = '',
+			punctuation = '',
 			space_after_head = ' ',
 			heading_pattern = nil,			
 		},
 	},
 	basic = {
-		plain = { do_not_define_in_latex = true },
-		definition = { do_not_define_in_latex = true },
-		remark = { do_not_define_in_latex = true },
-		proof = { do_not_define_in_latex = false }, -- let Statement.write_style take care of it
-	},
-	advanced = {
-		plain = { do_not_define_in_latex = true },
-		definition = { do_not_define_in_latex = true },
-		remark = { do_not_define_in_latex = true },
-		proof = { do_not_define_in_latex = false }, -- let Statement.write_style take care of it
+		plain = { do_not_define_in_latex = true,
+			margin_top = '\\baselineskip',
+			margin_bottom = '\\baselineskip',
+			margin_left = nil,
+			margin_right = nil,
+			body_font = 'italics',
+			indent = '0pt',
+			head_font = 'bold',
+			punctuation = '.',
+			space_after_head = '1em',
+			heading_pattern = nil,			
+		 },
+		definition = { do_not_define_in_latex = true,
+			based_on = 'plain',
+			body_font = '',
+		 },
+		remark = { do_not_define_in_latex = true,
+			based_on = 'plain',
+			body_font = '',
+			head_font = 'italics',
+		 },
+		proof = { do_not_define_in_latex = false,
+			based_on = 'plain',
+			body_font = '',
+			head_font = 'italics',
+		 }, -- Statement.write_style will take care of it
 	},
 }
 
@@ -1199,9 +1210,10 @@ function Setup:read_options(meta)
 	end
 
 	-- determine which level corresponds to LaTeX's 'section'
-	self.LaTeX_section_level = self:get_LaTeX_section_level(meta)
+	self.LaTeX_section_level = self:set_LaTeX_section_level(meta)
 
 	if meta.statement then
+
 		-- read boolean options
 		local boolean_options = {
 			amsthm = 'amsthm',
@@ -1216,6 +1228,16 @@ function Setup:read_options(meta)
 		for key,option in pairs(boolean_options) do
 			if type(meta.statement[option]) == 'boolean' then
 				self.options[key] = meta.statement[option]
+			end
+		end
+
+		-- read count-within option, level or LaTeX level name
+		if meta.statement['count-within'] then
+			local count_within = stringify(meta.statement['count-within']):lower()
+			if self:get_level_by_LaTeX_name(count_within) then
+				self.options.count_within = count_within
+			elseif self:get_level_by_LaTeX_name(count_within) then
+				self.options.count_within = count_within
 			end
 		end
 
@@ -1270,7 +1292,58 @@ function Setup:create_kinds_and_styles(meta)
 		end
 	end
 
-	-- @TODO read kinds and styles definitions from `meta` here
+	-- if count_within, change defaults with 'self' counter to 'count_within'
+	if self.options.count_within then
+		for kind,definition in pairs(self.kinds) do
+			if definition.counter == 'self' then 
+				self.kinds[kind].counter = self.options.count_within
+			end
+		end
+	end
+
+	-- ADD USER DEFINED STYLES AND KINDS
+
+	-- dash_keys_to_underscore: replace dashes with underscores in a 
+	--	map key's
+	function dash_keys_to_underscore(map) 
+		new_map = {}
+		for key,value in pairs(map) do
+			new_map[key:gsub('%-','_')] = map[key]
+		end
+		return new_map
+	end
+
+	-- read kinds and styles definitions from `meta` here
+	if meta['statement-styles'] and type(meta['statement-styles']) == 'table' then
+		for style,definition in pairs(meta['statement-styles']) do
+			self:set_style(style,dash_keys_to_underscore(definition))
+		end
+	end
+	if meta.statement and meta.statement.styles 
+		and type(meta.statement.styles) == 'table' then
+		for style,definition in pairs(meta.statement.styles) do
+			self:set_style(style,dash_keys_to_underscore(definition))
+		end
+	end
+	if meta['statement-kinds'] and type(meta['statement-kinds']) == 'table' then
+		for kind,definition in pairs(meta['statement-kinds']) do
+			self:set_kind(kind,dash_keys_to_underscore(definition))
+		end
+	end
+	if meta.statement and meta.statement.kinds 
+		and type(meta.statement.kinds) == 'table' then
+		for kind,definition in pairs(meta.statement.kinds) do
+			self:set_kind(kind,dash_keys_to_underscore(definition))
+		end
+	end
+
+	-- DEBUG display results
+	for kind,definition in pairs(self.kinds) do
+		print("Kind", kind)
+		for key, value in pairs(definition) do
+			print('\t',key,stringify(value))
+		end
+	end
 
 	-- ensure all labels are Inlines
 	-- localize statement labels that aren't yet defined
@@ -1300,6 +1373,203 @@ function Setup:create_kinds_and_styles(meta)
 		end
 
 	end
+
+end
+
+---Setup:set_style: create or set a style based on an options map
+-- Creates a new style or modify an existing one, based on options.
+--@param name string style key
+--@param map map of options
+function Setup:set_style(style,map)
+	local styles = self.styles -- points to the styles map
+	local map = map or {}
+	local new_style = {}
+	local based_on
+
+	-- basis: user-defined, existing style, 'plain' if available, or 'empty'
+	if map.based_on and styles[stringify(map.based_on)] then
+		based_on = stringify(map.based_on)
+	elseif styles[style] then
+		based_on = style
+	elseif styles['plain'] then
+		based_on = 'plain'
+	elseif styles['empty'] then
+		based_on = 'empty'
+	else
+		message('WARNING','Filter defaults misconfigured: no `empty` style provided.'
+			..' Definition for '..style..' must be complete, if not things may break.')
+	end
+
+	-- do_not_define_in_FORMAT fields
+	for key,value in pairs(map) do
+		if key:match('^do_not_define_in_') then
+			new_style[key] = stringify(value)
+		end
+	end
+
+	-- validate and insert options, or copy from the style it's based on
+	local length_fields = {
+		'margin_top', 'margin_bottom', 'margin_left', 'margin_right',
+		'indent', 'space_after_head'
+	}
+	local font_fields = {
+		'body_font', 'head_font'
+	}
+	local string_fields = { 
+		'punctuation', 'heading_pattern'
+	}
+	for _,length_field in ipairs(length_fields) do
+		new_style[length_field] = (map[length_field] and self:length_format(map[length_field])
+																and stringify(map[length_field]))
+															or styles[based_on][length_field]
+	end
+	for _,font_field in ipairs(font_fields) do
+		new_style[font_field] = (map[font_field] and self:font_format(map[font_field])
+																and map[font_field])
+														or styles[based_on][font_field]
+	end
+	for _,string_field in ipairs(string_fields) do
+		new_style[string_field] = map[string_field] and stringify(map[string_field])
+															or styles[based_on][string_field]
+	end
+
+	-- store the result
+	styles[style] = new_style
+
+end
+
+---Setup:set_kind: create or set a kind based on an options map
+-- Creates a new style or modify an existing one, based on options.
+--@param name string style key
+--@param map map of options
+function Setup:set_kind(kind,map)
+	local styles = self.styles -- points to the styles map
+	local kinds = self.kinds -- points to the kinds map
+--	local user_kinds = self.user_kinds -- user kinds (for shared counter checks)
+--	local user_styles = self.user_kinds -- user kinds (for shared counter checks)
+	local map = map or {}
+	local new_kind = {}
+
+	-- if kind already defined, get original fields
+	if kinds[kind] then
+		new_kind = kinds[kind]
+	end
+
+	-- Ensure kind has a valid counter
+	-- if shared counter, check that it exists or is about to be defined
+	if map.counter then
+		local counter = stringify(map.counter)
+		if counter == 'self' or counter == 'none' then
+			new_kind.counter = counter
+		elseif self:get_level_by_LaTeX_name(counter) then
+			new_kind.counter = counter
+		elseif self:get_level_by_LaTeX_name(counter) then
+			new_kind.counter = counter
+		elseif kinds[counter] then
+			new_kind.counter = counter
+		-- elseif shared counter with a kind to be defined! USER_DEFINED(...)
+		else
+			message('ERROR', 'Cannot understand counter setting `'..counter
+											..'` to define statement kind '..kind..'.')
+		end
+	end
+	-- if no counter, use the first primary counter found in `kinds`
+	-- or `options.count_within` or `self`	
+	if not map.counter then
+		for kind,definition in ipairs(kinds) do
+			if definition.counter == 'self'
+				or self:get_level_by_LaTeX_name(counter) 
+				or self:get_level_by_LaTeX_name(counter) then
+					new_kind.counter = definition.counter
+					break
+			end
+		end
+		if not map.counter then
+			new_kind.counter = self.options.count_within or 'self'
+		end
+	end
+
+	-- validate style
+	-- if none (or bad) provided, use 'plain' or 'empty'
+	if map.style then
+	 	if styles[stringify(map.style)] then
+			new_kind.style = stringify(map.style)
+		else
+			message('ERROR', 'Style `'..stringify(map.style)
+											..'` for statement kind `'..kind
+											..'` is not defined.')
+		end
+	end
+	if not map.style then 
+		if styles['plain'] then
+			new_kind.style = 'plain'
+		elseif styles['empty'] then
+			new_kind.style = 'empty'
+		else -- use any style you can find!
+			for style_key,_ in pairs(styles) do
+				new_kind.style = style_key
+				break
+			end
+		end
+		if new_kind.style then
+			message('INFO', 'Statement kind `'..kind..'`'
+											..' has not been given a style.'
+											..' Using `'..new_kind.style..'`.')
+		else
+			message('ERROR','Defaults misconfigured:'
+													..'no `empty` style provided.')
+		end
+	end
+
+	-- validate and insert options
+	local string_fields = { 
+		'prefix', 
+	}
+	local inlines_fields = {
+		'label'
+	}
+	local strings_list_fields = {
+		'aliases',
+	}
+	local map_fields = {
+		'custom_label_style'
+	}
+	for _,string_field in ipairs(string_fields) do
+		if map[string_field] then
+			new_kind[string_field] = stringify(map[string_field])
+		end
+	end
+	for _,inlines_field in ipairs(inlines_fields) do
+		if map[inlines_field] then
+			if type(map[inlines_field]) == 'Inlines' then
+				new_kind[inlines_field] = map[inlines_field]
+			else
+				new_kind[inlines_field] = pandoc.Inlines(pandoc.Str(
+																		stringify(map[inlines_field])
+																	))
+			end
+		end
+	end
+	for _,strings_list_field in ipairs(strings_list_fields) do
+		if map[strings_list_field] then
+			if type(map[strings_list_field]) == 'List' then
+				new_kind[strings_list_field] = map[strings_list_field]
+			elseif type(map[strings_list_field]) == 'string' 
+					or type(map[strings_list_field]) == 'Inlines' then
+				new_kind[strings_list_field] = pandoc.List:new(
+																		stringify(map[strings_list_field])
+																	)
+			end
+		end
+	end
+	for _,map_field in ipairs(map_fields) do
+		if map[map_field] then
+			new_kind[map_field] = map[map_field]
+		end
+	end
+
+	-- store in kinds table
+	kinds[kind] = new_kind
 
 end
 
@@ -1447,6 +1717,18 @@ end
 -- @return string specifying the length in the desired format or ''
 function Setup:length_format(str, format)
 	local format = format or FORMAT
+	-- ensure str is defined and a string
+	if not str then
+		return nil
+	end
+	if type(str) ~= 'string' then
+		if type(str) == 'Inlines' then
+			str = stringify(str)
+		else
+			return nil
+		end
+	end
+
 	-- within this function, format is 'css' when css lengths are needed
 	if format:match('html') then
 		format = 'css'
@@ -1560,13 +1842,14 @@ function Setup:length_format(str, format)
 		-- match number and unit, possibly separated by spaces
 		-- nb, %g for printable characters except spaces
 		amount, unit = str:match('%s*(%-?%s*%d*%.?%d*)%s*(%g+)%s*')
-		-- need to remove spaces from `amount` before attempting tonumber
-		if amount then amount = amount:gsub(' ','') end
-		-- check that `amount` is a number and `unit` a legit unit
-		-- convert them if a conversion is provided for `format`
-		if amount and tonumber(amount) then
-			if UNITS[unit] or LATEX_LENGTHS[unit] then
-				amount = tonumber(amount)
+		-- allow amount + unit, or no amount ('') + LaTeX unit
+		if amount then
+			-- need to remove spaces before attempting `tonumber`
+			amount = amount:gsub('%s','')
+			if (tonumber(amount) and (UNITS[unit] or LATEX_LENGTHS[unit])) 
+						or (amount == '' and LATEX_LENGTHS[unit]) then
+				-- ensure amount is a number
+				if amount == '' then amount = 1 end
 				-- conversion if available
 				if UNITS[unit] and UNITS[unit][format] then
 					amount = amount * UNITS[unit][format][1]
@@ -1574,15 +1857,15 @@ function Setup:length_format(str, format)
 				elseif LATEX_LENGTHS[unit] and LATEX_LENGTHS[unit][format] then
 					amount = amount * LATEX_LENGTHS[unit][format][1]
 					unit = LATEX_LENGTHS[unit][format][2]
-				end
+				end -- end of conversions
 				-- return result as table
 				return { 
 					amount = amount,
 					unit = unit,
 				}
-			end -- unit not legit
-		end -- amount not a number
-	end
+			end -- amout or unit not legit
+		end -- no string match
+	end -- end of parse_length
 
 	--- parse_plus_minus: parse a '<length>plus<length>minus<length>'
 	-- string.
@@ -1626,15 +1909,6 @@ function Setup:length_format(str, format)
 	end
 
 	-- MAIN BODY of the function
-
-	-- ensure str is a string
-	if not type(str) == 'string' then
-		if type(str) == 'Inlines' then
-			str = stringify(str)
-		else
-			return nil
-		end
-	end
 
 	-- parse `str` into a length table
 	-- length = {
@@ -1687,19 +1961,26 @@ end
 --@TODO what if a space is provided (space after head)
 -- @param len Inlines or string to be interpreted
 -- @param format (optional) desired format if other than FORMAT
--- @return string specifying font features in the desired format or ''
+-- @return string specifying font features in the desired format or nil
 function Setup:font_format(str, format)
 	local format = format or FORMAT
 	local result = ''
+	-- ensure str is defined and a string
+	if not str then
+		return nil
+	end
 	if type(str) ~= 'string' then
-		str = stringify(str)
+		if type(str) == 'Inlines' then
+			str = stringify(str)
+		else
+			return nil
+		end
 	end
 
 	-- within this function, format is 'css' when css features are needed
 	if format:match('html') then
 		format = 'css'
 	end
-
 	-- FEATURES and their conversion
 	local FEATURES = {
 		upright = {
@@ -1718,9 +1999,16 @@ function Setup:font_format(str, format)
 			latex = '\\bfseries',
 			css = 'font-weight: bold;'
 		},
+		normal = {
+			latex = '\\normalfont',
+			css = ''
+		}
 	}
+	-- provide some aliases
+	FEATURES.italic = FEATURES.italics
+	FEATURES.normalfont = FEATURES.normal
 	-- provide 'small-caps' alias
-	-- nb, we use the table key as a matching pattern, so `-` is escaped
+	-- nb, we use the table key as a matching pattern, so `-` must be escaped
 	FEATURES['small%-caps'] = FEATURES.smallcaps
 
 	for feature,definition in pairs(FEATURES) do
@@ -1797,11 +2085,11 @@ function Setup:set_includes(format)
 
 end
 
---- Setup:get_LaTeX_section_level: determine the heading level
+--- Setup:set_LaTeX_section_level: determine the heading level
 -- corresponding to LaTeX's 'section' and store it in Setup.options
 --@param meta document's metadata
 --@param format string (optional) output format (defaults to FORMAT)
-function Setup:get_LaTeX_section_level(meta,format)
+function Setup:set_LaTeX_section_level(meta,format)
 	local format = format or FORMAT
 	local top_level = PANDOC_WRITER_OPTIONS.top_level_division
 	top_level = top_level:gsub('top-level-','')
@@ -1877,11 +2165,13 @@ end
 -- @field cust_label Inlines the statement custom's label, if any
 -- @field info Inlines the statement's info
 Statement = {
+	setup = nil, -- points to the Setup class object
+	element = nil, -- original element to be turned into statement
 	kind = nil, -- string, key of `kinds`
 	identifier = nil, -- string, Pandoc identifier
 	custom_label = nil, -- Inlines, user-provided label
 	crossref_label = nil, -- Inlines, label used to crossreference the statement
-	label = nil, -- Inlines, formatted label to display
+	label = nil, -- Inlines, label to display in non-LaTeX format e.g. "Theorem 1.1"
 	acronym = nil, -- Inlines, acronym
 	info = nil, -- Inlines, user-provided info
 	content = nil, -- Blocks, statement's content
@@ -1898,12 +2188,13 @@ function Statement:new(elem, setup)
 	self.__index = self 
 	setmetatable(o, self)
 
-	o.setup = setup
-	-- determine if it has a statement kind or return nil
-	o.kind = o:find_kind(elem)
+	o.setup = setup -- points to the setup, needed by the class's methods
+	o.element = elem -- points to the original element
 
-	if o.kind then
+	if o:is_statement() then
 
+		-- find the statement's original kind
+		o.kind = o:find_kind(elem)
 		o.content = elem.content -- element content
 		-- extract label, acronym
 		o:extract_label() -- extract label, acronym
@@ -1923,7 +2214,7 @@ function Statement:new(elem, setup)
 			o:increment_count() -- update the kind's counter
 		end
 
-		-- return
+		-- return statement object
 		return o
 
 	else
@@ -1931,14 +2222,31 @@ function Statement:new(elem, setup)
 	end
 
 end
+---Statement:is_statement Whether an element is a statement.
+-- Simple wrapper for the kinds_matched function, makes for more
+-- legible code elsewhere.
+--@param elem pandoc element, should be Div or DefinitionList
+--@param setup (optional) a Setup class object, to be used when
+--			the function is called from the setup object
+--@return bool whether the element is a statement
+function Statement:is_statement(elem,setup)
+	if self:kinds_matched(elem,setup) then
+		return true
+	else
+		return false
+	end
+end
+
 ---Statement:kinds_matched Determines whether an element is a
 -- statement and return the kinds it matches. 
---@param elem pandoc element, should be Div or DefinitionList
+--@param elem (optional) pandoc element, should be Div or DefinitionList
+--							default to self.element
 --@param setup (optional) a Setup class object, to be used when
 --			the function is called from the setup object
 --@return list, a pandoc List of matched kinds or nil
 function Statement:kinds_matched(elem,setup)
 	setup = setup or self.setup
+	elem = elem or self.element
 	local options = setup.options -- pointer to the options table
 	local kinds = setup.kinds -- pointer to the kinds table
 	local aliases = setup.aliases -- pointed to the aliases table
@@ -2618,15 +2926,16 @@ end
 -- @return blocks or {}, blocks to be added locally if any
 function Statement:write_style(style, format)
 	local format = format or FORMAT
+	local styles = self.setup.styles -- points to the styles table
 	local style = style or self.setup.kinds[self.kind].style
 	local blocks = pandoc.List:new() -- blocks to be written
 
 	-- check if the style is already defined or not to be defined
-	if self.setup.styles[style].is_defined 
-			or self.setup.styles[style]['do_not_define_in_'..format] then
+	if styles[style].is_defined 
+			or styles[style]['do_not_define_in_'..format] then
 		return {}
 	else
-		self.setup.styles[style].is_defined = true
+		styles[style].is_defined = true
 	end
 
 	-- format
@@ -2678,23 +2987,25 @@ function Statement:write_style(style, format)
 			--		{string} punctuation after theorem head
 			--		{length} space after theorem head
 			--		{pattern} theorem heading pattern
-			local style_def = self.setup.styles[style]
-			local space_above = style_def.margin_top or '0pt'
-			local space_below = style_def.margin_bottom or '0pt'
-			local body_font = self.setup:font_format(style_def.body_font)
-			if style_def.margin_right then
+			local style_def = styles[style]
+			local space_above = self.setup:length_format(style_def.margin_top) or '0pt'
+			local space_below = self.setup:length_format(style_def.margin_bottom) or '0pt'
+			local margin_right = self.setup:length_format(style_def.margin_right)
+			local margin_left = self.setup:length_format(style_def.margin_right)
+			local body_font = self.setup:font_format(style_def.body_font) or ''
+			if margin_right then
 				body_font = '\\addtolength{\\rightskip}{'..style_def.margin_left..'}'
 										..body_font
 			end
-			if style_def.margin_left then
+			if margin_left then
 				body_font = '\\addtolength{\\leftskip}{'..style_def.margin_left..'}'
 										..body_font
 			end
-			local indent = style_def.indent or ''
-			local head_font = self.setup:font_format(style_def.head_font)
-			local label_punctuation = style_def.label_punctuation or ''
+			local indent = self.setup:length_format(style_def.indent) or ''
+			local head_font = self.setup:font_format(style_def.head_font) or ''
+			local punctuation = style_def.punctuation or ''
 			-- NB, space_after_head can't be '' or LaTeX crashes. use ' ' or '0pt'
-			local space_after_head = style_def.space_after_head or ' ' 
+			local space_after_head = self.setup:length_format(style_def.space_after_head) or ' '
 			local heading_pattern = style_def.heading_pattern or ''
 			local LaTeX_command = '\\newtheoremstyle{'..style..'}'
 										..'{'..space_above..'}'
@@ -2702,7 +3013,7 @@ function Statement:write_style(style, format)
 										..'{'..body_font..'}'
 										..'{'..indent..'}'
 										..'{'..head_font..'}'
-										..'{'..label_punctuation..'}'
+										..'{'..punctuation..'}'
 										..'{'..space_after_head..'}'
 										..'{'..heading_pattern..'}\n'
 			blocks:insert(pandoc.RawBlock('latex',LaTeX_command))

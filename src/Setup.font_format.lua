@@ -2,19 +2,26 @@
 --@TODO what if a space is provided (space after head)
 -- @param len Inlines or string to be interpreted
 -- @param format (optional) desired format if other than FORMAT
--- @return string specifying font features in the desired format or ''
+-- @return string specifying font features in the desired format or nil
 function Setup:font_format(str, format)
 	local format = format or FORMAT
 	local result = ''
+	-- ensure str is defined and a string
+	if not str then
+		return nil
+	end
 	if type(str) ~= 'string' then
-		str = stringify(str)
+		if type(str) == 'Inlines' then
+			str = stringify(str)
+		else
+			return nil
+		end
 	end
 
 	-- within this function, format is 'css' when css features are needed
 	if format:match('html') then
 		format = 'css'
 	end
-
 	-- FEATURES and their conversion
 	local FEATURES = {
 		upright = {
@@ -33,9 +40,16 @@ function Setup:font_format(str, format)
 			latex = '\\bfseries',
 			css = 'font-weight: bold;'
 		},
+		normal = {
+			latex = '\\normalfont',
+			css = ''
+		}
 	}
+	-- provide some aliases
+	FEATURES.italic = FEATURES.italics
+	FEATURES.normalfont = FEATURES.normal
 	-- provide 'small-caps' alias
-	-- nb, we use the table key as a matching pattern, so `-` is escaped
+	-- nb, we use the table key as a matching pattern, so `-` must be escaped
 	FEATURES['small%-caps'] = FEATURES.smallcaps
 
 	for feature,definition in pairs(FEATURES) do

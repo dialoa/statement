@@ -14,6 +14,7 @@ Setup.options = {
 	citations = true, -- allow citation syntax for crossreferences
 	language = 'en', -- LOCALE setting
 	fontsize = nil, -- document fontsize
+	count_within = nil, -- default count-within
 	LaTeX_section_level = 1, -- heading level for to LaTeX's 'section'
 	LaTeX_in_list_afterskip = '.5em', -- space after statement first item in list
 	LaTeX_in_list_rightskip = '2em', -- right margin for statement first item in list
@@ -34,7 +35,18 @@ Setup.kinds = {
 --- Setup.styles: styles of statement, e.g. 'plain', 'remark'
 Setup.styles = {
 	-- stylename = {
-	--			do_not_define_in_latex = bool, whether to define in LaTeX 
+	--			do_not_define_in_latex = bool, whether to define in LaTeX amsthm
+	--		based_on = 'plain' -- base on another style
+	--		margin_top = '\\baselineskip', -- space before
+	--		margin_bottom = '\\baselineskip', -- space after
+	--		margin_left = nil, -- left skip
+	--		margin_right = nil, -- right skip
+	--		body_font = 'italics', -- body font
+	--		indent = nil, -- indent amount
+	--		head_font = 'bold', -- head font
+	--		punctuation = '.', -- punctuation after statement heading
+	--		space_after_head = '1em', -- horizontal space after heading 
+	--		heading_pattern = nil, -- heading pattern (not used yet)
 	--	}
 }
 
@@ -74,6 +86,10 @@ Setup.includes = {
 !input Setup.read_options -- function to read options
 
 !input Setup.create_kinds_and_styles -- to create kinds and styles
+
+!input Setup.set_style -- to create or set a stype
+
+!input Setup.set_kind -- to create or set a stype
 
 !input Setup.create_counters -- to create level counters
 
@@ -151,11 +167,11 @@ function Setup:set_includes(format)
 
 end
 
---- Setup:get_LaTeX_section_level: determine the heading level
+--- Setup:set_LaTeX_section_level: determine the heading level
 -- corresponding to LaTeX's 'section' and store it in Setup.options
 --@param meta document's metadata
 --@param format string (optional) output format (defaults to FORMAT)
-function Setup:get_LaTeX_section_level(meta,format)
+function Setup:set_LaTeX_section_level(meta,format)
 	local format = format or FORMAT
 	local top_level = PANDOC_WRITER_OPTIONS.top_level_division
 	top_level = top_level:gsub('top-level-','')

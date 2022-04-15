@@ -44,7 +44,64 @@ function Setup:create_kinds_and_styles(meta)
 		end
 	end
 
-	-- @TODO read kinds and styles definitions from `meta` here
+	-- if count_within, change defaults with 'self' counter to 'count_within'
+	if self.options.count_within then
+		for kind,definition in pairs(self.kinds) do
+			if definition.counter == 'self' then 
+				self.kinds[kind].counter = self.options.count_within
+			end
+		end
+	end
+
+	-- ADD USER DEFINED STYLES AND KINDS
+
+	-- dash_keys_to_underscore: replace dashes with underscores in a 
+	--	map key's
+	function dash_keys_to_underscore(map) 
+		new_map = {}
+		for key,value in pairs(map) do
+			new_map[key:gsub('%-','_')] = map[key]
+		end
+		return new_map
+	end
+
+	-- read kinds and styles definitions from `meta` here
+	if meta['statement-styles'] and type(meta['statement-styles']) == 'table' then
+		for style,definition in pairs(meta['statement-styles']) do
+			self:set_style(style,dash_keys_to_underscore(definition))
+		end
+	end
+	if meta.statement and meta.statement.styles 
+		and type(meta.statement.styles) == 'table' then
+		for style,definition in pairs(meta.statement.styles) do
+			self:set_style(style,dash_keys_to_underscore(definition))
+		end
+	end
+	if meta['statement-kinds'] and type(meta['statement-kinds']) == 'table' then
+		for kind,definition in pairs(meta['statement-kinds']) do
+			self:set_kind(kind,dash_keys_to_underscore(definition))
+		end
+	end
+	if meta.statement and meta.statement.kinds 
+		and type(meta.statement.kinds) == 'table' then
+		for kind,definition in pairs(meta.statement.kinds) do
+			self:set_kind(kind,dash_keys_to_underscore(definition))
+		end
+	end
+
+	-- DEBUG display results
+	-- for style,definition in pairs(self.styles) do
+	-- 	print("Style", style)
+	-- 	for key, value in pairs(definition) do
+	-- 		print('\t',key,stringify(value) or '')
+	-- 	end
+	-- end
+	-- for kind,definition in pairs(self.kinds) do
+	-- 	print("Kind", kind)
+	-- 	for key, value in pairs(definition) do
+	-- 		print('\t',key,stringify(value) or '')
+	-- 	end
+	-- end
 
 	-- ensure all labels are Inlines
 	-- localize statement labels that aren't yet defined

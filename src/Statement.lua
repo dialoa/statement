@@ -6,6 +6,8 @@
 -- @field cust_label Inlines the statement custom's label, if any
 -- @field info Inlines the statement's info
 Statement = {
+	setup = nil, -- points to the Setup class object
+	element = nil, -- original element to be turned into statement
 	kind = nil, -- string, key of `kinds`
 	identifier = nil, -- string, Pandoc identifier
 	custom_label = nil, -- Inlines, user-provided label
@@ -27,12 +29,13 @@ function Statement:new(elem, setup)
 	self.__index = self 
 	setmetatable(o, self)
 
-	o.setup = setup
-	-- determine if it has a statement kind or return nil
-	o.kind = o:find_kind(elem)
+	o.setup = setup -- points to the setup, needed by the class's methods
+	o.element = elem -- points to the original element
 
-	if o.kind then
+	if o:is_statement() then
 
+		-- find the statement's original kind
+		o.kind = o:find_kind(elem)
 		o.content = elem.content -- element content
 		-- extract label, acronym
 		o:extract_label() -- extract label, acronym
@@ -52,7 +55,7 @@ function Statement:new(elem, setup)
 			o:increment_count() -- update the kind's counter
 		end
 
-		-- return
+		-- return statement object
 		return o
 
 	else
@@ -61,7 +64,9 @@ function Statement:new(elem, setup)
 
 end
 
-!input Statement.kinds_matched -- to tell whether an element is a statement, and what kind it matches
+!input Statement.is_statement -- to tell whether an element is a statement, and what kind it matches
+
+!input Statement.kinds_matched -- tells whether an element is a statement
 
 !input Statement.find_kind -- to decide an element's main kind
 

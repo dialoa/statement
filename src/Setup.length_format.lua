@@ -5,6 +5,18 @@
 -- @return string specifying the length in the desired format or ''
 function Setup:length_format(str, format)
 	local format = format or FORMAT
+	-- ensure str is defined and a string
+	if not str then
+		return nil
+	end
+	if type(str) ~= 'string' then
+		if type(str) == 'Inlines' then
+			str = stringify(str)
+		else
+			return nil
+		end
+	end
+
 	-- within this function, format is 'css' when css lengths are needed
 	if format:match('html') then
 		format = 'css'
@@ -118,13 +130,14 @@ function Setup:length_format(str, format)
 		-- match number and unit, possibly separated by spaces
 		-- nb, %g for printable characters except spaces
 		amount, unit = str:match('%s*(%-?%s*%d*%.?%d*)%s*(%g+)%s*')
-		-- need to remove spaces from `amount` before attempting tonumber
-		if amount then amount = amount:gsub(' ','') end
-		-- check that `amount` is a number and `unit` a legit unit
-		-- convert them if a conversion is provided for `format`
-		if amount and tonumber(amount) then
-			if UNITS[unit] or LATEX_LENGTHS[unit] then
-				amount = tonumber(amount)
+		-- allow amount + unit, or no amount ('') + LaTeX unit
+		if amount then
+			-- need to remove spaces before attempting `tonumber`
+			amount = amount:gsub('%s','')
+			if (tonumber(amount) and (UNITS[unit] or LATEX_LENGTHS[unit])) 
+						or (amount == '' and LATEX_LENGTHS[unit]) then
+				-- ensure amount is a number
+				if amount == '' then amount = 1 end
 				-- conversion if available
 				if UNITS[unit] and UNITS[unit][format] then
 					amount = amount * UNITS[unit][format][1]
@@ -132,15 +145,15 @@ function Setup:length_format(str, format)
 				elseif LATEX_LENGTHS[unit] and LATEX_LENGTHS[unit][format] then
 					amount = amount * LATEX_LENGTHS[unit][format][1]
 					unit = LATEX_LENGTHS[unit][format][2]
-				end
+				end -- end of conversions
 				-- return result as table
 				return { 
 					amount = amount,
 					unit = unit,
 				}
-			end -- unit not legit
-		end -- amount not a number
-	end
+			end -- amout or unit not legit
+		end -- no string match
+	end -- end of parse_length
 
 	--- parse_plus_minus: parse a '<length>plus<length>minus<length>'
 	-- string.
@@ -184,15 +197,6 @@ function Setup:length_format(str, format)
 	end
 
 	-- MAIN BODY of the function
-
-	-- ensure str is a string
-	if not type(str) == 'string' then
-		if type(str) == 'Inlines' then
-			str = stringify(str)
-		else
-			return nil
-		end
-	end
 
 	-- parse `str` into a length table
 	-- length = {
