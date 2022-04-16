@@ -25,7 +25,7 @@ function Statement:set_crossref_label()
 	elseif self.is_numbered then
 		-- if shared counter, switch kind to the shared counter's kind
 		local kind = self.kind
-		local counter = kinds[self.kind].counter
+		local counter = kinds[kind].counter
 		if kinds[counter] then
 			kind = counter
 			counter = kinds[counter].counter

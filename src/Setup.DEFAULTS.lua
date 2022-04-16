@@ -25,7 +25,7 @@ Setup.DEFAULTS.KINDS = {
 		solution = {prefix = 'sol', style = 'definition', counter = 'theorem'},
 		remark = {prefix = 'rem', style = 'remark', counter = 'theorem'},
 		claim = {prefix = 'claim', style = 'remark', counter = 'theorem'},
-		proof = {prefix = 'claim', style = 'proof', counter = 'none'},
+		proof = {prefix = 'proof', style = 'proof', counter = 'none'},
 		criterion = {prefix = 'crit', style = 'plain', counter = 'theorem'},
 		assumption = {prefix = 'ass', style = 'plain', counter = 'theorem'},
 		algorithm = {prefix = 'alg', style = 'definition', counter = 'theorem'},

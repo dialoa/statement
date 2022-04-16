@@ -115,6 +115,9 @@ function Setup:length_format(str, format)
 		new_latex_lengths['\\'..key] = value
 	end
 	LATEX_LENGTHS = new_latex_lengths
+	-- HTML_ENTITIES and their translations in 'main plus minus'
+	local HTML_ENTITIES = {}
+	HTML_ENTITIES['&nbsp'] = '0.333em plus 0.666em minus 0.111em'
 
 	--- parse_length: parse a '<number><unit>' string.
 	-- checks the unit against UNITS and LATEX_LENGTHS
@@ -134,10 +137,10 @@ function Setup:length_format(str, format)
 		if amount then
 			-- need to remove spaces before attempting `tonumber`
 			amount = amount:gsub('%s','')
-			if (tonumber(amount) and (UNITS[unit] or LATEX_LENGTHS[unit])) 
-						or (amount == '' and LATEX_LENGTHS[unit]) then
+			-- either we have a number + unit:
+			if tonumber(amount) and (UNITS[unit] or LATEX_LENGTHS[unit]) then
 				-- ensure amount is a number
-				if amount == '' then amount = 1 end
+				amount = tonumber(amount)
 				-- conversion if available
 				if UNITS[unit] and UNITS[unit][format] then
 					amount = amount * UNITS[unit][format][1]
@@ -151,7 +154,20 @@ function Setup:length_format(str, format)
 					amount = amount,
 					unit = unit,
 				}
-			end -- amout or unit not legit
+			-- or we have a latex length on its own
+			elseif amount=='' and LATEX_LENGTHS[unit] then
+				amount = 1
+				-- convert if possible
+				if LATEX_LENGTHS[unit] and LATEX_LENGTHS[unit][format] then
+					amount = LATEX_LENGTHS[unit][format][1]
+					unit = LATEX_LENGTHS[unit][format][2]
+				end -- end of conversions
+				-- return result as table
+				return { 
+					amount = amount,
+					unit = unit,
+				}
+			end -- no legit amount / unit combination
 		end -- no string match
 	end -- end of parse_length
 
@@ -164,11 +180,15 @@ function Setup:length_format(str, format)
 
 		local main, plus, minus
 
-		-- special case: length is just '0'
+		-- special cases: length is just '0' or space or HTML entity
 		if tonumber(str) and tonumber(str) == 0 then
 			return {
 					main = {amount = 0, unit = 'em'} 
 				}
+		elseif str == ' ' then
+		 	main,plus,minus = '0.333em', '0.666em', '0.111em' 
+		elseif HTML_ENTITIES[str] then
+			str = HTML_ENTITIES[str]
 		end
 		-- otherwise try matching plus and minus
 		if not main then
@@ -206,10 +226,10 @@ function Setup:length_format(str, format)
 	-- }
 	local length = parse_plus_minus(str)
 	
-	-- issue a warning if table found
+	-- issue a warning if nothing found
 	if not length or not length.main then
 		message('WARNING', 
-			'Could not parse the length specification: '..str..'.')
+			'Could not parse the length specification: `'..str..'`.')
 		return nil
 	end
 

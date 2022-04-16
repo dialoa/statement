@@ -21,9 +21,11 @@ function Setup:set_kind(kind,map)
 		local counter = stringify(map.counter)
 		if counter == 'self' or counter == 'none' then
 			new_kind.counter = counter
-		elseif self:get_level_by_LaTeX_name(counter) then
+		elseif counter == kind then -- using own name as counter
+			new_kind = 'self'
+		elseif self:get_level_by_LaTeX_name(counter) then -- latex counter
 			new_kind.counter = counter
-		elseif self:get_level_by_LaTeX_name(counter) then
+		elseif self:get_LaTeX_name_by_level(counter) then -- level counter
 			new_kind.counter = counter
 		elseif kinds[counter] then
 			new_kind.counter = counter
@@ -33,18 +35,21 @@ function Setup:set_kind(kind,map)
 											..'` to define statement kind '..kind..'.')
 		end
 	end
-	-- if no counter, use the first primary counter found in `kinds`
+	-- if no counter, use the pre-existing counter if there's one
+	-- otherwise use the first primary counter found in `kinds`
 	-- or `options.count_within` or `self`	
 	if not map.counter then
-		for kind,definition in ipairs(kinds) do
-			if definition.counter == 'self'
-				or self:get_level_by_LaTeX_name(counter) 
-				or self:get_level_by_LaTeX_name(counter) then
-					new_kind.counter = definition.counter
-					break
+		if not new_kind.counter then
+			for kind,definition in pairs(kinds) do
+				if definition.counter == 'self'
+					or self:get_level_by_LaTeX_name(definition.counter) 
+					or self:get_LaTeX_name_by_level(definition.counter) then
+						new_kind.counter = kind
+						break
+				end
 			end
 		end
-		if not map.counter then
+		if not new_kind.counter then
 			new_kind.counter = self.options.count_within or 'self'
 		end
 	end
@@ -117,7 +122,7 @@ function Setup:set_kind(kind,map)
 			elseif type(map[strings_list_field]) == 'string' 
 					or type(map[strings_list_field]) == 'Inlines' then
 				new_kind[strings_list_field] = pandoc.List:new(
-																		stringify(map[strings_list_field])
+																		{stringify(map[strings_list_field])}
 																	)
 			end
 		end

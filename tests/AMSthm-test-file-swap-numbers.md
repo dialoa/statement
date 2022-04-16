@@ -5,6 +5,7 @@ author: Michael Downes, updated by Barbara Beeton
 numbersections: true
 statement:
     count-within: section
+    swap-numbers: true
 statement-kinds:
     remark:
         counter: none
@@ -66,7 +67,6 @@ references:
   volume: 1
   issue: 1
   page: 1-10
-  DOI: 10.1038/171737a0
 ---
 
 # Test of standard theorem styles

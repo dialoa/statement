@@ -106,6 +106,7 @@ a Cite element without the label.
 
 ::: thm
 **(PP) (Lewis).** Acronym plus info without custom label should fail.
+`**(PP) (Lewis).**` is treated is part of the theorem.
 :::
 
 # References

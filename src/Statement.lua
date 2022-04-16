@@ -46,6 +46,8 @@ end
 
 !input Statement.is_statement -- to tell whether an element is a statement, and what kind it matches
 
+!input Statement.is_kind_key -- to tell whether a string is a kind key, or the alias of one
+
 !input Statement.Div_is_statement -- to tell whether an element is a statement, and what kind it matches
 
 !input Statement.parse_Div -- parse Div element as statement

@@ -58,7 +58,7 @@ function Setup:read_options(meta)
 			end
 		end
 
-	end
+	end -- end of `meta.statement` processing
 
 
 end

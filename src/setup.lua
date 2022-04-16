@@ -70,8 +70,12 @@ Setup.counters = {
 --- Setup.identifiers: document identifiers. Populated as we walk the doc
 Setup.identifiers = {
 	-- identifier = {
-	--									is_statement = bool, whether it's a statement
-	--									crossref_label = inlines, label to use in crossreferences
+	--									statement = bool, whether it's a statement
+	--									crossref_label =  inlines, label to use in crossreferences
+	--																		only set when is_statement = true
+	--									try_instead = string, when user set this ID but it was already
+	--																assigned to a statement, this points to a
+	--																statement id used instead
 	--							}
 }
 
@@ -81,13 +85,25 @@ Setup.includes = {
 	before_first = nil,
 }
 
+-- Setup.LATEX_NAMES: often-used LaTeX names list
+Setup.LATEX_NAMES = pandoc.List:new(
+											{'book', 'part', 'section', 'subsection', 
+											'subsubsection', 'paragraph', 'subparagraph'}
+										)
+
 !input Setup.DEFAULTS -- default kinds and styles
 
 !input Setup.LOCALE -- Label translations
 
+!input Setup.validate_defaults -- to validate DEFAULTS files
+
 !input Setup.read_options -- function to read options
 
 !input Setup.create_kinds_and_styles -- to create kinds and styles
+
+!input Setup.create_kinds_and_styles_defaults -- to create default kinds and styles
+
+!input Setup.create_aliases -- to create aliases of kinds keys
 
 !input Setup.set_style -- to create or set a stype
 
@@ -210,32 +226,38 @@ function Setup:set_LaTeX_section_level(meta,format)
 end
 
 --- Setup:get_level_by_LaTeX_name: convert LaTeX name to Pandoc level
---@param name string LaTeX name
-function Setup:get_level_by_LaTeX_name(name) 
-	local LaTeX_names = {'book', 'part', 'section', 'subsection', 
-						'subsubsection', 'paragraph', 'subparagraph'}
+-- returns level if it's already a level
+--@param name string or number LaTeX name or level as string or number
+--@return level number or nil level
+function Setup:get_level_by_LaTeX_name(name)
+	LaTeX_names = self.LATEX_NAMES
 	-- offset value. Pandoc level = LaTeX_names index - offset
 	local offset = 3 - self.options.LaTeX_section_level
-	-- determine whether `name` is in LaTeX names and where
-	for index,LaTeX_name in ipairs(LaTeX_names) do
-		if name == LaTeX_name then
-			return index - offset
-		end
+	-- if level number we return it
+	if tonumber(name) then
+		return tonumber(name)
 	end
-
-	return nil
+	-- determine whether `name` is in LaTeX names and where
+	_,index = LaTeX_names:find(name)
+	if index then
+		return index - offset
+	end
 end
 
 --- Setup:get_LaTeX_name_by_level: convert Pandoc level to LaTeX name
---@param level number 
+-- returns LaTeX name if it's already one
+--@param level number or string, level as string or number or LaTeX name
 function Setup:get_LaTeX_name_by_level(level)
-	local LaTeX_names = {'book', 'part', 'section', 'subsection', 
-		'subsubsection', 'paragraph', 'subparagraph'}
+	LaTeX_names = self.LATEX_NAMES
 	-- LaTeX_names[level + offset] = LaTeX name
 	local offset = 3 - self.options.LaTeX_section_level
+	-- if LaTeX name we return it
+	if type(level) == 'string' and LaTeX_names:find(level) then
+		return level
+	end
 
-	if type(level)=='number' then
-		return LaTeX_names[level + offset]
+	if tonumber(level) then
+		return LaTeX_names[tonumber(level) + offset] or nil
 	end
 
 	return nil

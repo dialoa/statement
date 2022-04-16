@@ -34,6 +34,7 @@ function Walker:collect_ids(blocks)
 
 	-- Generic function for remaining types
 	for _,type in ipairs(types_with_identifier) do
+		-- make sure we don't erase a filter already defined
 		filter[type] = filter[type] or register_or_warn
 	end
 

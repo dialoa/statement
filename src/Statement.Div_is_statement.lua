@@ -9,7 +9,6 @@ function Statement:Div_is_statement(elem,setup)
 	elem = elem or self.element
 	local options = setup.options -- pointer to the options table
 	local kinds = setup.kinds -- pointer to the kinds table
-	local aliases = setup.aliases -- pointed to the aliases table
 
 	-- safety check
 	if not elem.t or elem.t ~= 'Div' then
@@ -22,11 +21,12 @@ function Statement:Div_is_statement(elem,setup)
 	-- check aliases if `options.aliases` is true
 	local matches = pandoc.List:new()
 	for _,class in ipairs(elem.classes) do
-		if kinds[class] and not matches:find(class) then
-			matches:insert(class)
-		elseif options.aliases
-			and aliases[class] and not matches:find(aliases[class]) then
-			matches:insert(aliases[class])
+		-- nb, needs to pass the setup to is_kind_key 
+		-- in case the statement isn't created yet
+		local kind_key = self:is_kind_key(class, setup)
+		-- if found, add provided it's not a duplicate
+		if kind_key and not matches:find(kind_key) then
+			matches:insert(kind_key)
 		end
 	end
 

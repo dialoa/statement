@@ -49,7 +49,7 @@ function Statement:parse_Div(elem)
 	end
 	self.kind = kinds_matched[1]
 
-	-- store statement content
+	-- store statement content, attributes
 	self.content = elem.content -- element content
 	
 	-- extract any label, info, acronym
@@ -63,16 +63,16 @@ function Statement:parse_Div(elem)
 	end
 
 	-- if unnumbered, we may need to create a new kind
+	-- if numbered, increase the statement's count
 	self:set_is_numbered(elem) -- set self.is_numbered
 	if not self.is_numbered then
 		self:new_kind_unnumbered()
+	else
+		self:increment_count() -- update the kind's counter
 	end
 
 	self:set_crossref_label() -- set crossref label
 	self:set_identifier(elem) -- set identifier, store crossref label for id
-	if self.is_numbered then
-		self:increment_count() -- update the kind's counter
-	end
 
 	return true
 

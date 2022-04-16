@@ -1,6 +1,6 @@
 ---
-title: A sample document for the statement filter
-lang: fr
+title: Recursions and lists in the statement filter
+author: Julien Dutant
 numbersections: true
 statement:
   defaults: 
@@ -46,42 +46,3 @@ Recursion test. he two following statements are within list items within a Div e
 
 Crossreference test. See ([](#NP)) or ([](#named-principle))! And citation
 syntax [@named-principle].
-
-# More
-
-![image](image.jpg){#no-statement}
-
-::: {.axiom #ax:existence}
-__The Axiom of Existence__. There exists a set which has no elements.
-:::
-### subsec
-
-::: {.axiom #sta:extensionality}
-If every element of $X$ is an element of $Y$ and every element
-of $Y$ an element of $X$ then $X=Y$. 
-:::
-
-::: {.lemma .lem}
-There exists only one set with no elements.
-:::
-### subsec
-
-::: definition
-The (unique) set with no elements is called the empty set and 
-denoted $\varnothing$.
-:::
-
-::: proof
-Immediate from (axiom) and (axiom).
-:::
-
-### subsec
-
-::: cor
-A corollary.
-:::
-
-::: axiom
-__Named principle__. This checks that two statements with the same custom
-label get different environments.
-:::

@@ -145,8 +145,12 @@ Setup.counters = {
 --- Setup.identifiers: document identifiers. Populated as we walk the doc
 Setup.identifiers = {
 	-- identifier = {
-	--									is_statement = bool, whether it's a statement
-	--									crossref_label = inlines, label to use in crossreferences
+	--									statement = bool, whether it's a statement
+	--									crossref_label =  inlines, label to use in crossreferences
+	--																		only set when is_statement = true
+	--									try_instead = string, when user set this ID but it was already
+	--																assigned to a statement, this points to a
+	--																statement id used instead
 	--							}
 }
 
@@ -155,6 +159,12 @@ Setup.includes = {
 	header = nil,
 	before_first = nil,
 }
+
+-- Setup.LATEX_NAMES: often-used LaTeX names list
+Setup.LATEX_NAMES = pandoc.List:new(
+											{'book', 'part', 'section', 'subsection', 
+											'subsubsection', 'paragraph', 'subparagraph'}
+										)
 --- Setup.DEFAULTS: default sets of kinds and styles
 -- See amsthm documentation <https://www.ctan.org/pkg/amsthm>
 -- the 'none' definitions are always included but they can be 
@@ -182,7 +192,7 @@ Setup.DEFAULTS.KINDS = {
 		solution = {prefix = 'sol', style = 'definition', counter = 'theorem'},
 		remark = {prefix = 'rem', style = 'remark', counter = 'theorem'},
 		claim = {prefix = 'claim', style = 'remark', counter = 'theorem'},
-		proof = {prefix = 'claim', style = 'proof', counter = 'none'},
+		proof = {prefix = 'proof', style = 'proof', counter = 'none'},
 		criterion = {prefix = 'crit', style = 'plain', counter = 'theorem'},
 		assumption = {prefix = 'ass', style = 'plain', counter = 'theorem'},
 		algorithm = {prefix = 'alg', style = 'definition', counter = 'theorem'},
@@ -1185,6 +1195,77 @@ Setup.LOCALE = {
 		},
 }
 
+---Setup:validate_defaults: check that the filter's DEFAULTS are
+-- well configured. Prints an error if not.
+function Setup:validate_defaults()
+	local default_keys = pandoc.List:new() -- list of DEFAULTS.KINDS keys
+	local valid = true
+
+	-- check that we have 'none' defaults and that they provide 'statement'
+	if not self.DEFAULTS.KINDS.none then
+		message('ERROR', 'DEFAULTS file misconfigured: `none` defaults set missing in KINDS.')
+		valid = false
+	elseif not self.DEFAULTS.KINDS.none.statement then
+		message('ERROR', 'DEFAULTS file misconfigured: `none` defaults lack the `statement` kind.')
+		valid = false
+	elseif not self.DEFAULTS.KINDS.none.statement.style then
+		message('ERROR', 'DEFAULTS file misconfigured: `none.statement` has no style setting.')
+		valid = false
+	elseif not self.DEFAULTS.STYLES.none 
+					or not self.DEFAULTS.STYLES.none[self.DEFAULTS.KINDS.none.statement.style] then
+		message('ERROR', 'DEFAULTS file misconfigured: the none.statement style, '
+										..self.DEFAULTS.KINDS.none.statement.style
+										..' should be present in the STYLES.none table.')
+		valid = false
+	end
+	if not self.DEFAULTS.STYLES.none then
+		message('ERROR', 'DEFAULTS file misconfigured: `none` defaults set missing in STYLES.')
+		valid = false
+	end
+
+	-- check that each default set has both kinds and styles
+	for set,_ in pairs(self.DEFAULTS.KINDS) do
+		if not self.DEFAULTS.STYLES[set] then
+			message('ERROR', 'DEFAULTS file misconfigured: no `'
+				..set..'` defaults in the STYLES table.')
+			valid = false
+		end
+	end
+
+	-- check that each kind has a counter and an existing style
+	for set,_ in pairs(self.DEFAULTS.KINDS) do
+		for kind,definition in pairs(self.DEFAULTS.KINDS[set]) do
+			if not definition.counter then 
+				message('ERROR', 'DEFAULTS file misconfigured: kind `'..kind..'`'
+												..' in default set `'..set..'` has no counter.')
+				valid = false
+			end
+			if not definition.style then 
+				message('ERROR', 'DEFAULTS file misconfigured: kind `'..kind..'`'
+												..' in default set `'..set..'` has no style.')
+				valid = false
+			end
+			if not self.DEFAULTS.STYLES[set][definition.style] then 
+				message('ERROR', 'DEFAULTS file misconfigured: style `'..definition.style..'`'
+												..' needed by kind `'..kind..'` is missing in STYLES.'..set..'.')
+				valid = false
+			end
+			if self.options and self.options.language
+				and not self.LOCALE[self.options.language][kind] then
+					message('WARNING', 'LOCALE file, entry `'..self.options.language..'`'
+								.."doesn't provide a label for the kind `"..kind..'`'
+								..' in defaults set `'..set..'`.')
+				valid = false
+			end
+		end
+	end
+
+	if valid then
+		message('INFO', 'Defaults files checked, all is in order.')
+	end
+
+end
+
 --- Setup:read_options: read user options into the Setup.options table
 --@param meta pandoc Meta object, document's metadata
 --@return nil sets the Setup.options table
@@ -1245,67 +1326,23 @@ function Setup:read_options(meta)
 			end
 		end
 
-	end
+	end -- end of `meta.statement` processing
 
 
 end
 
---- Create kinds and styles
+---Setup:create_kinds_and_styles: Create kinds and styles
 -- Populates Setup.kinds and Setup.styles with
 -- default and user-defined kinds and styles
 --@param meta pandoc Meta object, document's metadata
 --@return nil sets the Setup.kinds, Setup.styles, Setup.aliases tables
 function Setup:create_kinds_and_styles(meta)
-	local default_keys = pandoc.List:new() -- list of DEFAULTS.KINDS keys
-	local chosen_defaults = 'basic' -- 'basic' unless user says otherwise
 	local language = self.options.language
 
-	-- make a list of defaults we have (overkill but future-proof)
-	-- check that there's a DEFAULTS.STYLES key too
-	default_keys = pandoc.List:new()
-	for key,_ in pairs(self.DEFAULTS.KINDS) do
-		if self.DEFAULTS.STYLES[key] then
-			default_keys:insert(key)
-		else
-			message('WARNING', 'DEFAULTS file misconfigured: no `'
-				..default_key..'` STYLES.')
-		end
-	end
+	-- create default kinds and styles
+	self:create_kinds_and_styles_defaults(meta)
 
-	-- user-selected defaults?
-	if meta.statement and meta.statement.defaults
-		and default_keys:find(stringify(meta.statement.defaults)) then
-			chosen_defaults = stringify(meta.statement.defaults)
-	end
-
-	-- add the 'none' defaults no matter what
-	for kind,definition in pairs(self.DEFAULTS.KINDS.none) do
-		self.kinds[kind] = definition
-	end
-	for style,definition in pairs(self.DEFAULTS.STYLES.none) do
-		self.styles[style] = definition
-	end
-
-	-- add the chosen defaults
-	if chosen_defaults ~= 'none' then
-		for kind,definition in pairs(self.DEFAULTS.KINDS[chosen_defaults]) do
-			self.kinds[kind] = definition
-		end
-		for style,definition in pairs(self.DEFAULTS.STYLES[chosen_defaults]) do
-			self.styles[style] = definition
-		end
-	end
-
-	-- if count_within, change defaults with 'self' counter to 'count_within'
-	if self.options.count_within then
-		for kind,definition in pairs(self.kinds) do
-			if definition.counter == 'self' then 
-				self.kinds[kind].counter = self.options.count_within
-			end
-		end
-	end
-
-	-- ADD USER DEFINED STYLES AND KINDS
+	-- parse user-defined kinds and styles
 
 	-- dash_keys_to_underscore: replace dashes with underscores in a 
 	--	map key's
@@ -1341,20 +1378,7 @@ function Setup:create_kinds_and_styles(meta)
 		end
 	end
 
-	-- DEBUG display results
-	-- for style,definition in pairs(self.styles) do
-	-- 	print("Style", style)
-	-- 	for key, value in pairs(definition) do
-	-- 		print('\t',key,stringify(value) or '')
-	-- 	end
-	-- end
-	-- for kind,definition in pairs(self.kinds) do
-	-- 	print("Kind", kind)
-	-- 	for key, value in pairs(definition) do
-	-- 		print('\t',key,stringify(value) or '')
-	-- 	end
-	-- end
-
+	-- Finalize the kinds table
 	-- ensure all labels are Inlines
 	-- localize statement labels that aren't yet defined
 	for kind_key, kind in pairs(self.kinds) do
@@ -1365,24 +1389,98 @@ function Setup:create_kinds_and_styles(meta)
 		end
 	end
 
+	-- populate the aliases map
+	self:create_aliases()
 
-	-- populate the aliases map (option 'aliases')
-	if self.options.aliases then
+end
 
-		for kind_key,kind in pairs(self.kinds) do
-			-- use the kind's prefix as alias, if any
-			if kind.prefix then 
-				self.aliases[kind.prefix] = kind_key
-			end
-			-- us the kind's label (converted to plain text), if any
-			if kind.label then
-				local alias = pandoc.write(pandoc.Pandoc({kind.label}), 'plain')
-				alias = alias:gsub('\n','')
-				self.aliases[alias] = kind_key
+---Setup.create_kinds_and_styles_defaults: create the default
+-- kinds and styles.
+--@param meta pandoc Meta object, document's metadata
+--@return nil sets the Setup.kinds, Setup.styles, Setup.aliases tables
+function Setup:create_kinds_and_styles_defaults(meta)
+	local chosen_defaults = 'basic' -- 'basic' unless user says otherwise
+
+	-- add_default_set: adds a given set of defaults to kinds and styles
+	local function add_default_set(set_key)
+		for kind,definition in pairs(self.DEFAULTS.KINDS[set_key]) do
+			self.kinds[kind] = definition
+		end
+		for style,definition in pairs(self.DEFAULTS.STYLES[set_key]) do
+			self.styles[style] = definition
+		end
+	end
+
+	-- does the user want to check the filter's DEFAULTS files?
+	if meta.statement and meta.statement['validate-defaults'] then
+		self:validate_defaults()
+	end
+
+	-- user-selected defaults?
+	if meta.statement and meta.statement.defaults then
+		local new_defaults = stringify(meta.statement.defaults)
+		if self.DEFAULTS.KINDS[new_defaults] then
+			chosen_defaults = new_defaults
+		end
+	end
+
+	-- add the 'none' defaults no matter what, then the chosen ones
+	add_default_set('none')
+	if chosen_defaults ~= 'none' then
+		add_default_set(chosen_defaults)
+	end
+
+	-- if count_within, change defaults with 'self' counter 
+	-- to 'count_within' counter
+	if self.options.count_within then
+		for kind,definition in pairs(self.kinds) do
+			if definition.counter == 'self' then 
+				self.kinds[kind].counter = self.options.count_within
 			end
 		end
-
 	end
+	
+end
+
+---Setup:create_aliases: create map of kind aliases
+-- Populates self.aliases if the `aliases` options is set
+function Setup:create_aliases()
+
+	if not self.options.aliases then
+		return
+	end
+	
+	-- add_alias: function to add an alias to self.aliases
+	-- 		ensure it's a string, use lowercase for case-insensitive matches
+	local function add_alias(alias, kind_key)
+		alias = stringify(alias):lower()
+		-- warn if clash
+		if self.aliases[alias] and self.aliases[alias] ~= kind_key then
+			message('WARNING', 'Cannot use `'..alias..'` as an alias of `'..kind_key..'`'
+													..', it is already an alias of `'..self.aliases[alias]..'`.')
+		else
+			self.aliases[alias] = kind_key
+		end
+	end
+
+
+	for kind_key,kind in pairs(self.kinds) do
+		-- user-defined aliases?
+		if kind.aliases then
+			for _,alias in ipairs(kind.aliases) do
+				add_alias(alias,kind_key)
+			end
+		end
+		-- use the kind's prefix as alias, if any
+		if kind.prefix then
+			add_alias(kind.prefix,kind_key) 
+		end
+		-- us the kind's label
+		if kind.label then
+			add_alias(kind.label,kind_key)
+		end
+	end
+
 
 end
 
@@ -1471,9 +1569,11 @@ function Setup:set_kind(kind,map)
 		local counter = stringify(map.counter)
 		if counter == 'self' or counter == 'none' then
 			new_kind.counter = counter
-		elseif self:get_level_by_LaTeX_name(counter) then
+		elseif counter == kind then -- using own name as counter
+			new_kind = 'self'
+		elseif self:get_level_by_LaTeX_name(counter) then -- latex counter
 			new_kind.counter = counter
-		elseif self:get_level_by_LaTeX_name(counter) then
+		elseif self:get_LaTeX_name_by_level(counter) then -- level counter
 			new_kind.counter = counter
 		elseif kinds[counter] then
 			new_kind.counter = counter
@@ -1483,18 +1583,21 @@ function Setup:set_kind(kind,map)
 											..'` to define statement kind '..kind..'.')
 		end
 	end
-	-- if no counter, use the first primary counter found in `kinds`
+	-- if no counter, use the pre-existing counter if there's one
+	-- otherwise use the first primary counter found in `kinds`
 	-- or `options.count_within` or `self`	
 	if not map.counter then
-		for kind,definition in ipairs(kinds) do
-			if definition.counter == 'self'
-				or self:get_level_by_LaTeX_name(counter) 
-				or self:get_level_by_LaTeX_name(counter) then
-					new_kind.counter = definition.counter
-					break
+		if not new_kind.counter then
+			for kind,definition in pairs(kinds) do
+				if definition.counter == 'self'
+					or self:get_level_by_LaTeX_name(definition.counter) 
+					or self:get_LaTeX_name_by_level(definition.counter) then
+						new_kind.counter = kind
+						break
+				end
 			end
 		end
-		if not map.counter then
+		if not new_kind.counter then
 			new_kind.counter = self.options.count_within or 'self'
 		end
 	end
@@ -1567,7 +1670,7 @@ function Setup:set_kind(kind,map)
 			elseif type(map[strings_list_field]) == 'string' 
 					or type(map[strings_list_field]) == 'Inlines' then
 				new_kind[strings_list_field] = pandoc.List:new(
-																		stringify(map[strings_list_field])
+																		{stringify(map[strings_list_field])}
 																	)
 			end
 		end
@@ -1837,6 +1940,9 @@ function Setup:length_format(str, format)
 		new_latex_lengths['\\'..key] = value
 	end
 	LATEX_LENGTHS = new_latex_lengths
+	-- HTML_ENTITIES and their translations in 'main plus minus'
+	local HTML_ENTITIES = {}
+	HTML_ENTITIES['&nbsp'] = '0.333em plus 0.666em minus 0.111em'
 
 	--- parse_length: parse a '<number><unit>' string.
 	-- checks the unit against UNITS and LATEX_LENGTHS
@@ -1856,10 +1962,10 @@ function Setup:length_format(str, format)
 		if amount then
 			-- need to remove spaces before attempting `tonumber`
 			amount = amount:gsub('%s','')
-			if (tonumber(amount) and (UNITS[unit] or LATEX_LENGTHS[unit])) 
-						or (amount == '' and LATEX_LENGTHS[unit]) then
+			-- either we have a number + unit:
+			if tonumber(amount) and (UNITS[unit] or LATEX_LENGTHS[unit]) then
 				-- ensure amount is a number
-				if amount == '' then amount = 1 end
+				amount = tonumber(amount)
 				-- conversion if available
 				if UNITS[unit] and UNITS[unit][format] then
 					amount = amount * UNITS[unit][format][1]
@@ -1873,7 +1979,20 @@ function Setup:length_format(str, format)
 					amount = amount,
 					unit = unit,
 				}
-			end -- amout or unit not legit
+			-- or we have a latex length on its own
+			elseif amount=='' and LATEX_LENGTHS[unit] then
+				amount = 1
+				-- convert if possible
+				if LATEX_LENGTHS[unit] and LATEX_LENGTHS[unit][format] then
+					amount = LATEX_LENGTHS[unit][format][1]
+					unit = LATEX_LENGTHS[unit][format][2]
+				end -- end of conversions
+				-- return result as table
+				return { 
+					amount = amount,
+					unit = unit,
+				}
+			end -- no legit amount / unit combination
 		end -- no string match
 	end -- end of parse_length
 
@@ -1886,11 +2005,15 @@ function Setup:length_format(str, format)
 
 		local main, plus, minus
 
-		-- special case: length is just '0'
+		-- special cases: length is just '0' or space or HTML entity
 		if tonumber(str) and tonumber(str) == 0 then
 			return {
 					main = {amount = 0, unit = 'em'} 
 				}
+		elseif str == ' ' then
+		 	main,plus,minus = '0.333em', '0.666em', '0.111em' 
+		elseif HTML_ENTITIES[str] then
+			str = HTML_ENTITIES[str]
 		end
 		-- otherwise try matching plus and minus
 		if not main then
@@ -1928,10 +2051,10 @@ function Setup:length_format(str, format)
 	-- }
 	local length = parse_plus_minus(str)
 	
-	-- issue a warning if table found
+	-- issue a warning if nothing found
 	if not length or not length.main then
 		message('WARNING', 
-			'Could not parse the length specification: '..str..'.')
+			'Could not parse the length specification: `'..str..'`.')
 		return nil
 	end
 
@@ -2145,32 +2268,38 @@ function Setup:set_LaTeX_section_level(meta,format)
 end
 
 --- Setup:get_level_by_LaTeX_name: convert LaTeX name to Pandoc level
---@param name string LaTeX name
-function Setup:get_level_by_LaTeX_name(name) 
-	local LaTeX_names = {'book', 'part', 'section', 'subsection', 
-						'subsubsection', 'paragraph', 'subparagraph'}
+-- returns level if it's already a level
+--@param name string or number LaTeX name or level as string or number
+--@return level number or nil level
+function Setup:get_level_by_LaTeX_name(name)
+	LaTeX_names = self.LATEX_NAMES
 	-- offset value. Pandoc level = LaTeX_names index - offset
 	local offset = 3 - self.options.LaTeX_section_level
-	-- determine whether `name` is in LaTeX names and where
-	for index,LaTeX_name in ipairs(LaTeX_names) do
-		if name == LaTeX_name then
-			return index - offset
-		end
+	-- if level number we return it
+	if tonumber(name) then
+		return tonumber(name)
 	end
-
-	return nil
+	-- determine whether `name` is in LaTeX names and where
+	_,index = LaTeX_names:find(name)
+	if index then
+		return index - offset
+	end
 end
 
 --- Setup:get_LaTeX_name_by_level: convert Pandoc level to LaTeX name
---@param level number 
+-- returns LaTeX name if it's already one
+--@param level number or string, level as string or number or LaTeX name
 function Setup:get_LaTeX_name_by_level(level)
-	local LaTeX_names = {'book', 'part', 'section', 'subsection', 
-		'subsubsection', 'paragraph', 'subparagraph'}
+	LaTeX_names = self.LATEX_NAMES
 	-- LaTeX_names[level + offset] = LaTeX name
 	local offset = 3 - self.options.LaTeX_section_level
+	-- if LaTeX name we return it
+	if type(level) == 'string' and LaTeX_names:find(level) then
+		return level
+	end
 
-	if type(level)=='number' then
-		return LaTeX_names[level + offset]
+	if tonumber(level) then
+		return LaTeX_names[tonumber(level) + offset] or nil
 	end
 
 	return nil
@@ -2238,6 +2367,37 @@ function Statement:is_statement(elem,setup)
 	end
 end
 
+---Statement:is_kind_key: whether a string is a kind key or an alias.
+-- If yes, return the kind key.
+--@param str string to be tested
+--@param setup (optional) a Setup class object, to be used when
+--			the function is called from the setup object
+--@return kind_key string a key of the kinds table
+function Statement:is_kind_key(str, setup)
+	setup = setup or self.setup
+	local kinds = setup.kinds -- points to the kinds table
+	local options = setup.options -- points to the options table
+	local aliases = setup.aliases -- pointed to the aliases table
+
+	-- safety check
+	if type(str) ~= 'string' then
+		message('ERROR', 'Testing whether a non-string is a kind key.'
+											.. 'This should not have happened.')
+		return
+	end
+
+	if kinds[str] then
+		return str
+	elseif options.aliases then
+		-- alias matches are case-insensitive
+		str = str:lower()
+		if aliases[str] then
+			return aliases[str]
+		end
+	end
+
+end
+
 ---Statement:Div_is_statement Whether an Div element is a statement.
 -- If yes, returns a list of kinds the element matches.
 --@param elem (optional) pandoc Div element, defaults to self.element
@@ -2249,7 +2409,6 @@ function Statement:Div_is_statement(elem,setup)
 	elem = elem or self.element
 	local options = setup.options -- pointer to the options table
 	local kinds = setup.kinds -- pointer to the kinds table
-	local aliases = setup.aliases -- pointed to the aliases table
 
 	-- safety check
 	if not elem.t or elem.t ~= 'Div' then
@@ -2262,11 +2421,12 @@ function Statement:Div_is_statement(elem,setup)
 	-- check aliases if `options.aliases` is true
 	local matches = pandoc.List:new()
 	for _,class in ipairs(elem.classes) do
-		if kinds[class] and not matches:find(class) then
-			matches:insert(class)
-		elseif options.aliases
-			and aliases[class] and not matches:find(aliases[class]) then
-			matches:insert(aliases[class])
+		-- nb, needs to pass the setup to is_kind_key 
+		-- in case the statement isn't created yet
+		local kind_key = self:is_kind_key(class, setup)
+		-- if found, add provided it's not a duplicate
+		if kind_key and not matches:find(kind_key) then
+			matches:insert(kind_key)
 		end
 	end
 
@@ -2286,7 +2446,6 @@ function Statement:Div_is_statement(elem,setup)
 
 end
 
--- !input Statement.kinds_matched -- tells whether an element is a statement
 ---Statement:parse_Div parse a Div element into a statement
 -- Parses a pandoc Div element into a statement, setting its
 -- kind, identifier, label, info, acronym, content. 
@@ -2318,7 +2477,7 @@ function Statement:parse_Div(elem)
 		return
 	end
 
-	-- find the element's basic kind
+	-- find the element's base kind
 	--	Div_is_statement() returns the kinds matched by self.element
 	local kinds_matched = self:Div_is_statement()
 	if not kinds_matched then 
@@ -2338,7 +2497,7 @@ function Statement:parse_Div(elem)
 	end
 	self.kind = kinds_matched[1]
 
-	-- store statement content
+	-- store statement content, attributes
 	self.content = elem.content -- element content
 	
 	-- extract any label, info, acronym
@@ -2346,25 +2505,22 @@ function Statement:parse_Div(elem)
 	-- Cf. <https://github.com/ickc/pandoc-amsthm>
 	self:parse_Div_heading()
 
---	self:extract_label()
-
 	-- if custom label, create a new kind
 	if self.custom_label then
 		self:new_kind_from_label()
 	end
+
 	-- if unnumbered, we may need to create a new kind
+	-- if numbered, increase the statement's count
 	self:set_is_numbered(elem) -- set self.is_numbered
 	if not self.is_numbered then
 		self:new_kind_unnumbered()
+	else
+		self:increment_count() -- update the kind's counter
 	end
-
---	self:extract_info() -- extract info
 
 	self:set_crossref_label() -- set crossref label
 	self:set_identifier(elem) -- set identifier, store crossref label for id
-	if self.is_numbered then
-		self:increment_count() -- update the kind's counter
-	end
 
 	return true
 
@@ -2526,7 +2682,6 @@ function Statement:parse_Div_heading()
 
 end
 
--- !input Statement.find_kind -- to decide an element's main kind
 --- Statement:extract_fbb: extract the first content found between 
 -- balanced brackets from an Inlines list, searching forward or 
 -- backwards. Returns that content and the reminder, or nil and the 
@@ -2670,7 +2825,6 @@ function Statement:extract_fbb(inlines, direction, delimiters)
 
 end
 
--- !input Statement.extract_label -- to extract a statement's label
 --- Statement:new_kind_from_label: create and set a new kind from a 
 -- statement's custom label. 
 -- updates the self.setup.kinds table with a new kind
@@ -2792,7 +2946,6 @@ function Statement:new_kind_unnumbered()
 
 end
 
--- !input Statement.extract_info -- to extract a statement's info field
 --- Statement:set_identifier: set an element's id
 -- store it with the crossref label in setup.labels_by_id
 -- Updates:
@@ -2804,18 +2957,11 @@ function Statement:set_identifier(elem)
 	local identifiers = self.setup.identifiers -- pointer to identifiers table
 	local id
 
-	-- register: register id and crossref_label in the identifiers table
-	--@param id string the identifier to be registered
-	function register(id)
-		if id ~= '' then 
-			identifiers[id] = {
-				statement = true,
-				crossref_label = self.crossref_label
-			}
-			self.identifier = id
-		end
-	end
 	-- safe_register: register id or id-1, id-2 avoiding duplicates
+	-- store id and crossref_label in the identifiers table
+	-- store kind label if this is a numbered statement
+	--@param id string the identifier to be registered
+	--@return id, the id generated
 	function safe_register(id)
 		local n = 0
 		local str = id
@@ -2823,18 +2969,37 @@ function Statement:set_identifier(elem)
 			n = n + 1
 			str = id..'-'..tostring(n)
 		end
-		register(str)
+		identifiers[id] = {
+			statement = true,
+			crossref_label = self.crossref_label,
+			kind_label = self.is_numbered and kinds[self.kind].label,
+		}
+		self.identifier = id
+		-- update the element's identifier in case writer functions 
+		-- return it to the document
+		if self.element.attr then
+			self.element.attr.identifier = id
+		end
+		return str
 	end
 
 	-- Function body: try to create an identifier
 	local id = elem.identifier or ''
 	--		user-specified id?
-	if id ~= '' then 
+	if id ~= '' then
+			-- if the user-specified id is a duplicate, create a new one and warn
+			-- user may have written an empty Span `[]{#id}` instead of `[](#id)`
 			if identifiers[id] then
-				message('WARNING', "A statement's identifier is a duplicate:"
-					..' '..id..'. It is ignored, crossreferences may fail.')
+				local new_id = safe_register(id)
+				-- storing the new id as something to try instead of the duplicated id
+				identifiers[id].try_instead = new_id
+				message('WARNING', 	"A "..self.kind.." statement's identifier `"..id.."`"
+														..' was a duplicate, I changed it to `'..new_id..'`.'
+														..' Some crossreferences may fail.'
+														..' Have you used an empty Span `[]{#'..id..'}'
+														..' instead of a Link `[](#'..id..') somewhere?')
 			else
-				register(id)
+				safe_register(id)
 			end
 
 	-- 		acronym?
@@ -2896,15 +3061,17 @@ end
 -- Increments the kind's count of this statement kind or
 -- its shared counter's kind.
 function Statement:increment_count()
-	kinds = self.setup.kinds -- pointer to the kinds table
-	kind_key = self.kind
-	-- shared counter?
-	if kinds[kind_key].counter and kinds[kinds[kind_key].counter] then
-		kind_key = kinds[kind_key].counter
+	local kinds = self.setup.kinds -- pointer to the kinds table
+	local counter = kinds[self.kind].counter or 'none'
+	local kind_to_count = self.kind
+
+	--if shared counter, that kind is the count to increment
+	if kinds[counter] then
+		kind_to_count = counter
 	end
-	kinds[kind_key].count = kinds[kind_key].count 
-													and kinds[kind_key].count + 1
-													or 1
+	kinds[kind_to_count].count =	kinds[kind_to_count].count
+																and kinds[kind_to_count].count + 1
+																or 1
 
 end
 
@@ -2935,7 +3102,7 @@ function Statement:set_crossref_label()
 	elseif self.is_numbered then
 		-- if shared counter, switch kind to the shared counter's kind
 		local kind = self.kind
-		local counter = kinds[self.kind].counter
+		local counter = kinds[kind].counter
 		if kinds[counter] then
 			kind = counter
 			counter = kinds[counter].counter
@@ -3303,6 +3470,46 @@ function Statement:write(format)
 
 	--elseif format:match('html') then
 
+	-- JATS formatting
+	-- Pandoc's JATS writer turns Plain blocks in to <p>...</p>
+	-- for this reason we must write <label> and <title> inlines
+	-- to text before we insert them.
+	-- BUG: links in lable/titles don't work
+	--			- citeproc ones don't work because write doesn't see
+	--				the biblio
+	--			- ours don't work because they aren't processed yet
+	-- Solution: ask Pandoc's JATS writer not to wrap everything in <p>?
+	elseif format:match('jats') then
+
+		--write_to_jats: use pandoc to convert inlines to jats output
+		function write_to_jats(inlines)
+			local result, doc
+			local options = pandoc.WriterOptions({
+					cite_method = PANDOC_WRITER_OPTIONS.cite_method
+			})
+			doc = pandoc.Pandoc(pandoc.Plain(inlines))
+			result = pandoc.write(doc, 'jats', options)
+			return result:match('^<p>(.*)</p>$') or result or ''
+		end
+
+		blocks:insert(pandoc.RawBlock('jats', '<statement>'))
+
+		label_inlines = self:write_label()
+		if label_inlines then
+			local label_str = '<label>' .. write_to_jats(label_inlines) 
+												.. '</label>'
+			blocks:insert(pandoc.RawBlock('jats',label_str))
+		end
+
+		if self.info then
+			local info_str = '<title>'..write_to_jats(self.info)..'</title>'
+			blocks:insert(pandoc.RawBlock('jats',info_str))
+		end
+
+		blocks:extend(self.content)
+
+		blocks:insert(pandoc.RawBlock('jats', '</statement>'))
+
 	else -- other formats, use blockquote
 
 		-- prepare the statement heading
@@ -3384,6 +3591,7 @@ function Walker:collect_ids(blocks)
 
 	-- Generic function for remaining types
 	for _,type in ipairs(types_with_identifier) do
+		-- make sure we don't erase a filter already defined
 		filter[type] = filter[type] or register_or_warn
 	end
 
@@ -3408,13 +3616,65 @@ function Walker:crossreferences()
 	local identifiers = self.setup.identifiers -- pointer to identifiers table
 	local filter = {}
 
+	-- format_link_content: replace `<>` strings with crossref_label
+	-- if no text, just put the crossref_label
+	--@param content, inlines
+	--@paramcrossref_label, inlines
+	--@return inlines
+	function format_link_content(content,label)
+		if #content == 0 then
+			return label
+		end
+		-- walk the content with a Str filter
+		content = content:walk({
+						Str = function(elem)
+							if elem.text == '<>' then return label end
+						end
+					})
+		return content
+	end
+
+	-- format_link_title: replace `<>` strings with crossref_label
+	-- of provide a default link title.
+	--@param title string, 
+	--@param crossref_label inlines
+	--@param kind_label string (optional), the kind's label
+	--@return string
+	function format_link_title(title,crossref_label, kind_label)
+		crossref_label = stringify(crossref_label)
+		if title ~= '' then
+			title:gsub('<>',crossref_label)
+			return title
+		else
+			if kind_label then
+				title = stringify(kind_label) .. ' '
+			end
+			title = title..crossref_label
+			return title
+		end
+	end
+
 	filter.Link = function (link)
-		if #link.content == 0 and link.target:sub(1,1) == '#' then
+
+		if link.target:sub(1,1) == '#' then
 			local target_id = link.target:sub(2,-1)
-			if identifiers[target_id] 
-					and identifiers[target_id].statement == true then
-				link.content = identifiers[target_id].crossref_label or link.content
-				return link
+			if identifiers[target_id] then
+				-- check that target is a statement
+				-- note that if it was a duplicate id the statement's 
+				-- new id has been stored in 'try_instead'
+				local id = 	(identifiers[target_id].statement and target_id)
+						or identifiers[target_id].try_instead
+				if id then 
+					link.target = '#'..id
+					link.content = format_link_content(link.content,
+										identifiers[id].crossref_label
+										)
+					link.title = format_link_title(link.title,
+										identifiers[id].crossref_label,
+										identifiers[id].kind_label
+										)
+					return link
+				end
 			end
 		end
 	end
@@ -3427,7 +3687,9 @@ function Walker:crossreferences()
 
 			-- warn if the citations mix cross-label refs with standard ones
 	    for _,citation in ipairs(cite.citations) do
-	        if identifiers[citation.id] then
+	        if identifiers[citation.id] 
+	           and (identifiers[citation.id].statement
+	           		or identifiers[citation.id].try_instead) then
 	            has_statement_ref = true
 	        else
 	            has_biblio_ref = true
@@ -3443,34 +3705,60 @@ function Walker:crossreferences()
    		-- if statement crossreferences, turn Cite into Link(s)
 	    if has_statement_ref then
 
-        -- get style from the first citation
-        local bracketed = true 
-        if cite.citations[1].mode == 'AuthorInText' then
-            bracketed = false
-        end
+	        -- get style from the first citation
+	        local bracketed = true 
+	        if cite.citations[1].mode == 'AuthorInText' then
+	            bracketed = false
+	        end
 
-        local inlines = pandoc.List:new()
+	        local inlines = pandoc.List:new()
 
-        -- create link(s)
+	        -- create link(s)
 
-        for i = 1, #cite.citations do
-           inlines:insert(pandoc.Link(
-                identifiers[cite.citations[i].id].crossref_label,
-                '#' .. cite.citations[i].id
-            ))
-            -- add separator if needed
-            if #cite.citations > 1 and i < #cite.citations then
-                inlines:insert(pandoc.Str('; '))
-            end
-        end
+	        for i = 1, #cite.citations do
+	        	citation = cite.citations[i]
+				-- was it a duplicated id with another id to try instead?
+				local id = 	(identifiers[citation.id].statement and citation.id)
+							or identifiers[citation.id].try_instead 
+				-- create link
+				local target = '#'..id
+				local content = pandoc.List:new()
+				local title = ''
+				if citation.prefix then
+					content:extend(citation.prefix)
+					content:insert(pandoc.Space())
+				end
+				content:extend(identifiers[id].crossref_label)
+				if citation.suffix then
+					content:insert(pandoc.Space())
+					content:extend(citation.suffix)
+				end
+				-- make link title
+				--	simply reproduce the user content if prefix and suffix
+				--	otherwise create one from kind_label and crossref_label
+				if citation.prefix or citation.suffix then
+					title = stringify(content)
+				else
+					title = format_link_title('', 
+						identifiers[id].crossref_label,
+						identifiers[id].kind_label)
+				end
 
-        -- adds brackets if needed
-        if bracketed then
-            inlines:insert(1, pandoc.Str('('))
-            inlines:insert(pandoc.Str(')'))
-        end
+	          	inlines:insert(pandoc.Link(content, target, title))
 
-        return inlines
+	            -- add separator if needed
+	            if #cite.citations > 1 and i < #cite.citations then
+	                inlines:extend({pandoc.Str(';'),pandoc.Space()})
+	            end
+	        end
+
+	        -- adds brackets if needed
+	        if bracketed then
+	            inlines:insert(1, pandoc.Str('('))
+	            inlines:insert(pandoc.Str(')'))
+	        end
+
+	        return inlines
 
 	    end -- end of `if has_statement_ref...`
 		end -- end of filter.Cite function

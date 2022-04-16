@@ -2,14 +2,16 @@
 -- Increments the kind's count of this statement kind or
 -- its shared counter's kind.
 function Statement:increment_count()
-	kinds = self.setup.kinds -- pointer to the kinds table
-	kind_key = self.kind
-	-- shared counter?
-	if kinds[kind_key].counter and kinds[kinds[kind_key].counter] then
-		kind_key = kinds[kind_key].counter
+	local kinds = self.setup.kinds -- pointer to the kinds table
+	local counter = kinds[self.kind].counter or 'none'
+	local kind_to_count = self.kind
+
+	--if shared counter, that kind is the count to increment
+	if kinds[counter] then
+		kind_to_count = counter
 	end
-	kinds[kind_key].count = kinds[kind_key].count 
-													and kinds[kind_key].count + 1
-													or 1
+	kinds[kind_to_count].count =	kinds[kind_to_count].count
+																and kinds[kind_to_count].count + 1
+																or 1
 
 end
