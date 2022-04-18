@@ -2,6 +2,7 @@
 title: Newtheorem and theoremstyle test
 subtitle: recreated with the Pandoc Statement filter
 author: Michael Downes, updated by Barbara Beeton
+numbersections: true # LaTeX only, in HTML use -N or --number-sections
 linkcolor: blue
 link-citations: true
 statement:

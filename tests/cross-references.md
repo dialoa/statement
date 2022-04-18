@@ -1,7 +1,7 @@
 ---
 title: Cross-references with the statement filter
 author: Julien Dutant
-numbersections: true
+numbersections: true # LaTeX only, in HTML use -N or --number-sections
 linkcolor: blue
 link-citations: true
 statement:

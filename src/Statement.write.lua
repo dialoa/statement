@@ -7,7 +7,6 @@ function Statement:write(format)
 	local styles = self.setup.styles -- pointer to the styles table
 	local style = kinds[self.kind].style -- this statement's style
 	local label_inlines -- statement's label
-	local label_delimiter = '.'
 	local blocks = pandoc.List:new()
 
 	-- do we have before_first includes to include before any
@@ -193,8 +192,12 @@ function Statement:write(format)
 		local heading = pandoc.List:new()
 		-- label?
 		if #label_inlines > 0 then
-			label_inlines:insert(pandoc.Str(label_delimiter))
-			-- @TODO format according to statement kind
+			if styles[style].punctuation then
+				label_inlines:insert(pandoc.Str(
+					styles[style].punctuation
+					))
+			end
+			-- TODO format fonts according to style definition
 			heading:insert(pandoc.Strong(label_inlines))
 		end
 
