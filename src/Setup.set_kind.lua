@@ -1,12 +1,11 @@
 ---Setup:set_kind: create or set a kind based on an options map
 -- Creates a new style or modify an existing one, based on options.
---@param name string style key
---@param map map of options
-function Setup:set_kind(kind,map)
+--@param kind string kind key
+--@param map table, kind definition from user metadata
+--@param new_kinds table (optional), new kinds to be defined
+function Setup:set_kind(kind,map,new_kinds)
 	local styles = self.styles -- points to the styles map
 	local kinds = self.kinds -- points to the kinds map
---	local user_kinds = self.user_kinds -- user kinds (for shared counter checks)
---	local user_styles = self.user_kinds -- user kinds (for shared counter checks)
 	local map = map or {}
 	local new_kind = {}
 
@@ -22,14 +21,13 @@ function Setup:set_kind(kind,map)
 		if counter == 'self' or counter == 'none' then
 			new_kind.counter = counter
 		elseif counter == kind then -- using own name as counter
-			new_kind = 'self'
+			new_kind.counter = 'self'
 		elseif self:get_level_by_LaTeX_name(counter) then -- latex counter
 			new_kind.counter = counter
 		elseif self:get_LaTeX_name_by_level(counter) then -- level counter
 			new_kind.counter = counter
-		elseif kinds[counter] then
+		elseif kinds[counter] or new_kinds and new_kinds[counter] then
 			new_kind.counter = counter
-		-- elseif shared counter with a kind to be defined! USER_DEFINED(...)
 		else
 			message('ERROR', 'Cannot understand counter setting `'..counter
 											..'` to define statement kind '..kind..'.')
@@ -54,13 +52,14 @@ function Setup:set_kind(kind,map)
 		end
 	end
 
-	-- validate style
+	-- validate the kind's style
 	-- if none (or bad) provided, use 'plain' or 'empty'
 	if map.style then
-	 	if styles[stringify(map.style)] then
-			new_kind.style = stringify(map.style)
+		map.style = stringify(map.style)
+	 	if styles[map.style] then
+			new_kind.style = map.style
 		else
-			message('ERROR', 'Style `'..stringify(map.style)
+			message('ERROR', 'Style `'.. map.style 
 											..'` for statement kind `'..kind
 											..'` is not defined.')
 		end

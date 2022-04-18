@@ -103,6 +103,8 @@ Setup.LATEX_NAMES = pandoc.List:new(
 
 !input Setup.create_kinds_and_styles_defaults -- to create default kinds and styles
 
+!input Setup.create_kinds_and_styles_user -- to create user-defined kinds and styles
+
 !input Setup.create_aliases -- to create aliases of kinds keys
 
 !input Setup.set_style -- to create or set a stype

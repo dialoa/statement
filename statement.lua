@@ -1333,59 +1333,49 @@ end
 
 ---Setup:create_kinds_and_styles: Create kinds and styles
 -- Populates Setup.kinds and Setup.styles with
--- default and user-defined kinds and styles
+-- default and user-defined kinds and styles.
+-- Localizes the language and create aliases.
+-- Updates:
+--		self.styles
+--		self.kinds 
+--		self.aliases
 --@param meta pandoc Meta object, document's metadata
---@return nil sets the Setup.kinds, Setup.styles, Setup.aliases tables
+--@return nil
 function Setup:create_kinds_and_styles(meta)
 	local language = self.options.language
 
 	-- create default kinds and styles
 	self:create_kinds_and_styles_defaults(meta)
 
-	-- parse user-defined kinds and styles
+	-- create user-defined kinds and styles
+	self:create_kinds_and_styles_user(meta)
 
-	-- dash_keys_to_underscore: replace dashes with underscores in a 
-	--	map key's
-	function dash_keys_to_underscore(map) 
-		new_map = {}
-		for key,value in pairs(map) do
-			new_map[key:gsub('%-','_')] = map[key]
-		end
-		return new_map
-	end
+	-- @TODO read user-defined localizations?
 
-	-- read kinds and styles definitions from `meta` here
-	if meta['statement-styles'] and type(meta['statement-styles']) == 'table' then
-		for style,definition in pairs(meta['statement-styles']) do
-			self:set_style(style,dash_keys_to_underscore(definition))
+	-- Check that shared counters are well defined
+	-- A kind can only share a counter with a kind that doesn't
+	for kind, definition in pairs(self.kinds) do
+		if definition.counter and self.kinds[definition.counter]
+			and self.kinds[definition.counter].counter
+			and self.kinds[self.kinds[definition.counter].counter] then
+				message('ERROR', 'Statement kind `'..kind..'` shares a counter'
+												..' with a statement kind that also shares a'
+												..' counter (`'..definition.counter..'`).'
+												..' This is not allowed, things may break.')
 		end
 	end
-	if meta.statement and meta.statement.styles 
-		and type(meta.statement.styles) == 'table' then
-		for style,definition in pairs(meta.statement.styles) do
-			self:set_style(style,dash_keys_to_underscore(definition))
-		end
-	end
-	if meta['statement-kinds'] and type(meta['statement-kinds']) == 'table' then
-		for kind,definition in pairs(meta['statement-kinds']) do
-			self:set_kind(kind,dash_keys_to_underscore(definition))
-		end
-	end
-	if meta.statement and meta.statement.kinds 
-		and type(meta.statement.kinds) == 'table' then
-		for kind,definition in pairs(meta.statement.kinds) do
-			self:set_kind(kind,dash_keys_to_underscore(definition))
-		end
-	end
-
+	
 	-- Finalize the kinds table
 	-- ensure all labels are Inlines
 	-- localize statement labels that aren't yet defined
 	for kind_key, kind in pairs(self.kinds) do
 		if kind.label then
 			kind.label = pandoc.Inlines(kind.label)
-		elseif not kind.label and self.LOCALE[language][kind_key] then
-			kind.label = pandoc.Inlines(self.LOCALE[language][kind_key])
+		else
+			kind.label = self.LOCALE[language]
+									and self.LOCALE[language][kind_key]
+									and pandoc.Inlines(self.LOCALE[language][kind_key])
+									or nil
 		end
 	end
 
@@ -1442,6 +1432,165 @@ function Setup:create_kinds_and_styles_defaults(meta)
 	
 end
 
+---Setup:create_kinds_and_styles_user: Create user-defined
+-- kinds and styles. 
+-- Styles may be based on other styles, so we need to 
+-- proceed recursively without getting into endless loops.
+-- Updates:
+--		self.styles
+--		self.kinds 
+--@param meta pandoc Meta object, document's metadata
+--@return nil 
+function Setup:create_kinds_and_styles_user(meta)
+	local new_kinds, new_styles
+
+	---dash_keys_to_underscore: replace dashes with underscores in a 
+	--	map key's.
+	--@param map table a map to be converted
+	--@return
+	local function dash_keys_to_underscore(map)
+		new_map = {}
+		for key,value in pairs(map) do
+			new_map[key:gsub('%-','_')] = map[key]
+		end
+		return new_map
+	end
+
+	-- User-defined styles
+	-- The ones in 'statement' prevail over those in 'statement-styles'
+	-- @note using type(X) == 'table' to test both existence and type
+	if type(meta['statement-styles']) == 'table' 
+			or meta.statement and type(meta.statement.styles) == 'table' then
+
+		-- gather the styles to be defined in a map
+		-- the ones in 'statement' normally prevail over those in 'statement-styles'
+		new_styles = {}
+
+		-- insert_new_style: set a style in new_styles
+		-- Insert a style in `new_styles`, erasing any previous value for it.
+		-- If the definition isn't a map, assume an alias: 'style1: style2'
+		--@param style string style key
+		--@param definition definition map
+		local function insert_new_style(style,definition)
+			if type(definition) == 'table' then
+				new_styles[style] = definition
+			elseif definition then
+				new_styles[style] = { based_on = stringify(definition) }
+			end
+		end
+
+		if type(meta['statement-styles']) == 'table' then
+			for style,definition in pairs(meta['statement-styles']) do
+				insert_new_style(style, definition)
+			end
+		end
+		if meta.statement and type(meta.statement.styles) == 'table' then
+			for style,definition in pairs(meta.statement.styles) do
+				insert_new_style(style, definition)
+			end
+		end
+
+		-- recursive function to define a style
+		--@param style string the style name
+		--@param definition map the style definition in user's metadata
+		--@recursion trail pandoc List, list of styles defined in a recursion
+		local function try_define_style(style, definition, recursion_trail)
+			-- if already defined, we're good
+			if definition.is_defined then return end
+			-- if `based_on` is set, possible cases:
+			--		- basis not in defaults or new_styles: ignore
+			--		- current style among those to be defined: circularity, ignore
+			--		- bases is in new_styles and not defined: recursion step
+			--		- basis is in new_styles but already defined: go ahead
+			--		- basis is in styles and not in new_styles: go ahead
+			if definition.based_on then
+				local parent_style = stringify(definition.based_on)
+
+				if not self.styles[parent_style] 
+						and not new_styles[parent_style] then
+					message('ERROR', 'Style `'..style..'` is supposed to be based'
+														..' on style `'..parent_style..'`'
+														..' but I cannot find the latter.'
+														..' The `based-on` parameter will be ignored.')
+					definition.based_on = nil
+
+				elseif recursion_trail and recursion_trail:find(style) then
+					local m_str = recursion_trail[1]
+					for i = 2, #recursion_trail do
+						m_str = m_str..' -> '..recursion_trail[i]
+					end
+					m_str = m_str..' -> '..style
+					message('ERROR', 'Circularity in style definitions: '
+														..m_str..'. The `based-on parameter'
+														..' of style '..style..' is ignored.')
+					definition.based_on = nil
+
+				elseif new_styles[parent_style]
+							and not new_styles[parent_style].is_defined then
+					recursion_trail = recursion_trail or pandoc.List:new()
+					recursion_trail:insert(style)
+					try_define_style(parent_style, new_styles[parent_style], 
+														recursion_trail)
+					self:set_style(style, definition, new_styles)
+					definition.is_defined = true
+					recursion_trail:remove()
+					return
+
+				end -- any other case than recursion, go ahead
+			end
+			-- if still not defined, not based on another style
+			-- or based_on was ignored
+			self:set_style(style, definition, new_styles)
+			definition.is_defined = true
+
+		end
+
+		-- main loop to define styles
+		for style,definition in pairs(new_styles) do
+			try_define_style(style, definition)
+		end
+
+	end -- end of user-defined styles
+
+	-- User-defined kinds
+	-- The ones in 'statement' prevail over those in 'statement-kinds'
+	-- @note using type(X) == 'table' to test both existence and type
+	if type(meta['statement-kinds']) == 'table' 
+			or meta.statement and type(meta.statement.kinds) == 'table' then
+
+		-- gather the kinds to be defined
+		new_kinds = {}
+		--- insert_new_kind: function to insert a kind `in new_kinds`
+		local function insert_new_kind(kind,definition)
+			if type(definition) == 'table' then
+				new_kinds[kind] = definition
+			else
+				message('ERROR', 'Could not understand the definition of'
+													..'statement kind '..kind..'.'
+													.." I've ignored it.")
+			end
+		end
+		-- gather the kinds to be defined
+		if type(meta['statement-kinds']) == 'table' then
+			for kind,definition in pairs(meta['statement-kinds']) do
+				insert_new_kind(kind,definition)
+			end
+		end
+		if meta.statement and type(meta.statement.kinds) == 'table' then
+			for kind,definition in pairs(meta.statement.kinds) do
+				insert_new_kind(kind,definition)
+			end
+		end
+
+		-- main loop to define kinds
+		for kind,definition in pairs(new_kinds) do
+			self:set_kind(kind,definition,new_kinds)
+		end
+
+	end -- end of user-defined kinds
+
+end
+
 ---Setup:create_aliases: create map of kind aliases
 -- Populates self.aliases if the `aliases` options is set
 function Setup:create_aliases()
@@ -1487,25 +1636,44 @@ end
 ---Setup:set_style: create or set a style based on an options map
 -- Creates a new style or modify an existing one, based on options.
 --@param name string style key
---@param map map of options
-function Setup:set_style(style,map)
+--@param map table style definition from user metadata
+--@param new_styles table map of new styles to be defined
+function Setup:set_style(style,map,new_styles)
 	local styles = self.styles -- points to the styles map
 	local map = map or {}
 	local new_style = {}
-	local based_on
+	local based_on = map.based_on and stringify(map.based_on) or nil
 
-	-- basis: user-defined, existing style, 'plain' if available, or 'empty'
-	if map.based_on and styles[stringify(map.based_on)] then
-		based_on = stringify(map.based_on)
-	elseif styles[style] then
-		based_on = style
-	elseif styles['plain'] then
-		based_on = 'plain'
-	elseif styles['empty'] then
-		based_on = 'empty'
-	else
-		message('WARNING','Filter defaults misconfigured: no `empty` style provided.'
-			..' Definition for '..style..' must be complete, if not things may break.')
+	-- basis: user-defined, default version of this style, 'plain' or 'empty'
+	-- user-defined can be a pre-existing (=default) style 
+	--									or a new style other than itself
+	if based_on then
+		if styles[based_on] or 	new_styles and new_styles[based_on]
+														and based_on ~= style then
+			-- leave based_on as is
+		elseif based_on == style then
+			message('ERROR', 'Style '..style..' defined to be based on itself.'
+								..'This is only allowed if defaults provide this style.')
+			based_on = nil
+		else
+			message('ERROR', 'Style '..style..' could not be based on'
+												..'`'..based_on..'`')
+			based_on = nil
+		end
+	end
+	if not based_on then 
+ 		if styles[style] then
+			based_on = style
+		elseif styles['plain'] then
+			based_on = 'plain'
+		elseif styles['empty'] then
+			based_on = 'empty'
+		else
+			message('ERROR','Filter defaults misconfigured:'
+				..' no `empty` style provided.'
+				..' Definition for '..style..' must be complete.'
+				.." If it isn't things may break.")
+		end
 	end
 
 	-- do_not_define_in_FORMAT fields
@@ -1527,17 +1695,20 @@ function Setup:set_style(style,map)
 		'punctuation', 'heading_pattern'
 	}
 	for _,length_field in ipairs(length_fields) do
-		new_style[length_field] = (map[length_field] and self:length_format(map[length_field])
-																and stringify(map[length_field]))
+		new_style[length_field] = (map[length_field] 
+															and self:length_format(map[length_field])
+															and stringify(map[length_field]))
 															or styles[based_on][length_field]
 	end
 	for _,font_field in ipairs(font_fields) do
-		new_style[font_field] = (map[font_field] and self:font_format(map[font_field])
-																and map[font_field])
+		new_style[font_field] = (map[font_field] 
+														and self:font_format(map[font_field])
+														and map[font_field])
 														or styles[based_on][font_field]
 	end
 	for _,string_field in ipairs(string_fields) do
-		new_style[string_field] = map[string_field] and stringify(map[string_field])
+		new_style[string_field] = map[string_field] 
+															and stringify(map[string_field])
 															or styles[based_on][string_field]
 	end
 
@@ -1548,13 +1719,12 @@ end
 
 ---Setup:set_kind: create or set a kind based on an options map
 -- Creates a new style or modify an existing one, based on options.
---@param name string style key
---@param map map of options
-function Setup:set_kind(kind,map)
+--@param kind string kind key
+--@param map table, kind definition from user metadata
+--@param new_kinds table (optional), new kinds to be defined
+function Setup:set_kind(kind,map,new_kinds)
 	local styles = self.styles -- points to the styles map
 	local kinds = self.kinds -- points to the kinds map
---	local user_kinds = self.user_kinds -- user kinds (for shared counter checks)
---	local user_styles = self.user_kinds -- user kinds (for shared counter checks)
 	local map = map or {}
 	local new_kind = {}
 
@@ -1570,14 +1740,13 @@ function Setup:set_kind(kind,map)
 		if counter == 'self' or counter == 'none' then
 			new_kind.counter = counter
 		elseif counter == kind then -- using own name as counter
-			new_kind = 'self'
+			new_kind.counter = 'self'
 		elseif self:get_level_by_LaTeX_name(counter) then -- latex counter
 			new_kind.counter = counter
 		elseif self:get_LaTeX_name_by_level(counter) then -- level counter
 			new_kind.counter = counter
-		elseif kinds[counter] then
+		elseif kinds[counter] or new_kinds and new_kinds[counter] then
 			new_kind.counter = counter
-		-- elseif shared counter with a kind to be defined! USER_DEFINED(...)
 		else
 			message('ERROR', 'Cannot understand counter setting `'..counter
 											..'` to define statement kind '..kind..'.')
@@ -1602,13 +1771,14 @@ function Setup:set_kind(kind,map)
 		end
 	end
 
-	-- validate style
+	-- validate the kind's style
 	-- if none (or bad) provided, use 'plain' or 'empty'
 	if map.style then
-	 	if styles[stringify(map.style)] then
-			new_kind.style = stringify(map.style)
+		map.style = stringify(map.style)
+	 	if styles[map.style] then
+			new_kind.style = map.style
 		else
-			message('ERROR', 'Style `'..stringify(map.style)
+			message('ERROR', 'Style `'.. map.style 
 											..'` for statement kind `'..kind
 											..'` is not defined.')
 		end
@@ -3474,11 +3644,6 @@ function Statement:write(format)
 	-- Pandoc's JATS writer turns Plain blocks in to <p>...</p>
 	-- for this reason we must write <label> and <title> inlines
 	-- to text before we insert them.
-	-- BUG: links in lable/titles don't work
-	--			- citeproc ones don't work because write doesn't see
-	--				the biblio
-	--			- ours don't work because they aren't processed yet
-	-- Solution: ask Pandoc's JATS writer not to wrap everything in <p>?
 	elseif format:match('jats') then
 
 		--write_to_jats: use pandoc to convert inlines to jats output
@@ -3967,6 +4132,12 @@ end
 -- # Main function
 
 function main(doc) 
+
+	-- some writers use pandoc.write, Pandoc >= 2.17
+  if PANDOC_VERSION <= "2.17" then
+  	message('ERROR', 'This filter requires Pandoc version 2.17 or later.')
+    return 
+  end
 
 	-- create a setup object that holds the filter settings
 	local setup = Setup:new(doc.meta)

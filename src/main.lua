@@ -49,6 +49,12 @@ a new class every time, so mirror LaTeX.
 
 function main(doc) 
 
+	-- some writers use pandoc.write, Pandoc >= 2.17
+  if PANDOC_VERSION <= "2.17" then
+  	message('ERROR', 'This filter requires Pandoc version 2.17 or later.')
+    return 
+  end
+
 	-- create a setup object that holds the filter settings
 	local setup = Setup:new(doc.meta)
 
