@@ -115,9 +115,10 @@ function Setup:length_format(str, format)
 		new_latex_lengths['\\'..key] = value
 	end
 	LATEX_LENGTHS = new_latex_lengths
-	-- HTML_ENTITIES and their translations in 'main plus minus'
+	-- HTML_ENTITIES and their translations in 'main plus minus' format
 	local HTML_ENTITIES = {}
-	HTML_ENTITIES['&nbsp'] = '0.333em plus 0.666em minus 0.111em'
+	HTML_ENTITIES['&nbsp;'] = '0.333em plus 0.666em minus 0.111em'
+	HTML_ENTITIES['&#32;'] = '0.333em plus 0.666em minus 0.111em' -- space
 
 	--- parse_length: parse a '<number><unit>' string.
 	-- checks the unit against UNITS and LATEX_LENGTHS

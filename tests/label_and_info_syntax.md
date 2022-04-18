@@ -1,6 +1,9 @@
 ---
 title: Label and info syntax tests
 author: Julien Dutant
+locale:
+    en:
+        theorem: 'THEOreme'
 references:
 - type: article-journal
   id: thatone

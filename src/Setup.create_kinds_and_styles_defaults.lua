@@ -43,5 +43,5 @@ function Setup:create_kinds_and_styles_defaults(meta)
 			end
 		end
 	end
-	
+
 end

@@ -1,0 +1,229 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{lmodern}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\hypersetup{
+  pdftitle={Label and info syntax tests},
+  pdfauthor={Julien Dutant},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+\urlstyle{same} % disable monospaced font for URLs
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\newlength{\cslhangindent}
+\setlength{\cslhangindent}{1.5em}
+\newlength{\csllabelwidth}
+\setlength{\csllabelwidth}{3em}
+\newlength{\cslentryspacingunit} % times entry-spacing
+\setlength{\cslentryspacingunit}{\parskip}
+\newenvironment{CSLReferences}[2] % #1 hanging-ident, #2 entry spacing
+ {% don't indent paragraphs
+  \setlength{\parindent}{0pt}
+  % turn on hanging indent if param 1 is 1
+  \ifodd #1
+  \let\oldpar\par
+  \def\par{\hangindent=\cslhangindent\oldpar}
+  \fi
+  % set entry spacing
+  \setlength{\parskip}{#2\cslentryspacingunit}
+ }%
+ {}
+\usepackage{calc}
+\newcommand{\CSLBlock}[1]{#1\hfill\break}
+\newcommand{\CSLLeftMargin}[1]{\parbox[t]{\csllabelwidth}{#1}}
+\newcommand{\CSLRightInline}[1]{\parbox[t]{\linewidth - \csllabelwidth}{#1}\break}
+\newcommand{\CSLIndent}[1]{\hspace{\cslhangindent}#1}
+\usepackage{amsthm}
+\theoremstyle{plain}
+\newtheorem{theorem}{THEOreme}
+\theoremstyle{plain}
+\newtheorem*{klein�__s_lemma}{Klein's lemma}
+\theoremstyle{plain}
+\newtheorem*{klein�__s_lemma-1}{Klein's lemma}
+\theoremstyle{plain}
+\newtheorem*{klein�__s_lemma-2}{Klein's lemma}
+\theoremstyle{plain}
+\newtheorem*{klein�__s_lemma-3}{Klein's lemma}
+\theoremstyle{plain}
+\newtheorem*{klein�__s_lemma-4}{Klein's lemma}
+\theoremstyle{plain}
+\newtheorem*{principal_principle}{Principal Principle}
+\theoremstyle{plain}
+\newtheorem*{principal_principle-1}{Principal Principle}
+\theoremstyle{plain}
+\newtheorem*{principal_principle-2}{Principal Principle}
+\ifLuaTeX
+  \usepackage{selnolig}  % disable illegal ligatures
+\fi
+
+\title{Label and info syntax tests}
+\author{Julien Dutant}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{theorem}
+
+This statement has no label or info.
+
+\end{theorem}
+
+\begin{theorem}[some info]
+
+This statement has only info.
+
+\end{theorem}
+
+\begin{theorem}[some info]
+
+This statement has only info, dot is allowed too.
+
+\end{theorem}
+
+\begin{theorem}[Dummy (1900; Otherdummy 1900)]
+
+This statement has a couple of citations as info.
+
+\end{theorem}
+
+\begin{theorem}[Dummy (1900; Otherdummy 1900)]
+
+This works with a point too.
+
+\end{theorem}
+
+\begin{theorem}[some info]
+
+Info can be placed within Strong emphasis too.
+
+\end{theorem}
+
+\begin{theorem}[Dummy (1900)]
+
+And a dot can be placed within the Strong emphasis.
+
+\end{theorem}
+
+\begin{theorem}[some info]
+
+Or just outside.
+
+\end{theorem}
+
+\begin{klein�__s_lemma}
+
+\protect\hypertarget{kleinuxfffd--s-lemma}{}{}This statement has a
+custom label.
+
+\end{klein�__s_lemma}
+
+\begin{klein�__s_lemma-1}
+
+\protect\hypertarget{KL}{}{}This statement has a custom label and
+acronym.
+
+\end{klein�__s_lemma-1}
+
+The acronym can be used to crossrefer the statement
+\protect\hyperlink{KL}{ KL }.
+
+\begin{klein�__s_lemma-2}
+
+\protect\hypertarget{KL}{}{}The filter doesn't care whether there is a
+dot after or before the Strong emphasis label.
+
+\end{klein�__s_lemma-2}
+
+\begin{klein�__s_lemma-3}
+
+\protect\hypertarget{KL}{}{}Or no dot at all.
+
+\end{klein�__s_lemma-3}
+
+\begin{klein�__s_lemma-4}
+
+\protect\hypertarget{KL}{}{}Even if there's no space - ugly but we won't
+chase it.
+
+\end{klein�__s_lemma-4}
+
+\begin{principal_principle}[Lewis]
+
+\protect\hypertarget{PP}{}{}Info can be placed with the Strong emphasis
+custom label.
+
+\end{principal_principle}
+
+\begin{principal_principle-1}[Dummy (1900; Otherdummy 1900)]
+
+\protect\hypertarget{PP}{}{}Here the info is a Cite element within the
+label.
+
+\end{principal_principle-1}
+
+\begin{principal_principle-2}[Dummy (1900; Otherdummy 1900)]
+
+\protect\hypertarget{PP}{}{}Here the info is a Cite element without the
+label.
+
+\end{principal_principle-2}
+
+\begin{theorem}
+
+\textbf{(PP) (Lewis).} Acronym plus info without custom label should
+fail. \texttt{**(PP)\ (Lewis).**} is treated is part of the theorem.
+
+\end{theorem}
+
+\hypertarget{references}{%
+\section*{References}\label{references}}
+\addcontentsline{toc}{section}{References}
+
+\hypertarget{refs}{}
+\begin{CSLReferences}{1}{0}
+\leavevmode\vadjust pre{\hypertarget{ref-thatone}{}}%
+Dummy, D. 1900. {``Dummy Reference.''} \emph{Journal} 1 (1): 1--10.
+
+\leavevmode\vadjust pre{\hypertarget{ref-theother}{}}%
+Otherdummy, A.N. 1900. {``Dummy Reference.''} \emph{Journal} 1 (1):
+1--10.
+
+\end{CSLReferences}
+
+\end{document}
