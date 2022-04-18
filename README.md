@@ -17,7 +17,7 @@ A statement is a "Theorem, Lemma, Proof, Postulate, Hypothesis,
 Proposition, Corollary, or other formal statement, identified as such
 with a label and usually made typographically distinct from the
 surrounding text" (according to the 
-[JATS XML specification](#https://jats.nlm.nih.gov/articleauthoring/tag-library/1.3/element/statement.html), 
+[JATS XML specification](https://jats.nlm.nih.gov/articleauthoring/tag-library/1.3/element/statement.html), 
 the standard XML tag suite for scientific publishing).
 Examples are mathematical theorems, proofs, exercises, but also 
 principles or arguments in a philosophy paper, prompts in a 
