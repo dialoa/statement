@@ -49,7 +49,13 @@ function Statement:parse_Div(elem)
 	end
 	self.kind = kinds_matched[1]
 
-	-- store statement content, attributes
+	-- remove the kinds matched from the Div's attributes
+	for _,kind in ipairs(kinds_matched) do
+		local _,position = self.element.classes:find(kind)
+		self.element.classes:remove(position)
+	end
+
+	-- store statement content
 	self.content = elem.content -- element content
 	
 	-- extract any label, info, acronym

@@ -73,7 +73,7 @@ function Statement:write_style(style, format)
 			local space_above = self.setup:length_format(style_def.margin_top) or '0pt'
 			local space_below = self.setup:length_format(style_def.margin_bottom) or '0pt'
 			local margin_right = self.setup:length_format(style_def.margin_right)
-			local margin_left = self.setup:length_format(style_def.margin_right)
+			local margin_left = self.setup:length_format(style_def.margin_left)
 			local body_font = self.setup:font_format(style_def.body_font) or ''
 			if margin_right then
 				body_font = '\\addtolength{\\rightskip}{'..style_def.margin_left..'}'
@@ -103,6 +103,88 @@ function Statement:write_style(style, format)
 		end
 	
 	elseif format:match('html') then
+
+		-- CSS specification 
+		-- .statement.<style> {
+		--			margin-top:
+		--			margin-bottom:
+		--			margin-left:
+		--			margin-right:
+		--			[font-style,-weight,-variant]: body font
+		--			}	
+		-- .statement.<style> .statement-label {
+		--			[font-style,-weight,-variant]: head font
+		-- 		}
+		-- .statement.<style> .statement-info {
+		--			[font-style,-weight,-variant]: normal
+		--	}
+		--@TODO: handle indent, 'text-ident' on the first paragraph only, before heading
+		--@TODO: handle space after theorem head. Need to use space chars???
+		local style_def = styles[style]
+		local margin_top = self.setup:length_format(style_def.margin_top)
+		local margin_right = self.setup:length_format(style_def.margin_bottom)
+		local margin_right = self.setup:length_format(style_def.margin_right)
+		local margin_left = self.setup:length_format(style_def.margin_left)
+		local body_font = self.setup:font_format(style_def.body_font)
+		local head_font = self.setup:font_format(style_def.head_font)
+		-- make sure head and info aren't affected by body_font
+		if body_font then
+			head_font = head_font or ''
+			head_font = 'font-style: normal; font-weight: normal;'
+									..' font-variant: normal; '..head_font
+		end
+		-- local indent = self.setup:length_format(style_def.indent)
+		-- local punctuation = style_def.punctuation HANDLED BY WRITE
+		local space_after_head = self.setup:length_format(style_def.space_after_head) 
+														or '0.333em'
+		--local heading_pattern = style_def.heading_pattern or ''
+
+		local css_spec = ''
+
+		if margin_top or margin_bottom or margin_left or margin_right
+				or body_font then
+			css_spec = css_spec..'.statement.'..style..' {\n'
+			if margin_top then
+				css_spec = css_spec..'\tmargin-top: '..margin_top..';\n'
+			end
+			if margin_bottom then
+				css_spec = css_spec..'\tmargin-top: '..margin_bottom..';\n'
+			end
+			if margin_left then
+				css_spec = css_spec..'\tmargin-top: '..margin_left..';\n'
+			end
+			if margin_right then
+				css_spec = css_spec..'\tmargin-top: '..margin_right..';\n'
+			end
+			if body_font then
+				css_spec = css_spec..'\t'..body_font..'\n'
+			end
+			css_spec = css_spec..'}\n'
+		end
+		if head_font then
+			css_spec = css_spec..'.statement.'..style..' .statement-label {\n'
+			css_spec = css_spec..'\t'..head_font..'\n'
+			css_spec = css_spec..'}\n'
+		end
+		-- space after heading: use word-spacing
+		css_spec = css_spec..'.statement.'..style..' .statement-spah {\n'
+		css_spec = css_spec..'\t'..'word-spacing: '..space_after_head..';\n'
+		css_spec = css_spec..'}\n'
+
+		-- info style: always clean (as in AMS theorems)
+		css_spec = css_spec..'.statement.'..style..' .statement-info {\n'
+		css_spec = css_spec..'\t'..'font-style: normal; font-weight: normal;'
+									..' font-variant: normal;\n'
+		css_spec = css_spec..'}\n'
+
+
+
+
+		-- wrap all in <style> tags
+		css_spec = '<style>\n'..css_spec..'</style>\n'
+
+		-- insert
+		blocks:insert(pandoc.RawBlock('html',css_spec))
 
 	else -- any other format, no way to define statement kinds
 

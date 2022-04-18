@@ -1,9 +1,7 @@
 ---
 title: Label and info syntax tests
 author: Julien Dutant
-locale:
-    en:
-        theorem: 'THEOreme'
+numbersections: true # LaTeX only, in HTML use -N or --number-sections
 references:
 - type: article-journal
   id: thatone

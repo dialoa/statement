@@ -2,7 +2,8 @@
 title: Newtheorem and theoremstyle test
 subtitle: recreated with the Pandoc Statement filter
 author: Michael Downes, updated by Barbara Beeton
-numbersections: true
+linkcolor: blue
+link-citations: true
 statement:
     count-within: section
 statement-kinds:
@@ -97,8 +98,8 @@ Let $d_{\max}$ and $d_{\min}$ be the maximum,
 resp. minimum distance between any two adjacent vertices of a
 quadrilateral $Q$. Let $\sigma$ be the diagonal pigspan of a pig $P$
 with four legs. Then $P$ is capable of standing on the corners of $Q$
-iff $$\label{sdq}
-\sigma\geq \sqrt{d_{\max}^2+d_{\min}^2}.$$
+iff 
+$$\sigma\geq \sqrt{d_{\max}^2+d_{\min}^2}.$$
 :::
 
 ::: corollary

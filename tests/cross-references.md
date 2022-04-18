@@ -3,6 +3,7 @@ title: Cross-references with the statement filter
 author: Julien Dutant
 numbersections: true
 linkcolor: blue
+link-citations: true
 statement:
     count-within: section
 abstract: Demonstrates cross-references with

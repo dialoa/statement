@@ -1,7 +1,7 @@
 ---
 title: Recursions and lists in the statement filter
 author: Julien Dutant
-numbersections: true
+numbersections: true # LaTeX only, in HTML use -N or --number-sections
 statement:
   defaults: 
   amsthm:

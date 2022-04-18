@@ -13,7 +13,17 @@ function Statement:write_label()
 	bb, eb = '(', ')' 
 	inlines = pandoc.List:new()
 	
-	if self.is_numbered then
+	if self.custom_label then
+
+		inlines:extend(self.custom_label)
+		if self.acronym then
+			inlines:insert(pandoc.Space())
+			inlines:insert(pandoc.Str(bb))
+			inlines:extend(self.acronym)			
+			inlines:insert(pandoc.Str(eb))
+		end
+
+	elseif self.is_numbered then
 
 		-- add kind label
 		if kinds[self.kind] and kinds[self.kind].label then
@@ -34,14 +44,11 @@ function Statement:write_label()
 			end
 		end
 
-	elseif self.custom_label then
-
-		inlines:extend(self.custom_label)
-		if self.acronym then
-			inlines:insert(pandoc.Space())
-			inlines:insert(pandoc.Str(bb))
-			inlines:extend(self.acronym)			
-			inlines:insert(pandoc.Str(eb))
+	else
+		
+		-- add kind label
+		if kinds[self.kind] and kinds[self.kind].label then
+			inlines:extend(kinds[self.kind].label)
 		end
 
 	end

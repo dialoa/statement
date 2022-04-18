@@ -82,6 +82,7 @@ function Setup:set_kind(kind,map,new_kinds)
 		else
 			message('ERROR','Defaults misconfigured:'
 													..'no `empty` style provided.')
+			new_kind.style = 'empty' -- may still work e.g. in HTML
 		end
 	end
 

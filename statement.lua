@@ -233,7 +233,7 @@ Setup.DEFAULTS.STYLES = {
 		 },
 		definition = { do_not_define_in_latex = true,
 			based_on = 'plain',
-			body_font = '',
+			body_font = '', -- '' used to reset the basis' field to nil
 		 },
 		remark = { do_not_define_in_latex = true,
 			based_on = 'plain',
@@ -242,7 +242,7 @@ Setup.DEFAULTS.STYLES = {
 		 },
 		proof = { do_not_define_in_latex = false,
 			based_on = 'plain',
-			body_font = '',
+			body_font = 'normal',
 			head_font = 'italics',
 		 }, -- Statement.write_style will take care of it
 	},
@@ -1450,6 +1450,46 @@ function Setup:create_kinds_and_styles_defaults(meta)
 		end
 	end
 
+	-- based_on_styles: builds styles based on other styles
+	local function based_on_styles()
+
+		for style,definition in pairs(self.styles) do
+
+			if definition.based_on and self.styles[definition.based_on] then
+				source_style = self.styles[definition.based_on]
+				if source_style.based_on then
+					message('ERROR', 'Defaults misconfigured: style `'..style..'` '
+											..' is based on a style (`'..definition.based_on..'`)'
+											..' that is itself based on another style.'
+											..' this is not allowed.')
+				else
+
+					for key,value in pairs(source_style) do
+						if not definition[key] then
+							definition[key] = source_style[key]
+						end
+					end
+
+					-- '' keys in derived styles are used to erase fields
+					for key,value in pairs(definition) do
+						if value == '' then
+							definition[key] = nil
+						end
+					end
+
+					-- No need for this in Lua as tables are passed by references
+					-- but putting it there as a reminder of what happens
+					-- self.styles[style] = definition
+
+				end
+			end
+
+		end
+
+	end
+
+	-- MAIN FUNCTION BODY
+
 	-- does the user want to check the filter's DEFAULTS files?
 	if meta.statement and meta.statement['validate-defaults'] then
 		self:validate_defaults()
@@ -1468,6 +1508,9 @@ function Setup:create_kinds_and_styles_defaults(meta)
 	if chosen_defaults ~= 'none' then
 		add_default_set(chosen_defaults)
 	end
+
+	-- fill in styles based on other styles
+	based_on_styles()
 
 	-- if count_within, change defaults with 'self' counter 
 	-- to 'count_within' counter
@@ -1850,6 +1893,7 @@ function Setup:set_kind(kind,map,new_kinds)
 		else
 			message('ERROR','Defaults misconfigured:'
 													..'no `empty` style provided.')
+			new_kind.style = 'empty' -- may still work e.g. in HTML
 		end
 	end
 
@@ -2338,7 +2382,7 @@ function Setup:font_format(str, format)
 	local FEATURES = {
 		upright = {
 			latex = '\\upshape',
-			css = 'font-style: italic;',
+			css = 'font-style: normal;',
 		},
 		italics = {
 			latex = '\\itshape',
@@ -2354,7 +2398,7 @@ function Setup:font_format(str, format)
 		},
 		normal = {
 			latex = '\\normalfont',
-			css = ''
+			css = 'font-style: normal; font-weight: normal; font-variant:normal;'
 		}
 	}
 	-- provide some aliases
@@ -2717,7 +2761,13 @@ function Statement:parse_Div(elem)
 	end
 	self.kind = kinds_matched[1]
 
-	-- store statement content, attributes
+	-- remove the kinds matched from the Div's attributes
+	for _,kind in ipairs(kinds_matched) do
+		local _,position = self.element.classes:find(kind)
+		self.element.classes:remove(position)
+	end
+
+	-- store statement content
 	self.content = elem.content -- element content
 	
 	-- extract any label, info, acronym
@@ -3425,7 +3475,7 @@ function Statement:write_style(style, format)
 			local space_above = self.setup:length_format(style_def.margin_top) or '0pt'
 			local space_below = self.setup:length_format(style_def.margin_bottom) or '0pt'
 			local margin_right = self.setup:length_format(style_def.margin_right)
-			local margin_left = self.setup:length_format(style_def.margin_right)
+			local margin_left = self.setup:length_format(style_def.margin_left)
 			local body_font = self.setup:font_format(style_def.body_font) or ''
 			if margin_right then
 				body_font = '\\addtolength{\\rightskip}{'..style_def.margin_left..'}'
@@ -3455,6 +3505,88 @@ function Statement:write_style(style, format)
 		end
 	
 	elseif format:match('html') then
+
+		-- CSS specification 
+		-- .statement.<style> {
+		--			margin-top:
+		--			margin-bottom:
+		--			margin-left:
+		--			margin-right:
+		--			[font-style,-weight,-variant]: body font
+		--			}	
+		-- .statement.<style> .statement-label {
+		--			[font-style,-weight,-variant]: head font
+		-- 		}
+		-- .statement.<style> .statement-info {
+		--			[font-style,-weight,-variant]: normal
+		--	}
+		--@TODO: handle indent, 'text-ident' on the first paragraph only, before heading
+		--@TODO: handle space after theorem head. Need to use space chars???
+		local style_def = styles[style]
+		local margin_top = self.setup:length_format(style_def.margin_top)
+		local margin_right = self.setup:length_format(style_def.margin_bottom)
+		local margin_right = self.setup:length_format(style_def.margin_right)
+		local margin_left = self.setup:length_format(style_def.margin_left)
+		local body_font = self.setup:font_format(style_def.body_font)
+		local head_font = self.setup:font_format(style_def.head_font)
+		-- make sure head and info aren't affected by body_font
+		if body_font then
+			head_font = head_font or ''
+			head_font = 'font-style: normal; font-weight: normal;'
+									..' font-variant: normal; '..head_font
+		end
+		-- local indent = self.setup:length_format(style_def.indent)
+		-- local punctuation = style_def.punctuation HANDLED BY WRITE
+		local space_after_head = self.setup:length_format(style_def.space_after_head) 
+														or '0.333em'
+		--local heading_pattern = style_def.heading_pattern or ''
+
+		local css_spec = ''
+
+		if margin_top or margin_bottom or margin_left or margin_right
+				or body_font then
+			css_spec = css_spec..'.statement.'..style..' {\n'
+			if margin_top then
+				css_spec = css_spec..'\tmargin-top: '..margin_top..';\n'
+			end
+			if margin_bottom then
+				css_spec = css_spec..'\tmargin-top: '..margin_bottom..';\n'
+			end
+			if margin_left then
+				css_spec = css_spec..'\tmargin-top: '..margin_left..';\n'
+			end
+			if margin_right then
+				css_spec = css_spec..'\tmargin-top: '..margin_right..';\n'
+			end
+			if body_font then
+				css_spec = css_spec..'\t'..body_font..'\n'
+			end
+			css_spec = css_spec..'}\n'
+		end
+		if head_font then
+			css_spec = css_spec..'.statement.'..style..' .statement-label {\n'
+			css_spec = css_spec..'\t'..head_font..'\n'
+			css_spec = css_spec..'}\n'
+		end
+		-- space after heading: use word-spacing
+		css_spec = css_spec..'.statement.'..style..' .statement-spah {\n'
+		css_spec = css_spec..'\t'..'word-spacing: '..space_after_head..';\n'
+		css_spec = css_spec..'}\n'
+
+		-- info style: always clean (as in AMS theorems)
+		css_spec = css_spec..'.statement.'..style..' .statement-info {\n'
+		css_spec = css_spec..'\t'..'font-style: normal; font-weight: normal;'
+									..' font-variant: normal;\n'
+		css_spec = css_spec..'}\n'
+
+
+
+
+		-- wrap all in <style> tags
+		css_spec = '<style>\n'..css_spec..'</style>\n'
+
+		-- insert
+		blocks:insert(pandoc.RawBlock('html',css_spec))
 
 	else -- any other format, no way to define statement kinds
 
@@ -3603,7 +3735,17 @@ function Statement:write_label()
 	bb, eb = '(', ')' 
 	inlines = pandoc.List:new()
 	
-	if self.is_numbered then
+	if self.custom_label then
+
+		inlines:extend(self.custom_label)
+		if self.acronym then
+			inlines:insert(pandoc.Space())
+			inlines:insert(pandoc.Str(bb))
+			inlines:extend(self.acronym)			
+			inlines:insert(pandoc.Str(eb))
+		end
+
+	elseif self.is_numbered then
 
 		-- add kind label
 		if kinds[self.kind] and kinds[self.kind].label then
@@ -3624,14 +3766,11 @@ function Statement:write_label()
 			end
 		end
 
-	elseif self.custom_label then
-
-		inlines:extend(self.custom_label)
-		if self.acronym then
-			inlines:insert(pandoc.Space())
-			inlines:insert(pandoc.Str(bb))
-			inlines:extend(self.acronym)			
-			inlines:insert(pandoc.Str(eb))
+	else
+		
+		-- add kind label
+		if kinds[self.kind] and kinds[self.kind].label then
+			inlines:extend(kinds[self.kind].label)
 		end
 
 	end
@@ -3644,11 +3783,13 @@ end
 -- @param format string (optional) format desired if other than FORMAT
 -- @return Blocks blocks to be inserted. 
 function Statement:write(format)
-	local blocks = pandoc.List:new()
 	local format = format or FORMAT
 	local kinds = self.setup.kinds -- pointer to the kinds table
+	local styles = self.setup.styles -- pointer to the styles table
+	local style = kinds[self.kind].style -- this statement's style
 	local label_inlines -- statement's label
 	local label_delimiter = '.'
+	local blocks = pandoc.List:new()
 
 	-- do we have before_first includes to include before any
 	-- definition? if yes include them here and wipe it out
@@ -3657,22 +3798,29 @@ function Statement:write(format)
 		self.setup.includes.before_first = nil
 	end
 
-	-- write the kind definition if needed
+	-- do we need to write the kind definition first?
 	-- if local blocks are returned, insert them
 	local write_kind_local_blocks = self:write_kind()
 	if write_kind_local_blocks then
 		blocks:extend(write_kind_local_blocks)
 	end
 
-	-- prepare the label inlines (only needed for non-LaTeX formats)
-	label_inlines = self:write_label() or pandoc.List:new()
-	-- insert a span in content as link target if the statement has an identifier
-	if self.identifier then
-		self.content[1].content:insert(1, pandoc.Span({},pandoc.Attr(self.identifier)))
+	-- prepare the label inlines
+	-- This is actually only needed for non-latex formats, since
+	-- in LaTeX the label is part of the kind definition
+	if not format:match('latex') then
+		label_inlines = self:write_label() or pandoc.List:new()
 	end
 
 	-- format the statement
+
+	-- LaTeX formatting
 	if format:match('latex') then
+
+		-- insert a span in content as link target if the statement has an identifier
+		if self.identifier then
+			self.content[1].content:insert(1, pandoc.Span({},pandoc.Attr(self.identifier)))
+		end
 
 		-- \begin{kind}[info inlines] content blocks \end{kind}
 		local inlines = pandoc.List:new()
@@ -3683,12 +3831,100 @@ function Statement:write(format)
 			inlines:extend(self.info)
 			inlines:insert(pandoc.RawInline('latex', ']'))
 		end
+		-- insert a span as link target if the statement has an identifier
+		if self.identifier then
+			inlines:insert(1, pandoc.Span({},pandoc.Attr(self.identifier)))
+		end
 		blocks:insert(pandoc.Plain(inlines))
 		blocks:extend(self.content)
 		blocks:insert(pandoc.RawBlock('latex',
 							'\\end{' .. self.kind .. '}'))
 
-	--elseif format:match('html') then
+	-- HTML formatting
+	-- we create a Div
+	--	<div class='statement <kind> <style>'>
+	-- 	<p class='statement-first-paragraph'>
+	--		<span class='statement-head'>
+	--			<span class='statement-label'> label inlines </span>
+	--		  <span class='statement-info'>( info inlines )</span>
+	--			<span class='statement-spah'> </span>
+	--		first paragraph content, if any
+	--	</p>
+	--  content blocks
+	-- </div>
+	elseif format:match('html') then
+
+		local label_span, info_span 
+		local heading_inlines, heading_span
+		local attributes
+
+		-- create label span; could be custom-label or kind label
+		if #label_inlines > 0 then
+			label_span = pandoc.Span(label_inlines, 
+												{class = 'statement-label'})
+		end
+		-- create info span
+		if self.info then 
+			self.info:insert(1, pandoc.Str('('))
+			self.info:insert(pandoc.Str(')'))
+			info_span = pandoc.Span(self.info, 
+											{class = 'statement-info'})
+		end
+		-- put heading together
+		if label_span or info_span then
+			heading_inlines = pandoc.List:new()
+			if label_span then
+				heading_inlines:insert(label_span)
+			end
+			if label_span and info_span then
+				heading_inlines:insert(pandoc.Space())
+			end
+			if info_span then
+				heading_inlines:insert(info_span)
+			end
+			-- insert punctuation defined in style
+			if styles[style].punctuation then
+				heading_inlines:insert(pandoc.Str(
+					styles[style].punctuation
+					))
+			end
+			heading_span = pandoc.Span(heading_inlines,
+										{class = 'statement-heading'})
+		end
+
+		-- if heading, insert it in the first paragraph if any
+		-- otherwise make it its own paragraph
+		if heading_span then
+			if self.content[1] and self.content[1].t 
+					and self.content[1].t == 'Para' then
+				self.content[1].content:insert(1, heading_span)
+				-- add space after heading
+				self.content[1].content:insert(2, pandoc.Span(
+											{pandoc.Space()}, {class='statement-spah'}
+					))
+			else
+				self.content:insert(1, pandoc.Para({heading_span}))
+			end
+		end
+
+		-- prepare Div attributes
+		-- keep the original element's attributes if any
+		attributes = self.element.attr or pandoc.Attr()
+		if self.identifier then
+				attributes.identifier = self.identifier
+		end
+		-- add the `statement`, kind, style and unnumbered classes
+		-- same name for kind and style shouldn't be a problem
+		attributes.classes:insert('statement')
+		attributes.classes:insert(self.kind)
+		attributes.classes:insert(kinds[self.kind].style)
+		if not self.is_numbered 
+				and not attributes.classes:includes('unnumbered') then
+			attributes.classes:insert('unnumbered')
+		end
+
+		-- create the statement Div and insert it
+		blocks:insert(pandoc.Div(self.content, attributes))
 
 	-- JATS formatting
 	-- Pandoc's JATS writer turns Plain blocks in to <p>...</p>
@@ -3697,6 +3933,7 @@ function Statement:write(format)
 	elseif format:match('jats') then
 
 		--write_to_jats: use pandoc to convert inlines to jats output
+		--@BUG this needs the document meta, otherwise biblio not found 
 		function write_to_jats(inlines)
 			local result, doc
 			local options = pandoc.WriterOptions({
@@ -3705,19 +3942,20 @@ function Statement:write(format)
 			doc = pandoc.Pandoc(pandoc.Plain(inlines))
 			result = pandoc.write(doc, 'jats', options)
 			return result:match('^<p>(.*)</p>$') or result or ''
+
 		end
 
 		blocks:insert(pandoc.RawBlock('jats', '<statement>'))
 
-		label_inlines = self:write_label()
-		if label_inlines then
-			local label_str = '<label>' .. write_to_jats(label_inlines) 
-												.. '</label>'
+		if #label_inlines > 0 then
+			local label_str = '<label>'..write_to_jats(label_inlines) 
+												..'</label>'
 			blocks:insert(pandoc.RawBlock('jats',label_str))
 		end
 
 		if self.info then
-			local info_str = '<title>'..write_to_jats(self.info)..'</title>'
+			local info_str = 	'<title>'..write_to_jats(self.info)
+												..'</title>'
 			blocks:insert(pandoc.RawBlock('jats',info_str))
 		end
 
@@ -3726,6 +3964,11 @@ function Statement:write(format)
 		blocks:insert(pandoc.RawBlock('jats', '</statement>'))
 
 	else -- other formats, use blockquote
+
+		-- insert a span in content as link target if the statement has an identifier
+		if self.identifier then
+			self.content[1].content:insert(1, pandoc.Span({},pandoc.Attr(self.identifier)))
+		end
 
 		-- prepare the statement heading
 		local heading = pandoc.List:new()

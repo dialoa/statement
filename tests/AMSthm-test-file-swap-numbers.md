@@ -3,6 +3,8 @@ title: Newtheorem and theoremstyle test
 subtitle: recreated with the Pandoc Statement filter
 author: Michael Downes, updated by Barbara Beeton
 numbersections: true
+linkcolor: blue
+link-citations: true
 statement:
     count-within: section
     swap-numbers: true

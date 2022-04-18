@@ -66,7 +66,7 @@ Setup.DEFAULTS.STYLES = {
 		 },
 		definition = { do_not_define_in_latex = true,
 			based_on = 'plain',
-			body_font = '',
+			body_font = '', -- '' used to reset the basis' field to nil
 		 },
 		remark = { do_not_define_in_latex = true,
 			based_on = 'plain',
@@ -75,7 +75,7 @@ Setup.DEFAULTS.STYLES = {
 		 },
 		proof = { do_not_define_in_latex = false,
 			based_on = 'plain',
-			body_font = '',
+			body_font = 'normal',
 			head_font = 'italics',
 		 }, -- Statement.write_style will take care of it
 	},

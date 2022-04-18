@@ -15,6 +15,46 @@ function Setup:create_kinds_and_styles_defaults(meta)
 		end
 	end
 
+	-- based_on_styles: builds styles based on other styles
+	local function based_on_styles()
+
+		for style,definition in pairs(self.styles) do
+
+			if definition.based_on and self.styles[definition.based_on] then
+				source_style = self.styles[definition.based_on]
+				if source_style.based_on then
+					message('ERROR', 'Defaults misconfigured: style `'..style..'` '
+											..' is based on a style (`'..definition.based_on..'`)'
+											..' that is itself based on another style.'
+											..' this is not allowed.')
+				else
+
+					for key,value in pairs(source_style) do
+						if not definition[key] then
+							definition[key] = source_style[key]
+						end
+					end
+
+					-- '' keys in derived styles are used to erase fields
+					for key,value in pairs(definition) do
+						if value == '' then
+							definition[key] = nil
+						end
+					end
+
+					-- No need for this in Lua as tables are passed by references
+					-- but putting it there as a reminder of what happens
+					-- self.styles[style] = definition
+
+				end
+			end
+
+		end
+
+	end
+
+	-- MAIN FUNCTION BODY
+
 	-- does the user want to check the filter's DEFAULTS files?
 	if meta.statement and meta.statement['validate-defaults'] then
 		self:validate_defaults()
@@ -33,6 +73,9 @@ function Setup:create_kinds_and_styles_defaults(meta)
 	if chosen_defaults ~= 'none' then
 		add_default_set(chosen_defaults)
 	end
+
+	-- fill in styles based on other styles
+	based_on_styles()
 
 	-- if count_within, change defaults with 'self' counter 
 	-- to 'count_within' counter

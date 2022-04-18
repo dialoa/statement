@@ -38,23 +38,23 @@ automatic_locale.pdf : automatic_locale.md $(ROOT)statement.lua
 
 %.tex: %.md $(ROOT)statement.lua
 	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \
-		-C --to=latex --output $@
+		--number-sections --citeproc --to=latex --output $@
 
 %.pdf: %.md $(ROOT)statement.lua
 	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \
-		-C --to=pdf --output $@
+		--number-sections --citeproc --to=pdf --output $@
 
 %.html: %.md $(ROOT)statement.lua
 	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \
-		-C --to=html --output $@
+		--mathjax --number-sections --citeproc --to=html --output $@
 
 %.xml: %.md $(ROOT)statement.lua
 	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \
-		-C --to=jats --output $@
+		--citeproc --to=jats --output $@
 
 %.docx: %.md $(ROOT)statement.lua
 	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \
-		-C --to=docx --output $@
+		--number-sections --citeproc --to=docx --output $@
 
 clean: 
 	@rm -f $(LATEX_TARGETS) $(PDF_TARGETS) $(HTML_TARGETS) $(JATS_TARGETS) $(DOCX_TARGETS)

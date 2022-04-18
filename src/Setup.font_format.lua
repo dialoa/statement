@@ -26,7 +26,7 @@ function Setup:font_format(str, format)
 	local FEATURES = {
 		upright = {
 			latex = '\\upshape',
-			css = 'font-style: italic;',
+			css = 'font-style: normal;',
 		},
 		italics = {
 			latex = '\\itshape',
@@ -42,7 +42,7 @@ function Setup:font_format(str, format)
 		},
 		normal = {
 			latex = '\\normalfont',
-			css = ''
+			css = 'font-style: normal; font-weight: normal; font-variant:normal;'
 		}
 	}
 	-- provide some aliases
