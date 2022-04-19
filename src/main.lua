@@ -9,15 +9,12 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @license MIT - see LICENSE file for details.
 @release 0.3
 
-@TODO jats and html output, simple!
 @TODO provide 'break-after-head' style field
 @TODO provide head-pattern, '<label> <num>. **<info>**', relying on Pandoc's rawinline parsing
-@TODO parse DefinitionList and Divs; refactor statement parsing to make it clearer
-@TODO preserve Div attributes in html and generic output
-@TODO set Div id when automatically generating an identifier (for Links)
+@TODO handle DefinitionList inputs (pandoc-theorem)?
+@TODO preserve Div and attributes in generic output
 @TODO provide \ref \label crossreferences in LaTeX?
 @TODO in html output, read Pandoc's number-offset option
-@TODO handle DefinitionList inputs (pandoc-theorem)?
 @TODO handle pandoc-amsthm style Div attributes?
 @TODO handle the Case environment?
 
@@ -81,7 +78,7 @@ function main(doc)
 	end
 end
 
---- Return main as a Pandoc object filter
+--- Return main as a Pandoc element filter
 return {
 	{
 			Pandoc = main

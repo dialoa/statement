@@ -62,6 +62,7 @@ function Walker:walk(blocks)
 				self.setup:increment_counter(block.level)
 				result:insert(block)
 
+		-- Divs: check if they are statements
 		elseif block.t == 'Div' then
 
 			-- try to create a statement
@@ -86,7 +87,34 @@ function Walker:walk(blocks)
 
 			end
 
-		--recursively process elements whose content is blocks
+		-- DefinitionLists: scan for statements
+		-- @TODO: break down lists with multiple definitions
+		elseif self.setup.options.definition_lists 
+						and block.t == 'DefinitionList' then
+
+			-- try to create a statement
+			sta = Statement:new(block, self.setup)
+
+			-- if successful, insert
+			if sta then
+				result:extend(sta:write())
+				is_modified = true
+
+			-- if none, process the content of each DefList definition
+			else
+
+				-- local sub_blocks = self:walk(block.content)
+				-- if sub_blocks then
+				-- 	block.content = sub_blocks
+				-- 	is_modified = true
+				-- 	result:insert(block)
+				-- else
+				-- 	result:insert(block)
+				-- end
+
+			end
+
+		-- element with blocks content: process recursively
 		elseif content_is_blocks:includes(block.t) then
 
 			local sub_blocks = self:walk(block.content)
@@ -98,6 +126,7 @@ function Walker:walk(blocks)
 				result:insert(block)
 			end
 
+		-- element with list of blocks content: process recursively
 		elseif content_is_list_of_blocks:includes(block.t) then
 
 			-- rebuild the list item by item, processing each

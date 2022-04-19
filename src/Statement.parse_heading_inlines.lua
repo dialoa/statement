@@ -1,5 +1,6 @@
---- Statement:parse_Div_heading: parse Div heading into custom label,
--- acronym, info if present, and extract it from the content.
+--- Statement:parse_heading_inlines: parse statement heading inlines
+-- into custom label, acronym, info if present, and extract
+-- them from those inlines. Return them in a table.
 -- Expected format, where [...] means optional:
 --		[**[[Acronym] Custom Label] [Info1].**] [Info2[.]] Content
 --		[**[[Acronym] Custom Label] [Info1]**.] [Info2[.]] Content
@@ -15,15 +16,18 @@
 --		self.custom_label Inlines or nil, content of the label if found
 --		self.acronym Inlines or nil, acronym
 --		self.content Blocks, remainder of the statement after extraction
---@return nil 
-function Statement:parse_Div_heading()
-	local content = self.content
+--@return table { acronym = Inlines or nil,
+--								custom_label = Inlines or nil,
+--								info = Inlines or nil
+--								remainder = Inlines
+--								}
+--				or nil if no modification made
+function Statement:parse_heading_inlines(inlines)
 	local acro_delimiters = self.setup.options.acronym_delimiters 
 											or {'(',')'} -- acronym delimiters
 	local info_delimiters = self.setup.options.info_delimiters 
 											or {'(',')'} -- info delimiters
-	local para, custom_label, acronym, info
-	local is_modified = false
+	local custom_label, acronym, info
 
 	--- parse_Strong: try to parse a Strong element into acronym,
 	-- label and info.
@@ -73,48 +77,47 @@ function Statement:parse_Div_heading()
 
 	-- FUNCTION BODY
 
-	-- the first block must be a Para; we clone it for processing
-	if content[1] and content[1].t and content[1].t == 'Para' then
-		para = content[1]:clone()
+	-- prevent modification of the source document by cloning
+	if inlines and type(inlines) == 'Inlines' and #inlines > 0 then
+		inlines = inlines:clone()
 	else
 		return
 	end
 
-	-- Para starts with Strong?
+	-- inlines start with Strong?
 	-- if yes, try to parse and remove if successful
-	if para.content and para.content[1].t == 'Strong' then
-		info, custom_label, acronym = parse_Strong(para.content[1])
+	if inlines[1].t == 'Strong' then
+		info, custom_label, acronym = parse_Strong(inlines[1])
 		if custom_label or info then
-			para.content:remove(1)
-			para.content = self:trim_dot_space(para.content, 'forward')
+			inlines:remove(1)
+			inlines = self:trim_dot_space(inlines, 'forward')
 		end
 	end
-
 
 	-- if we don't have info yet, try to find it at the beginning
 	-- of (what remains of) the Para's content.
 	if not info then
-		if para.content[1] and para.content[1].t == 'Cite' then
-			info = pandoc.Inlines(para.content[1])
-			para.content:remove(1)
-			para.content = self:trim_dot_space(para.content, 'forward')
+		if inlines[1] and inlines[1].t == 'Cite' then
+			info = pandoc.Inlines(inlines[1])
+			inlines:remove(1)
+			inlines = self:trim_dot_space(inlines, 'forward')
 		else
-			info, para.content = self:extract_fbb(para.content, 
+			info, inlines = self:extract_fbb(inlines, 
 																	'forward', info_delimiters)
-			para.content = self:trim_dot_space(para.content, 'forward')
+			inlines = self:trim_dot_space(inlines, 'forward')
 		end
 
 	end
 
-	-- if we found anything, store components and update statement's 
-	-- first block.
+	-- return a table if we found anything
 	if custom_label or info then
-		if acronym then
-			self.acronym = acronym
-		end
-		self.custom_label = custom_label
-		self.info = info
-		self.content[1] = para
+		return {
+			acronym = acronym,
+			custom_label = custom_label,
+			info = info,
+			remainder = #inlines>0 and inlines
+									or nil
+		}
 	end
 
 end

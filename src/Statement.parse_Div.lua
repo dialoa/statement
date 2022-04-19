@@ -20,7 +20,6 @@ function Statement:parse_Div(elem)
 	local kinds = setup.kinds -- points to the kinds table
 	local aliases = setup.aliases -- points to the aliases table
 	elem = elem or self.element
-	local kind
 
 	-- safety check
 	if not elem.t or elem.t ~= 'Div' then

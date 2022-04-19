@@ -9,15 +9,12 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @license MIT - see LICENSE file for details.
 @release 0.3
 
-@TODO jats and html output, simple!
 @TODO provide 'break-after-head' style field
 @TODO provide head-pattern, '<label> <num>. **<info>**', relying on Pandoc's rawinline parsing
-@TODO parse DefinitionList and Divs; refactor statement parsing to make it clearer
-@TODO preserve Div attributes in html and generic output
-@TODO set Div id when automatically generating an identifier (for Links)
+@TODO handle DefinitionList inputs (pandoc-theorem)?
+@TODO preserve Div and attributes in generic output
 @TODO provide \ref \label crossreferences in LaTeX?
 @TODO in html output, read Pandoc's number-offset option
-@TODO handle DefinitionList inputs (pandoc-theorem)?
 @TODO handle pandoc-amsthm style Div attributes?
 @TODO handle the Case environment?
 
@@ -86,6 +83,7 @@ Setup.options = {
 	define_in_header = true, -- defs in header, not local
 	supply_header = true, -- modify header-includes 
 	only_statement = false, -- only process Divs of 'statement' class
+	definition_lists = true, -- process DefinitionLists
 	citations = true, -- allow citation syntax for crossreferences
 	language = 'en', -- LOCALE setting
 	fontsize = nil, -- document fontsize
@@ -2604,12 +2602,17 @@ function Statement:new(elem, setup)
 	o.element = elem -- points to the original element
 
 	if o.element.t then
+
 		if o.element.t == 'Div' and o:Div_is_statement() then
 			o:parse_Div()
 			return o
-		elseif o.element.t == 'DefinitionList' then -- and o:DefinitionList_is_statement()
-			-- @TODO parse Def List statements
-			-- return o
+
+		elseif o.element.t == 'DefinitionList' 
+						and o.element.content[1]
+						and o:DefListitem_is_statement(o.element.content[1]) then
+			o:parse_DefList()
+			return o
+
 		end
 	end
 
@@ -2660,6 +2663,161 @@ function Statement:is_kind_key(str, setup)
 		end
 	end
 
+end
+
+--- Statement:parse_heading_inlines: parse statement heading inlines
+-- into custom label, acronym, info if present, and extract
+-- them from those inlines. Return them in a table.
+-- Expected format, where [...] means optional:
+--		[**[[Acronym] Custom Label] [Info1].**] [Info2[.]] Content
+--		[**[[Acronym] Custom Label] [Info1]**.] [Info2[.]] Content
+-- Where:
+--		- Acronym is Inlines delimited by matching parentheses, e.g. (NPE)
+--		- Info1, Info2 are either Inlines delimited by matching 
+--			parentheses, or a Cite element,
+--		- only one of Info1 or Info2 is present. The latter is treated
+--			as part of the content otherwise.
+--		- single spaces before the heading or surrounding the dot
+--			are tolerated.
+-- Updates:
+--		self.custom_label Inlines or nil, content of the label if found
+--		self.acronym Inlines or nil, acronym
+--		self.content Blocks, remainder of the statement after extraction
+--@return table { acronym = Inlines or nil,
+--								custom_label = Inlines or nil,
+--								info = Inlines or nil
+--								remainder = Inlines
+--								}
+--				or nil if no modification made
+function Statement:parse_heading_inlines(inlines)
+	local acro_delimiters = self.setup.options.acronym_delimiters 
+											or {'(',')'} -- acronym delimiters
+	local info_delimiters = self.setup.options.info_delimiters 
+											or {'(',')'} -- info delimiters
+	local custom_label, acronym, info
+
+	--- parse_Strong: try to parse a Strong element into acronym,
+	-- label and info.
+	-- @param elem pandoc Strong element
+	-- @return info, Inlines or Cite information if found
+	-- @return cust_lab, Inlines custom label if found
+	-- @return acronym, Inlines, acronym if found
+	function parse_Strong(elem)
+		-- must clone to avoid changing the original element 
+		-- in case parsing fails
+		local result = elem.content:clone()
+		local info, cust_lab, acro
+
+		-- remove trailing space / dot
+		result = self:trim_dot_space(result, 'reverse')
+
+		-- Info is first Cite or content between balanced brackets 
+		-- encountered in reverse order.
+		if result[#result].t == 'Cite' then
+			info = pandoc.Inlines(result[#result])
+			result:remove(#result)
+			result = self:trim_dot_space(result, 'reverse')
+		else
+			info, result = self:extract_fbb(result, 'reverse', info_delimiters)
+			result = self:trim_dot_space(result, 'reverse')
+		end
+
+		-- Acronym is first content between balanced brackets
+		-- encountered in forward order
+		if #result > 0 then
+			acro, result = self:extract_fbb(result, 'forward', acro_delimiters)
+			self:trim_dot_space(result, 'forward')
+		end
+			
+		-- Custom label is whatever remains
+		if #result > 0 then
+			cust_lab = result
+		end
+
+		-- If we have acro but not cust_label that's a failure
+		if acro and not cust_lab then
+			return nil, nil, nil
+		else
+			return info, cust_lab, acro
+		end
+	end
+
+	-- FUNCTION BODY
+
+	-- prevent modification of the source document by cloning
+	if inlines and type(inlines) == 'Inlines' and #inlines > 0 then
+		inlines = inlines:clone()
+	else
+		return
+	end
+
+	-- inlines start with Strong?
+	-- if yes, try to parse and remove if successful
+	if inlines[1].t == 'Strong' then
+		info, custom_label, acronym = parse_Strong(inlines[1])
+		if custom_label or info then
+			inlines:remove(1)
+			inlines = self:trim_dot_space(inlines, 'forward')
+		end
+	end
+
+	-- if we don't have info yet, try to find it at the beginning
+	-- of (what remains of) the Para's content.
+	if not info then
+		if inlines[1] and inlines[1].t == 'Cite' then
+			info = pandoc.Inlines(inlines[1])
+			inlines:remove(1)
+			inlines = self:trim_dot_space(inlines, 'forward')
+		else
+			info, inlines = self:extract_fbb(inlines, 
+																	'forward', info_delimiters)
+			inlines = self:trim_dot_space(inlines, 'forward')
+		end
+
+	end
+
+	-- return a table if we found anything
+	if custom_label or info then
+		return {
+			acronym = acronym,
+			custom_label = custom_label,
+			info = info,
+			remainder = #inlines>0 and inlines
+									or nil
+		}
+	end
+
+end
+
+---Statement:parse_indentifier find and extract a \label{...}
+-- or {#...} identifier from Inlines
+function Statement:parse_identifier(inlines)
+	local id -- string, identifier
+
+	--pick_id: a filter to pick ids in RawInlines or Str
+	local pick_id = {
+		RawInline = function(elem)
+			id = elem.text:match('^\\label{(%g+)}$')
+			if id then return {} end
+		end,
+		Str = function(elem)
+			id = elem.text:match('^{#(%g+)}$')
+			if id then return {} end
+		end,
+	}
+
+	if inlines and type(inlines) == 'Inlines' and #inlines > 0 then
+
+		-- prevent modification of the source document by cloning
+		inlines = inlines:clone()
+		-- apply the filter
+		inlines = inlines:walk(pick_id)
+		-- if something found, return the identifier and modified inlines
+		if id then
+			return id, inlines
+		end
+
+	end
 end
 
 ---Statement:Div_is_statement Whether an Div element is a statement.
@@ -2732,7 +2890,6 @@ function Statement:parse_Div(elem)
 	local kinds = setup.kinds -- points to the kinds table
 	local aliases = setup.aliases -- points to the aliases table
 	elem = elem or self.element
-	local kind
 
 	-- safety check
 	if not elem.t or elem.t ~= 'Div' then
@@ -2823,41 +2980,6 @@ function Statement:parse_Div_heading()
 	local para, custom_label, acronym, info
 	local is_modified = false
 
-	--- trim_dot_space: remove leading/trailing dot space.
-	--@param inlines pandoc Inlines
-	--@param direction 'reverse' for trailing, otherwise leading
-	--@return result pandoc Inlines
-	function trim_dot_space(inlines, direction)
-		local reverse = false
-		if direction == 'reverse' then reverse = true end
-		
-		-- function to return first position in the desired direction
-		function firstpos(list)
-			return reverse and #list or 1
-		end
-
-		-- safety check
-		if #inlines == 0 then return inlines end
-
-		-- remove space, dot, space
-		if inlines[firstpos(inlines)].t == 'Space' then
-			inlines:remove(firstpos(inlines))
-		end
-		if inlines[firstpos(inlines)].t == 'Str' 
-				and inlines[firstpos(inlines)].text:match('%.$') then
-			if inlines[firstpos(inlines)].text == '.' then
-				inlines:remove(firstpos(inlines))
-			else
-				local str = inlines[firstpos(inlines)].text:match('(.*)%.$')
-				inlines[firstpos(inlines)] = pandoc.Str(str)
-			end
-		end
-		if inlines[firstpos(inlines)].t == 'Space' then
-			inlines:remove(firstpos(inlines))
-		end
-		return inlines
-	end
-
 	--- parse_Strong: try to parse a Strong element into acronym,
 	-- label and info.
 	-- @param elem pandoc Strong element
@@ -2871,24 +2993,24 @@ function Statement:parse_Div_heading()
 		local info, cust_lab, acro
 
 		-- remove trailing space / dot
-		result = trim_dot_space(result, 'reverse')
+		result = self:trim_dot_space(result, 'reverse')
 
 		-- Info is first Cite or content between balanced brackets 
 		-- encountered in reverse order.
 		if result[#result].t == 'Cite' then
 			info = pandoc.Inlines(result[#result])
 			result:remove(#result)
-			result = trim_dot_space(result, 'reverse')
+			result = self:trim_dot_space(result, 'reverse')
 		else
 			info, result = self:extract_fbb(result, 'reverse', info_delimiters)
-			result = trim_dot_space(result, 'reverse')
+			result = self:trim_dot_space(result, 'reverse')
 		end
 
 		-- Acronym is first content between balanced brackets
 		-- encountered in forward order
 		if #result > 0 then
 			acro, result = self:extract_fbb(result, 'forward', acro_delimiters)
-			trim_dot_space(result, 'forward')
+			self:trim_dot_space(result, 'forward')
 		end
 			
 		-- Custom label is whatever remains
@@ -2919,7 +3041,7 @@ function Statement:parse_Div_heading()
 		info, custom_label, acronym = parse_Strong(para.content[1])
 		if custom_label or info then
 			para.content:remove(1)
-			para.content = trim_dot_space(para.content, 'forward')
+			para.content = self:trim_dot_space(para.content, 'forward')
 		end
 	end
 
@@ -2930,11 +3052,11 @@ function Statement:parse_Div_heading()
 		if para.content[1] and para.content[1].t == 'Cite' then
 			info = pandoc.Inlines(para.content[1])
 			para.content:remove(1)
-			para.content = trim_dot_space(para.content, 'forward')
+			para.content = self:trim_dot_space(para.content, 'forward')
 		else
 			info, para.content = self:extract_fbb(para.content, 
 																	'forward', info_delimiters)
-			para.content = trim_dot_space(para.content, 'forward')
+			para.content = self:trim_dot_space(para.content, 'forward')
 		end
 
 	end
@@ -2948,6 +3070,196 @@ function Statement:parse_Div_heading()
 		self.custom_label = custom_label
 		self.info = info
 		self.content[1] = para
+	end
+
+end
+
+---Statement:DefListitem_is_statement: whether a DefinitionList item 
+-- is a statement. If yes, returns the kind it matches.
+-- An item is a statement if its defined expression starts
+-- with a Str element whose text matches a statement kind (or alias).
+--@param elem (optional) item of a pandoc DefinitionList,
+--							defaults to self.element[1]
+--@param setup (optional) a Setup class object, to be used when
+--			the function is called from the setup object
+--@return string or nil element's kind (key of `setup.kinds`) or nil
+function Statement:DefListitem_is_statement(item, setup)
+	setup = setup or self.setup -- pointer to the setup table
+	local kinds = setup.kinds -- pointer to the kinds table
+	item = item or self.element 
+									and self.element.t == 'DefinitionList' 
+									and self.element.content[1]
+	local expression -- Inlines expression defined, i.e. item[1]
+	local kind -- kind key, if found
+	--local new_item -- modified item
+
+	expression = item[1]
+	if expression[1].t and expression[1].t == 'Str' then
+
+		-- ignore any dot at the end of the string
+		local str = expression[1].text:match('(.+)%.$') or expression[1].text
+		-- try a key match, return
+	  return self:is_kind_key(str, setup)
+
+	end
+
+end
+
+---Statement:parse_DefList parse a DefinitionList element into a statement
+-- Parses a DefinitionList element into a statement, setting its
+-- kind, identifier, label, info, acronym, content. 
+-- Assumes the element contains only one DefinitionList item.
+-- Creates new kinds and styles as needed.
+-- Updates:
+--		self.content
+--		self.identifier
+-- 		self.label
+--		self.custom_label
+--		self.kind
+--		self.acronym
+--		self.crossref_label
+-- 		
+--@param elem pandoc DefinitionList element (optional) element to be parsed
+--											defaults to self.element
+--@return bool true if successful, false if not
+function Statement:parse_DefList(elem)
+	local setup = self.setup -- points to the setup table
+	local options = setup.options -- points to the options table
+	local kinds = setup.kinds -- points to the kinds table
+	local aliases = setup.aliases -- points to the aliases table
+	elem = elem or self.element
+	local item -- the first DefinitionList item
+	local expression, definitions -- the item's expression and definitions
+	local identifier -- string, user-provided identifier if found
+
+	-- safety check
+	if not elem.t or elem.t ~= 'DefinitionList' then
+		message('ERROR', 	'Non-DefinitionList element passed to the parse_DefList function,'
+											..' this should not have happened.')
+		return
+	end
+
+	-- ignore empty DefinitionList
+	if not elem.content[1] then
+		return
+	end
+
+	self.kind, item = self:parse_DefList_kind(elem.content[1])
+
+	-- return if failed to match
+	if not self.kind then
+		message('ERROR', 	'DefinitionList element passed to the parse DefinitionList function,'
+											..' without DefListitem_is_statement check,'
+											..'this should not have happened.')
+		return 
+	end
+
+	-- item[1]: expression defined
+	-- item[2]: list of Blocks, definitions
+	expression = item[1]
+	definitions = item[2]
+
+	-- extract any label, info, acronym from expression
+	local result = self:parse_heading_inlines(expression)
+	if result then
+		self.acronym = result.acronym
+		self.custom_label = result.custom_label
+		self.info = result.info
+
+		-- look for id in the remainder
+		if result.remainder then
+			local identifier, new_remainder = self:parse_identifier(result.remainder)
+			if identifier then
+				result.remainder = new_remainder
+			end
+		end
+
+		-- if any remainder, insert in the first Para of the first definition
+		-- or create a new Para if necessary
+		if result.remainder and #result.remainder > 0 then
+			definitions[1] = definitions[1] or pandoc.List:new()
+			if definitions[1][1] and definitions[1][1].t == 'Para' then
+				definitions[1][1].content = result.remainder:extend(
+																			definitions[1][1].content)
+			else 
+				definitions[1]:insert(1, pandoc.Para(result.remainder))
+			end
+		end
+	end
+
+	-- concatenate the definitions into the statement content
+	self.content = pandoc.List:new() -- Blocks
+	for _,definition in ipairs(definitions) do
+		if #definition > 0 then
+			self.content:extend(definition)
+		end
+	end
+
+	-- if custom label, create a new kind
+	if self.custom_label then
+		self:new_kind_from_label()
+	end
+
+	-- if unnumbered, we may need to create a new kind
+	-- if numbered, increase the statement's count
+	self:set_is_numbered(elem) -- set self.is_numbered
+	if not self.is_numbered then
+		self:new_kind_unnumbered()
+	else
+		self:increment_count() -- update the kind's counter
+	end
+
+	self:set_crossref_label() -- set crossref label
+	self:set_identifier(elem) -- set identifier, store crossref label for id
+
+	return true
+
+end
+
+---Statement:parse_DefList_kind: extracts the kind from a DefList, if any
+-- A DefinitionList item is a statement if its defined expression starts
+-- with a Str element whose text matches a statement kind (or alias).
+--@param item item of DefinitionList element
+--@return string or nil element's kind (key of `setup.kinds`) or nil
+--@return item the modified DefinitionList item
+function Statement:parse_DefList_kind(item)
+	setup = setup or self.setup -- pointer to the setup table
+	local kinds = setup.kinds -- pointer to the kinds table
+	item = item or self.element 
+					and self.element.t == 'DefinitionList' 
+					and self.element.content[1]
+	local expression -- Inlines expression defined, i.e. item[1]
+	local kind -- kind key, if found
+	--local new_item -- modified item
+
+	if item then
+
+		expression = item[1]
+		if expression[1].t and expression[1].t == 'Str' then
+
+			-- check that it does match a kind
+			-- ignore any dot at the end of the string
+			local str = expression[1].text:match('(.+)%.$') or expression[1].text
+			kind = self:is_kind_key(str, setup)
+
+			-- if found, extract it
+			-- warning, side-effect: this modifies the document's own blocks.
+		  if kind then
+
+		  	expression = item[1]
+		  	-- remove the 'Str' that matched
+		  	expression:remove(1)
+		  	-- remove any leading space dot left
+		  	expression = self:trim_dot_space(expression, 'forward')
+		  	-- store
+		  	item[1] = expression
+		  	-- return positive result
+		  	return kind, item
+
+		  end
+
+		end
+
 	end
 
 end
@@ -3093,6 +3405,49 @@ function Statement:extract_fbb(inlines, direction, delimiters)
 		return nil, inlines
 	end
 
+end
+
+---Statement:trim_dot_space: remove leading/trailing dot space in Inlines.
+--@param inlines pandoc Inlines
+--@param direction 'reverse' for trailing, otherwise leading
+--@return result pandoc Inlines
+function Statement:trim_dot_space(inlines, direction)
+	local reverse = false
+	if direction == 'reverse' then reverse = true end
+	
+	-- function to return first position in the desired direction
+	function firstpos(list)
+		return reverse and #list or 1
+	end
+
+	-- safety check
+	if #inlines == 0 then return inlines end
+
+	-- remove sequences of spaces and dots
+	local keep_looking = true
+	while keep_looking do
+		keep_looking = false
+		if #inlines > 0 then
+
+			if inlines[firstpos(inlines)].t == 'Space' then
+				inlines:remove(firstpos(inlines))
+				keep_looking = true
+			elseif inlines[firstpos(inlines)].t == 'Str' then
+				-- trim trailing dots and spaces from string text
+				local str = inlines[firstpos(inlines)].text:match('(.*)[%.%s]+$')
+				if str then
+					if str == '' then
+						inlines:remove(firstpos(inlines))
+					else
+						inlines[firstpos(inlines)].text = str
+					end
+					keep_looking = true
+				end
+			end
+		end
+	end
+
+	return inlines
 end
 
 --- Statement:new_kind_from_label: create and set a new kind from a 
@@ -3788,7 +4143,6 @@ function Statement:write(format)
 	local styles = self.setup.styles -- pointer to the styles table
 	local style = kinds[self.kind].style -- this statement's style
 	local label_inlines -- statement's label
-	local label_delimiter = '.'
 	local blocks = pandoc.List:new()
 
 	-- do we have before_first includes to include before any
@@ -3974,8 +4328,12 @@ function Statement:write(format)
 		local heading = pandoc.List:new()
 		-- label?
 		if #label_inlines > 0 then
-			label_inlines:insert(pandoc.Str(label_delimiter))
-			-- @TODO format according to statement kind
+			if styles[style].punctuation then
+				label_inlines:insert(pandoc.Str(
+					styles[style].punctuation
+					))
+			end
+			-- TODO format fonts according to style definition
 			heading:insert(pandoc.Strong(label_inlines))
 		end
 
@@ -4354,6 +4712,7 @@ function Walker:walk(blocks)
 				self.setup:increment_counter(block.level)
 				result:insert(block)
 
+		-- Divs: check if they are statements
 		elseif block.t == 'Div' then
 
 			-- try to create a statement
@@ -4378,7 +4737,34 @@ function Walker:walk(blocks)
 
 			end
 
-		--recursively process elements whose content is blocks
+		-- DefinitionLists: scan for statements
+		-- @TODO: break down lists with multiple definitions
+		elseif self.setup.options.definition_lists 
+						and block.t == 'DefinitionList' then
+
+			-- try to create a statement
+			sta = Statement:new(block, self.setup)
+
+			-- if successful, insert
+			if sta then
+				result:extend(sta:write())
+				is_modified = true
+
+			-- if none, process the content of each DefList definition
+			else
+
+				-- local sub_blocks = self:walk(block.content)
+				-- if sub_blocks then
+				-- 	block.content = sub_blocks
+				-- 	is_modified = true
+				-- 	result:insert(block)
+				-- else
+				-- 	result:insert(block)
+				-- end
+
+			end
+
+		-- element with blocks content: process recursively
 		elseif content_is_blocks:includes(block.t) then
 
 			local sub_blocks = self:walk(block.content)
@@ -4390,6 +4776,7 @@ function Walker:walk(blocks)
 				result:insert(block)
 			end
 
+		-- element with list of blocks content: process recursively
 		elseif content_is_list_of_blocks:includes(block.t) then
 
 			-- rebuild the list item by item, processing each
@@ -4458,7 +4845,7 @@ function main(doc)
 	end
 end
 
---- Return main as a Pandoc object filter
+--- Return main as a Pandoc element filter
 return {
 	{
 			Pandoc = main

@@ -33,12 +33,17 @@ function Statement:new(elem, setup)
 	o.element = elem -- points to the original element
 
 	if o.element.t then
+
 		if o.element.t == 'Div' and o:Div_is_statement() then
 			o:parse_Div()
 			return o
-		elseif o.element.t == 'DefinitionList' then -- and o:DefinitionList_is_statement()
-			-- @TODO parse Def List statements
-			-- return o
+
+		elseif o.element.t == 'DefinitionList' 
+						and o.element.content[1]
+						and o:DefListitem_is_statement(o.element.content[1]) then
+			o:parse_DefList()
+			return o
+
 		end
 	end
 
@@ -48,13 +53,25 @@ end
 
 !input Statement.is_kind_key -- to tell whether a string is a kind key, or the alias of one
 
+!input Statement.parse_heading_inlines -- parse heading inlines into acronym, custom label, info, remainder
+
+!input Statement.parse_identifier -- extract label{...} or {#...} identifiers from Inlines
+
 !input Statement.Div_is_statement -- to tell whether an element is a statement, and what kind it matches
 
 !input Statement.parse_Div -- parse Div element as statement
 
 !input Statement.parse_Div_heading -- parse Div element as statement
 
+!input Statement.DefListitem_is_statement -- to tell whether an Definition list item is a statement and of which kind
+
+!input Statement.parse_DefList -- parse a DefinitionList
+
+!input Statement.parse_DefList_kind -- extract kind name from a Definition List first item
+
 !input Statement.extract_fbb -- to extract content between first balanced brackets
+
+!input Statement.trim_dot_space -- remove leading/trailing dot space in Inlines
 
 !input Statement.new_kind_from_label -- to create a new kind from the statement's label
 

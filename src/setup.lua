@@ -11,6 +11,7 @@ Setup.options = {
 	define_in_header = true, -- defs in header, not local
 	supply_header = true, -- modify header-includes 
 	only_statement = false, -- only process Divs of 'statement' class
+	definition_lists = true, -- process DefinitionLists
 	citations = true, -- allow citation syntax for crossreferences
 	language = 'en', -- LOCALE setting
 	fontsize = nil, -- document fontsize
