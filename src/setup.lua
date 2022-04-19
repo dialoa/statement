@@ -23,6 +23,10 @@ Setup.options = {
 	info_delimiters = {'(',')'}, -- in case we want to open this to the user
 }
 
+--- Setup.meta, pointer to the doc's meta
+--			needed by the JATS writer
+Setup.meta = nil 
+
 --- Setup.kinds: kinds of statement, e.g. 'theorem', 'proof'
 Setup.kinds = {
 	-- kindname = { 
@@ -133,6 +137,9 @@ function Setup:new(meta)
 		local s = {}
 		self.__index = self 
 		setmetatable(s, self)
+
+		-- set the meta pointer
+		s.meta = meta
 
 		-- read options from document's meta
 		s:read_options(meta)

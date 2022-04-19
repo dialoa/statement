@@ -36,12 +36,14 @@ function Statement:new(elem, setup)
 
 		if o.element.t == 'Div' and o:Div_is_statement() then
 			o:parse_Div()
+			o:set_values()
 			return o
 
 		elseif o.element.t == 'DefinitionList' 
 						and o.element.content[1]
 						and o:DefListitem_is_statement(o.element.content[1]) then
 			o:parse_DefList()
+			o:set_values()
 			return o
 
 		end
@@ -77,13 +79,17 @@ end
 
 !input Statement.new_kind_unnumbered -- to create a new kind from the statement's label
 
+!input Statement.set_values -- set a statement's fields, post-parsing
+
 !input Statement.set_identifier -- to set id and store it
 
 !input Statement.set_is_numbered -- determine whether statement is numbered
 
-!input Statement.increment_count -- to update the count of this statement's kind
-
 !input Statement.set_crossref_label -- to set the crossref label
+
+!input Statement.set_count -- to update the count of this statement's kind
+
+!input Statement.write -- to write a statement (main function)
 
 !input Statement.write_style -- to write a style definition
 
@@ -91,5 +97,10 @@ end
 
 !input Statement.write_label -- to write a statement's label
 
-!input Statement.write -- to write a statement (main function)
+!input Statement.write_latex -- to write a statement in LaTeX
 
+!input Statement.write_html -- to write a statement in HTML
+
+!input Statement.write_jats -- to write a statement in JATS
+
+!input Statement.write_native -- to write a statement in other formats

@@ -11,10 +11,7 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 
 @TODO provide 'break-after-head' style field
 @TODO provide head-pattern, '<label> <num>. **<info>**', relying on Pandoc's rawinline parsing
-@TODO handle DefinitionList inputs (pandoc-theorem)?
-@TODO preserve Div and attributes in generic output
 @TODO provide \ref \label crossreferences in LaTeX?
-@TODO in html output, read Pandoc's number-offset option
 @TODO handle pandoc-amsthm style Div attributes?
 @TODO handle the Case environment?
 

@@ -11,8 +11,6 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 
 @TODO provide 'break-after-head' style field
 @TODO provide head-pattern, '<label> <num>. **<info>**', relying on Pandoc's rawinline parsing
-@TODO handle DefinitionList inputs (pandoc-theorem)?
-@TODO preserve Div and attributes in generic output
 @TODO provide \ref \label crossreferences in LaTeX?
 @TODO in html output, read Pandoc's number-offset option
 @TODO handle pandoc-amsthm style Div attributes?
@@ -94,6 +92,10 @@ Setup.options = {
 	acronym_delimiters = {'(',')'}, -- in case we want to open this to the user
 	info_delimiters = {'(',')'}, -- in case we want to open this to the user
 }
+
+--- Setup.meta, pointer to the doc's meta
+--			needed by the JATS writer
+Setup.meta = nil 
 
 --- Setup.kinds: kinds of statement, e.g. 'theorem', 'proof'
 Setup.kinds = {
@@ -1948,45 +1950,54 @@ function Setup:set_kind(kind,map,new_kinds)
 end
 
 --- Setup:create_counters create level counters based on statement kinds
---@return nil, modifies the self.counters table
---@TODO html output, read Pandoc's number-offset option
-function Setup:create_counters()
-	-- default counter output: %s for counter value, 
-	-- %p for its parent's formatted output
-	local default_format = function (level)
-		return level == 1 and '%s' or '%p.%s'
-	end
+-- Creates
+--	self.counters
+--@param format (optional) desired format if other than FORMAT
+--@return nil, creates the self.counters table
+function Setup:create_counters(format)
+	local format = format or FORMAT
+	local deepest_level = 0 -- deepest level needed
+	local reset_with_level = {} -- map kind = level
 
-	-- only create counters from 1 to level required by some kind
+	-- make the reset_with_level map
+	-- and determine the deepest level needed
 	for kind_key,definition in pairs(self.kinds) do
 		local level = tonumber(definition.counter) or 
 									self:get_level_by_LaTeX_name(definition.counter)
 		if level then
-			if level >= 1 and level <= 6 then
-
-				-- create counters up to level if needed
-				for i = 1, level do
-					if not self.counters[i] then
-							self.counters[i] = {
-																		count = 0,
-																		reset = pandoc.List:new(),
-																		format = default_format(i),
-																	}
-					end
+			if level >=1 and level <= 6 then
+				reset_with_level[kind_key] = level
+				if level > deepest_level then
+					deepest_level = level
 				end
-				self.counters[level].reset:insert(kind_key)
-
 			else
-
 				message('WARNING','Kind '..kind_key..' was assigned level '..tostring(level)
 													..', which is outside the range 1-6 of Pandoc levels.'
-													..' Counters for these statement will probably not work as desired.')
-
+													..' Counters for these statement may not work as desired.')
 			end
-
 		end
-
 	end
+
+	-- create levels up to the level needed
+	-- use Pandoc's number_offset if html output
+	-- default format: '%s' for level 1, '%p.%s' for others
+	for i=1, deepest_level do -- will not do anything if `deepest_level` is 0
+		self.counters[i] = {
+				count = FORMAT:match('html') and PANDOC_WRITER_OPTIONS.number_offset[i]
+								or 0,
+				reset = pandoc.List:new(),
+				format = i == 1 and '%s'
+											or '%p.%s',
+		}
+		for kind,level in pairs(reset_with_level) do
+			if level == i then
+				self.counters[i].reset:insert(kind)
+			end
+		end
+	end
+
+	-- insert each kind in the reset list of its counter
+
 
 end
 
@@ -2038,6 +2049,8 @@ end
 ---Setup:increment_counter: increment the counter of a level
 -- Increments a level's counter and reset any statement
 -- count that is counted within that level.
+-- Reset the lower counters to 0 or their --number-offset value
+-- (Mirroring Pandoc's `--number-offset` behaviour
 -- The counters table tells us which statement counters to reset.
 --@param level number, the level to be incremented
 function Setup:increment_counter(level)
@@ -2048,6 +2061,13 @@ function Setup:increment_counter(level)
 		if self.counters[level].reset then
 			for _,kind_key in ipairs(self.counters[level].reset) do
 				self.kinds[kind_key].count = 0
+			end
+		end
+
+		for i = level + 1, 6 do
+			if self.counters[i] then
+				self.counters[i].count = PANDOC_WRITER_OPTIONS.number_offset[i]
+																	or 0
 			end
 		end
 
@@ -2356,7 +2376,10 @@ end
 --@TODO what if a space is provided (space after head)
 -- @param len Inlines or string to be interpreted
 -- @param format (optional) desired format if other than FORMAT
--- @return string specifying font features in the desired format or nil
+-- @return string or function or nil
+--				string specifying font features in the desired format 
+--				or (native format) function Inlines -> Inlines
+--				or nil
 function Setup:font_format(str, format)
 	local format = format or FORMAT
 	local result = ''
@@ -2392,7 +2415,7 @@ function Setup:font_format(str, format)
 		},
 		bold = {
 			latex = '\\bfseries',
-			css = 'font-weight: bold;'
+			css = 'font-weight: bold;',
 		},
 		normal = {
 			latex = '\\normalfont',
@@ -2434,6 +2457,9 @@ function Setup:new(meta)
 		local s = {}
 		self.__index = self 
 		setmetatable(s, self)
+
+		-- set the meta pointer
+		s.meta = meta
 
 		-- read options from document's meta
 		s:read_options(meta)
@@ -2605,12 +2631,14 @@ function Statement:new(elem, setup)
 
 		if o.element.t == 'Div' and o:Div_is_statement() then
 			o:parse_Div()
+			o:set_values()
 			return o
 
 		elseif o.element.t == 'DefinitionList' 
 						and o.element.content[1]
 						and o:DefListitem_is_statement(o.element.content[1]) then
 			o:parse_DefList()
+			o:set_values()
 			return o
 
 		end
@@ -2625,11 +2653,13 @@ end
 --			the function is called from the setup object
 --@return list or nil, pandoc List of kinds matched
 function Statement:is_statement(elem,setup)
+	setup = setup or self.setup
 	if elem.t then
 		if elem.t == 'Div' then
 			return self:Div_is_statement(elem,setup)
-		elseif elem.t == 'DefinitionList' then
-			return -- self:DefinitionList_is_statement
+		elseif elem.t == 'DefinitionList' 
+					and elem.content[1] then
+			return self:DefListitem_is_statement(elem.content[1],setup)
 		end
 	end
 end
@@ -2932,23 +2962,6 @@ function Statement:parse_Div(elem)
 	-- Cf. <https://github.com/ickc/pandoc-amsthm>
 	self:parse_Div_heading()
 
-	-- if custom label, create a new kind
-	if self.custom_label then
-		self:new_kind_from_label()
-	end
-
-	-- if unnumbered, we may need to create a new kind
-	-- if numbered, increase the statement's count
-	self:set_is_numbered(elem) -- set self.is_numbered
-	if not self.is_numbered then
-		self:new_kind_unnumbered()
-	else
-		self:increment_count() -- update the kind's counter
-	end
-
-	self:set_crossref_label() -- set crossref label
-	self:set_identifier(elem) -- set identifier, store crossref label for id
-
 	return true
 
 end
@@ -3170,6 +3183,7 @@ function Statement:parse_DefList(elem)
 		if result.remainder then
 			local identifier, new_remainder = self:parse_identifier(result.remainder)
 			if identifier then
+				self.identifier = identifier
 				result.remainder = new_remainder
 			end
 		end
@@ -3187,30 +3201,13 @@ function Statement:parse_DefList(elem)
 		end
 	end
 
-	-- concatenate the definitions into the statement content
+	-- concatenate the (first item) definitions into the statement content
 	self.content = pandoc.List:new() -- Blocks
 	for _,definition in ipairs(definitions) do
 		if #definition > 0 then
 			self.content:extend(definition)
 		end
 	end
-
-	-- if custom label, create a new kind
-	if self.custom_label then
-		self:new_kind_from_label()
-	end
-
-	-- if unnumbered, we may need to create a new kind
-	-- if numbered, increase the statement's count
-	self:set_is_numbered(elem) -- set self.is_numbered
-	if not self.is_numbered then
-		self:new_kind_unnumbered()
-	else
-		self:increment_count() -- update the kind's counter
-	end
-
-	self:set_crossref_label() -- set crossref label
-	self:set_identifier(elem) -- set identifier, store crossref label for id
 
 	return true
 
@@ -3571,6 +3568,41 @@ function Statement:new_kind_unnumbered()
 
 end
 
+---Statement:set_fields: set a statement's fields based on parsed values
+-- This function is called after parsing a Div or DefinitionList
+-- Updates:
+--		self.content
+--		self.identifier
+-- 		self.label
+--		self.custom_label
+--		self.kind
+--		self.acronym
+--		self.crossref_label
+-- 		
+--@param elem pandoc Div element (optional) element to be parsed
+--											defaults to self.element
+--@return bool true if successful, false if not
+function Statement:set_values()
+
+	-- if custom label, create a new kind
+	if self.custom_label then
+		self:new_kind_from_label()
+	end
+
+	-- if unnumbered, we may need to create a new kind
+	-- if numbered, increase the statement's count
+	self:set_is_numbered() -- set self.is_numbered
+	if not self.is_numbered then
+		self:new_kind_unnumbered()
+	else
+		self:set_count() -- update the kind's counter
+	end
+
+	self:set_crossref_label() -- set crossref label
+	self:set_identifier(elem) -- set identifier, store crossref label for id
+
+end
+
 --- Statement:set_identifier: set an element's id
 -- store it with the crossref label in setup.labels_by_id
 -- Updates:
@@ -3580,7 +3612,7 @@ end
 --@return nil
 function Statement:set_identifier(elem)
 	local identifiers = self.setup.identifiers -- pointer to identifiers table
-	local id
+	local id = self.identifier or ''
 
 	-- safe_register: register id or id-1, id-2 avoiding duplicates
 	-- store id and crossref_label in the identifiers table
@@ -3599,6 +3631,8 @@ function Statement:set_identifier(elem)
 			crossref_label = self.crossref_label,
 			kind_label = self.is_numbered and kinds[self.kind].label,
 		}
+
+		-- udpate the 'self.identifier' field
 		self.identifier = id
 		-- update the element's identifier in case writer functions 
 		-- return it to the document
@@ -3609,7 +3643,7 @@ function Statement:set_identifier(elem)
 	end
 
 	-- Function body: try to create an identifier
-	local id = elem.identifier or ''
+
 	--		user-specified id?
 	if id ~= '' then
 			-- if the user-specified id is a duplicate, create a new one and warn
@@ -3648,6 +3682,7 @@ end
 --@return nil
 function Statement:set_is_numbered(elem)
 	kinds = self.setup.kinds -- pointer to the kinds table
+	elem = elem or self.element
 
 	-- is_counter: whether a counter is a level, LaTeX level or 'self'
 	local function is_counter(counter) 
@@ -3656,7 +3691,12 @@ function Statement:set_is_numbered(elem)
 					or self.setup:get_level_by_LaTeX_name(counter)
 		end
 
-	if elem.t == 'Div' and elem.classes:includes('unnumbered') then
+	-- custom label theorems aren't numbered
+	if self.custom_label then
+
+			self.is_numbered = false
+
+	elseif elem.t == 'Div' and elem.classes:includes('unnumbered') then
 
 			self.is_numbered = false
 
@@ -3681,24 +3721,6 @@ function Statement:set_is_numbered(elem)
 	end
 end
 
-
----Statement:increment_count: increment a statement kind's counter
--- Increments the kind's count of this statement kind or
--- its shared counter's kind.
-function Statement:increment_count()
-	local kinds = self.setup.kinds -- pointer to the kinds table
-	local counter = kinds[self.kind].counter or 'none'
-	local kind_to_count = self.kind
-
-	--if shared counter, that kind is the count to increment
-	if kinds[counter] then
-		kind_to_count = counter
-	end
-	kinds[kind_to_count].count =	kinds[kind_to_count].count
-																and kinds[kind_to_count].count + 1
-																or 1
-
-end
 
 --- Statement:set_crossref_label
 -- Set a statement's crossref label, i.e. the text that will be
@@ -3752,6 +3774,69 @@ function Statement:set_crossref_label()
 	else
 		self.crossref_label = pandoc.Inlines(pandoc.Str('??'))
 	end
+
+end
+
+---Statement:set_count: increment a statement kind's counter
+-- Increments the kind's count of this statement kind or
+-- its shared counter's kind.
+function Statement:set_count()
+	local kinds = self.setup.kinds -- pointer to the kinds table
+	local counter = kinds[self.kind].counter or 'none'
+	local kind_to_count = self.kind
+
+	--if shared counter, that kind is the count to increment
+	if kinds[counter] then
+		kind_to_count = counter
+	end
+	kinds[kind_to_count].count =	kinds[kind_to_count].count
+																and kinds[kind_to_count].count + 1
+																or 1
+
+end
+
+--- Statement:write: format the statement as an output string.
+-- @param format string (optional) format desired if other than FORMAT
+-- @return Blocks blocks to be inserted. 
+function Statement:write(format)
+	local format = format or FORMAT
+	local blocks = pandoc.List:new()
+
+	-- do we have before_first includes to include before any
+	-- definition? if yes include them here and wipe it out
+	if self.setup.includes.before_first then
+		blocks:extend(self.setup.includes.before_first)
+		self.setup.includes.before_first = nil
+	end
+
+	-- do we need to write the kind definition first?
+	-- if local blocks are returned, insert them
+	local write_kind_local_blocks = self:write_kind()
+	if write_kind_local_blocks then
+		blocks:extend(write_kind_local_blocks)
+	end
+
+	-- format the statement
+
+	if format:match('latex') then
+
+		blocks:extend(self:write_latex())
+
+	elseif format:match('html') then
+
+		blocks:extend(self:write_html())
+
+	elseif format:match('jats') then
+
+		blocks:extend(self:write_jats())
+
+	else
+
+		blocks:extend(self:write_native())
+
+	end
+	
+	return blocks
 
 end
 
@@ -4134,238 +4219,268 @@ function Statement:write_label()
 
 end
 
---- Statement:write: format the statement as an output string.
--- @param format string (optional) format desired if other than FORMAT
--- @return Blocks blocks to be inserted. 
-function Statement:write(format)
-	local format = format or FORMAT
-	local kinds = self.setup.kinds -- pointer to the kinds table
-	local styles = self.setup.styles -- pointer to the styles table
-	local style = kinds[self.kind].style -- this statement's style
-	local label_inlines -- statement's label
+---Statement.write_latex: write a statement in LaTeX
+-- \begin{kind}[info inlines] 
+--		[Link(identifier)] content blocks
+--	\end{kind}
+--@return Blocks
+function Statement:write_latex()
 	local blocks = pandoc.List:new()
+	local id_span -- a Span element to give the statement an identifier
 
-	-- do we have before_first includes to include before any
-	-- definition? if yes include them here and wipe it out
-	if self.setup.includes.before_first then
-		blocks:extend(self.setup.includes.before_first)
-		self.setup.includes.before_first = nil
+	-- if the element has an identifier, insert an empty identifier Span 
+	if self.identifier then
+		id_span = pandoc.Span({},pandoc.Attr(self.identifier))
+		if self.content[1] and self.content[1] == 'Para' then
+			self.content[1].content:insert(1, id_span)
+		else
+		self.content:insert(pandoc.Plain(id_span))
+		end
 	end
 
-	-- do we need to write the kind definition first?
-	-- if local blocks are returned, insert them
-	local write_kind_local_blocks = self:write_kind()
-	if write_kind_local_blocks then
-		blocks:extend(write_kind_local_blocks)
+	-- \begin{kind}[info inlines] content blocks \end{kind}
+	local inlines = pandoc.List:new()
+	inlines:insert(pandoc.RawInline('latex', 
+						'\\begin{' .. self.kind .. '}'))
+	if self.info then
+		inlines:insert(pandoc.RawInline('latex', '['))
+		inlines:extend(self.info)
+		inlines:insert(pandoc.RawInline('latex', ']'))
 	end
-
-	-- prepare the label inlines
-	-- This is actually only needed for non-latex formats, since
-	-- in LaTeX the label is part of the kind definition
-	if not format:match('latex') then
-		label_inlines = self:write_label() or pandoc.List:new()
+	-- insert a span as link target if the statement has an identifier
+	if self.identifier then
+		inlines:insert(1, pandoc.Span({},pandoc.Attr(self.identifier)))
 	end
-
-	-- format the statement
-
-	-- LaTeX formatting
-	if format:match('latex') then
-
-		-- insert a span in content as link target if the statement has an identifier
-		if self.identifier then
-			self.content[1].content:insert(1, pandoc.Span({},pandoc.Attr(self.identifier)))
-		end
-
-		-- \begin{kind}[info inlines] content blocks \end{kind}
-		local inlines = pandoc.List:new()
-		inlines:insert(pandoc.RawInline('latex', 
-							'\\begin{' .. self.kind .. '}'))
-		if self.info then
-			inlines:insert(pandoc.RawInline('latex', '['))
-			inlines:extend(self.info)
-			inlines:insert(pandoc.RawInline('latex', ']'))
-		end
-		-- insert a span as link target if the statement has an identifier
-		if self.identifier then
-			inlines:insert(1, pandoc.Span({},pandoc.Attr(self.identifier)))
-		end
-		blocks:insert(pandoc.Plain(inlines))
-		blocks:extend(self.content)
-		blocks:insert(pandoc.RawBlock('latex',
-							'\\end{' .. self.kind .. '}'))
-
-	-- HTML formatting
-	-- we create a Div
-	--	<div class='statement <kind> <style>'>
-	-- 	<p class='statement-first-paragraph'>
-	--		<span class='statement-head'>
-	--			<span class='statement-label'> label inlines </span>
-	--		  <span class='statement-info'>( info inlines )</span>
-	--			<span class='statement-spah'> </span>
-	--		first paragraph content, if any
-	--	</p>
-	--  content blocks
-	-- </div>
-	elseif format:match('html') then
-
-		local label_span, info_span 
-		local heading_inlines, heading_span
-		local attributes
-
-		-- create label span; could be custom-label or kind label
-		if #label_inlines > 0 then
-			label_span = pandoc.Span(label_inlines, 
-												{class = 'statement-label'})
-		end
-		-- create info span
-		if self.info then 
-			self.info:insert(1, pandoc.Str('('))
-			self.info:insert(pandoc.Str(')'))
-			info_span = pandoc.Span(self.info, 
-											{class = 'statement-info'})
-		end
-		-- put heading together
-		if label_span or info_span then
-			heading_inlines = pandoc.List:new()
-			if label_span then
-				heading_inlines:insert(label_span)
-			end
-			if label_span and info_span then
-				heading_inlines:insert(pandoc.Space())
-			end
-			if info_span then
-				heading_inlines:insert(info_span)
-			end
-			-- insert punctuation defined in style
-			if styles[style].punctuation then
-				heading_inlines:insert(pandoc.Str(
-					styles[style].punctuation
-					))
-			end
-			heading_span = pandoc.Span(heading_inlines,
-										{class = 'statement-heading'})
-		end
-
-		-- if heading, insert it in the first paragraph if any
-		-- otherwise make it its own paragraph
-		if heading_span then
-			if self.content[1] and self.content[1].t 
-					and self.content[1].t == 'Para' then
-				self.content[1].content:insert(1, heading_span)
-				-- add space after heading
-				self.content[1].content:insert(2, pandoc.Span(
-											{pandoc.Space()}, {class='statement-spah'}
-					))
-			else
-				self.content:insert(1, pandoc.Para({heading_span}))
-			end
-		end
-
-		-- prepare Div attributes
-		-- keep the original element's attributes if any
-		attributes = self.element.attr or pandoc.Attr()
-		if self.identifier then
-				attributes.identifier = self.identifier
-		end
-		-- add the `statement`, kind, style and unnumbered classes
-		-- same name for kind and style shouldn't be a problem
-		attributes.classes:insert('statement')
-		attributes.classes:insert(self.kind)
-		attributes.classes:insert(kinds[self.kind].style)
-		if not self.is_numbered 
-				and not attributes.classes:includes('unnumbered') then
-			attributes.classes:insert('unnumbered')
-		end
-
-		-- create the statement Div and insert it
-		blocks:insert(pandoc.Div(self.content, attributes))
-
-	-- JATS formatting
-	-- Pandoc's JATS writer turns Plain blocks in to <p>...</p>
-	-- for this reason we must write <label> and <title> inlines
-	-- to text before we insert them.
-	elseif format:match('jats') then
-
-		--write_to_jats: use pandoc to convert inlines to jats output
-		--@BUG this needs the document meta, otherwise biblio not found 
-		function write_to_jats(inlines)
-			local result, doc
-			local options = pandoc.WriterOptions({
-					cite_method = PANDOC_WRITER_OPTIONS.cite_method
-			})
-			doc = pandoc.Pandoc(pandoc.Plain(inlines))
-			result = pandoc.write(doc, 'jats', options)
-			return result:match('^<p>(.*)</p>$') or result or ''
-
-		end
-
-		blocks:insert(pandoc.RawBlock('jats', '<statement>'))
-
-		if #label_inlines > 0 then
-			local label_str = '<label>'..write_to_jats(label_inlines) 
-												..'</label>'
-			blocks:insert(pandoc.RawBlock('jats',label_str))
-		end
-
-		if self.info then
-			local info_str = 	'<title>'..write_to_jats(self.info)
-												..'</title>'
-			blocks:insert(pandoc.RawBlock('jats',info_str))
-		end
-
-		blocks:extend(self.content)
-
-		blocks:insert(pandoc.RawBlock('jats', '</statement>'))
-
-	else -- other formats, use blockquote
-
-		-- insert a span in content as link target if the statement has an identifier
-		if self.identifier then
-			self.content[1].content:insert(1, pandoc.Span({},pandoc.Attr(self.identifier)))
-		end
-
-		-- prepare the statement heading
-		local heading = pandoc.List:new()
-		-- label?
-		if #label_inlines > 0 then
-			if styles[style].punctuation then
-				label_inlines:insert(pandoc.Str(
-					styles[style].punctuation
-					))
-			end
-			-- TODO format fonts according to style definition
-			heading:insert(pandoc.Strong(label_inlines))
-		end
-
-		-- info?
-		if self.info then 
-			heading:insert(pandoc.Space())
-			heading:insert(pandoc.Str('('))
-			heading:extend(self.info)
-			heading:insert(pandoc.Str(')'))
-		end
-
-		-- insert heading
-		-- combine statement heading with the first paragraph if any
-		if #heading > 0 then
-			if self.content[1] and self.content[1].t == 'Para' then
-				heading:insert(pandoc.Space())
-				heading:extend(self.content[1].content)
-				self.content[1] = pandoc.Para(heading)
-			else
-				self.content:insert(1, pandoc.Para(heading))
-			end
-		end
-
-		-- place all the content blocks in blockquote
-		blocks:insert(pandoc.BlockQuote(self.content))
-
-	end
+	blocks:insert(pandoc.Plain(inlines))
+	blocks:extend(self.content)
+	blocks:insert(pandoc.RawBlock('latex',
+						'\\end{' .. self.kind .. '}'))
 
 	return blocks
 
 end
 
+
+---Statement.write_latex: write a statement in html
+--@return Blocks
+-- HTML formatting
+-- we create a Div
+--	<div class='statement <kind> <style>'>
+-- 	<p class='statement-first-paragraph'>
+--		<span class='statement-head'>
+--			<span class='statement-label'> label inlines </span>
+--		  <span class='statement-info'>( info inlines )</span>
+--			<span class='statement-spah'> </span>
+--		first paragraph content, if any
+--	</p>
+--  content blocks
+-- </div>
+function Statement:write_html()
+	local styles = self.setup.styles -- pointer to the styles table
+	local style = self.setup.kinds[self.kind].style -- this statement's style
+	local label_inlines, label_span, info_span 
+	local heading_inlines, heading_span
+	local attributes
+	local blocks = pandoc.List:new()
+
+	-- create label span; could be custom-label or kind label
+	label_inlines = self:write_label() 
+	if #label_inlines > 0 then
+		label_span = pandoc.Span(label_inlines, 
+											{class = 'statement-label'})
+	end
+	-- create info span
+	if self.info then 
+		self.info:insert(1, pandoc.Str('('))
+		self.info:insert(pandoc.Str(')'))
+		info_span = pandoc.Span(self.info, 
+										{class = 'statement-info'})
+	end
+	-- put heading together
+	if label_span or info_span then
+		heading_inlines = pandoc.List:new()
+		if label_span then
+			heading_inlines:insert(label_span)
+		end
+		if label_span and info_span then
+			heading_inlines:insert(pandoc.Space())
+		end
+		if info_span then
+			heading_inlines:insert(info_span)
+		end
+		-- insert punctuation defined in style
+		if styles[style].punctuation then
+			heading_inlines:insert(pandoc.Str(
+				styles[style].punctuation
+				))
+		end
+		heading_span = pandoc.Span(heading_inlines,
+									{class = 'statement-heading'})
+	end
+
+	-- if heading, insert it in the first paragraph if any
+	-- otherwise make it its own paragraph
+	if heading_span then
+		if self.content[1] and self.content[1].t 
+				and self.content[1].t == 'Para' then
+			self.content[1].content:insert(1, heading_span)
+			-- add space after heading
+			self.content[1].content:insert(2, pandoc.Span(
+										{pandoc.Space()}, {class='statement-spah'}
+				))
+		else
+			self.content:insert(1, pandoc.Para({heading_span}))
+		end
+	end
+
+	-- prepare Div attributes
+	-- keep the original element's attributes if any
+	attributes = self.element.attr or pandoc.Attr()
+	if self.identifier then
+			attributes.identifier = self.identifier
+	end
+	-- add the `statement`, kind, style and unnumbered classes
+	-- same name for kind and style shouldn't be a problem
+	attributes.classes:insert('statement')
+	attributes.classes:insert(self.kind)
+	attributes.classes:insert(style)
+	if not self.is_numbered 
+			and not attributes.classes:includes('unnumbered') then
+		attributes.classes:insert('unnumbered')
+	end
+
+	-- create the statement Div and insert it
+	blocks:insert(pandoc.Div(self.content, attributes))
+
+	return blocks
+
+end
+
+---Statement.write_latex: write a statement in LaTeX
+-- Pandoc's JATS writer turns Plain blocks in to <p>...</p>
+-- for this reason we must write <label> and <title> inlines
+-- to text before we insert them.
+-- <statement>
+--		<label> Kind label number or Custom label </label>
+--		<title> info </title>
+--		content blocks
+-- </statement
+--@return Blocks
+function Statement:write_jats()
+	doc_meta = self.setup.meta -- pointer to the doc's Meta
+														 -- needed by pandoc.write
+	local blocks = pandoc.List:new()
+
+	--write_to_jats: use pandoc to convert inlines to jats output
+	--@BUG this needs the document meta, otherwise biblio not found 
+	function write_to_jats(inlines)
+		local result, doc
+		local options = pandoc.WriterOptions({
+				cite_method = PANDOC_WRITER_OPTIONS.cite_method
+		})
+		doc = pandoc.Pandoc(pandoc.Plain(inlines), doc_meta)
+		result = pandoc.write(doc, 'jats', options)
+		return result:match('^<p>(.*)</p>$') or result or ''
+
+	end
+
+	blocks:insert(pandoc.RawBlock('jats', '<statement>'))
+
+	label_inlines = self:write_label() 
+	if #label_inlines > 0 then
+		local label_str = '<label>'..write_to_jats(label_inlines) 
+											..'</label>'
+		blocks:insert(pandoc.RawBlock('jats',label_str))
+	end
+
+	if self.info then
+		local info_str = 	'<title>'..write_to_jats(self.info)
+											..'</title>'
+		blocks:insert(pandoc.RawBlock('jats',info_str))
+	end
+
+	blocks:extend(self.content)
+
+	blocks:insert(pandoc.RawBlock('jats', '</statement>'))
+
+	return blocks
+
+end
+
+
+---Statement.write_latex: write a statement in Pandoc native
+-- We wrap the statement in a Blockquote
+--@return Blocks
+function Statement:write_native()
+	local styles = self.setup.styles -- pointer to the styles table
+	local style = self.setup.kinds[self.kind].style -- this statement's style
+	--@TODO implement font format functions
+	local label_format = function(inlines) return inlines end
+	local body_format = function(inlines) return inlines end
+	local blocks = pandoc.List:new()
+
+
+	-- if the element has an identifier, insert an empty identifier Span 
+	if self.identifier then
+		id_span = pandoc.Span({},pandoc.Attr(self.identifier))
+		if self.content[1] and self.content[1] == 'Para' then
+			self.content[1].content:insert(1, id_span)
+		else
+		self.content:insert(pandoc.Plain(id_span))
+		end
+	end
+
+	-- create label span; could be custom-label or kind label
+	label_inlines = self:write_label() 
+	if #label_inlines > 0 then
+		label_span = pandoc.Span(label_inlines, 
+											{class = 'statement-label'})
+	end
+
+	-- prepare the statement heading
+	local heading = pandoc.List:new()
+
+	-- label?
+	label_inlines = self:write_label() 
+	if #label_inlines > 0 then
+		if styles[style].punctuation then
+			label_inlines:insert(pandoc.Str(
+				styles[style].punctuation
+				))
+		label_inlines = label_format(label_inlines)
+		end
+		heading:insert(pandoc.Strong(label_inlines))
+	end
+
+	-- info?
+	if self.info then 
+		heading:insert(pandoc.Space())
+		heading:insert(pandoc.Str('('))
+		heading:extend(self.info)
+		heading:insert(pandoc.Str(')'))
+	end
+
+	-- insert heading
+	-- combine statement heading with the first paragraph if any
+	if #heading > 0 then
+		if self.content[1] and self.content[1].t == 'Para' then
+			heading:insert(pandoc.Space())
+			heading:extend(self.content[1].content)
+			self.content[1] = pandoc.Para(heading)
+		else
+			self.content:insert(1, pandoc.Para(heading))
+		end
+	end
+
+	-- style body
+	self.content = body_format(self.content)
+
+	-- place all the content blocks in blockquote
+	blocks:insert(pandoc.BlockQuote(self.content))
+
+	return blocks
+
+end
 
 -- # Walker class
 
@@ -4709,8 +4824,19 @@ function Walker:walk(blocks)
 		if self.setup.counters and block.t == 'Header' 
 			and not block.classes:includes('unnumbered') then
 
+				local level = block.level
+				local count = self.setup.counters[level] 
+											and self.setup.counters[level].count
+											or 'none'
+				print(level, count)
+
 				self.setup:increment_counter(block.level)
 				result:insert(block)
+
+				local count = self.setup.counters[level] 
+											and self.setup.counters[level].count
+											or 'none'
+				print(level, count)
 
 		-- Divs: check if they are statements
 		elseif block.t == 'Div' then

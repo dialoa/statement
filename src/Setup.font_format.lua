@@ -2,7 +2,10 @@
 --@TODO what if a space is provided (space after head)
 -- @param len Inlines or string to be interpreted
 -- @param format (optional) desired format if other than FORMAT
--- @return string specifying font features in the desired format or nil
+-- @return string or function or nil
+--				string specifying font features in the desired format 
+--				or (native format) function Inlines -> Inlines
+--				or nil
 function Setup:font_format(str, format)
 	local format = format or FORMAT
 	local result = ''
@@ -38,7 +41,7 @@ function Setup:font_format(str, format)
 		},
 		bold = {
 			latex = '\\bfseries',
-			css = 'font-weight: bold;'
+			css = 'font-weight: bold;',
 		},
 		normal = {
 			latex = '\\normalfont',

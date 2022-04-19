@@ -62,23 +62,6 @@ function Statement:parse_Div(elem)
 	-- Cf. <https://github.com/ickc/pandoc-amsthm>
 	self:parse_Div_heading()
 
-	-- if custom label, create a new kind
-	if self.custom_label then
-		self:new_kind_from_label()
-	end
-
-	-- if unnumbered, we may need to create a new kind
-	-- if numbered, increase the statement's count
-	self:set_is_numbered(elem) -- set self.is_numbered
-	if not self.is_numbered then
-		self:new_kind_unnumbered()
-	else
-		self:increment_count() -- update the kind's counter
-	end
-
-	self:set_crossref_label() -- set crossref label
-	self:set_identifier(elem) -- set identifier, store crossref label for id
-
 	return true
 
 end

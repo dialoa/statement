@@ -7,7 +7,7 @@
 --@return nil
 function Statement:set_identifier(elem)
 	local identifiers = self.setup.identifiers -- pointer to identifiers table
-	local id
+	local id = self.identifier or ''
 
 	-- safe_register: register id or id-1, id-2 avoiding duplicates
 	-- store id and crossref_label in the identifiers table
@@ -26,6 +26,8 @@ function Statement:set_identifier(elem)
 			crossref_label = self.crossref_label,
 			kind_label = self.is_numbered and kinds[self.kind].label,
 		}
+
+		-- udpate the 'self.identifier' field
 		self.identifier = id
 		-- update the element's identifier in case writer functions 
 		-- return it to the document
@@ -36,7 +38,7 @@ function Statement:set_identifier(elem)
 	end
 
 	-- Function body: try to create an identifier
-	local id = elem.identifier or ''
+
 	--		user-specified id?
 	if id ~= '' then
 			-- if the user-specified id is a duplicate, create a new one and warn

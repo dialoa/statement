@@ -28,13 +28,21 @@ jats: $(JATS_TARGETS)
 
 docx: $(DOCX_TARGETS)
 
+number_offset.html : number_offset.md $(ROOT)statement.lua
+	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \
+		--number-offset=2,2,2 \
+		--top-level-division=chapter \
+		--mathjax --number-sections --citeproc --to=html --output $@
+
 automatic_locale.tex : automatic_locale.md $(ROOT)statement.lua
 	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \
-		--pdf-engine lualatex --to=latex --output $@
+		--pdf-engine lualatex \
+		--number-sections --citeproc --to=latex --output $@
 
 automatic_locale.pdf : automatic_locale.md $(ROOT)statement.lua
 	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \
-		--pdf-engine lualatex --to=pdf --output $@
+		--pdf-engine lualatex \
+		--number-sections --citeproc --to=pdf --output $@
 
 %.tex: %.md $(ROOT)statement.lua
 	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \

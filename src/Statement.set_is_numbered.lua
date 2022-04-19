@@ -6,6 +6,7 @@
 --@return nil
 function Statement:set_is_numbered(elem)
 	kinds = self.setup.kinds -- pointer to the kinds table
+	elem = elem or self.element
 
 	-- is_counter: whether a counter is a level, LaTeX level or 'self'
 	local function is_counter(counter) 
@@ -14,7 +15,12 @@ function Statement:set_is_numbered(elem)
 					or self.setup:get_level_by_LaTeX_name(counter)
 		end
 
-	if elem.t == 'Div' and elem.classes:includes('unnumbered') then
+	-- custom label theorems aren't numbered
+	if self.custom_label then
+
+			self.is_numbered = false
+
+	elseif elem.t == 'Div' and elem.classes:includes('unnumbered') then
 
 			self.is_numbered = false
 
