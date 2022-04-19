@@ -2953,6 +2953,9 @@ function Statement:parse_Div(elem)
 		self.element.classes:remove(position)
 	end
 
+	-- get the Div's user-specified id, if any
+	self.identifier = elem.identifier
+
 	-- store statement content
 	self.content = elem.content -- element content
 	
@@ -3178,7 +3181,7 @@ function Statement:parse_DefList(elem)
 		self.custom_label = result.custom_label
 		self.info = result.info
 
-		-- look for id in the remainder
+		-- look for an id in the remainder
 		if result.remainder then
 			local identifier, new_remainder = self:parse_identifier(result.remainder)
 			if identifier then
@@ -4517,15 +4520,13 @@ function Walker:collect_ids(blocks)
 			end
 	end
 
-	--@TODO DefinitionList: register only if not a statement
-
 	-- Generic function for remaining types
 	for _,type in ipairs(types_with_identifier) do
 		-- make sure we don't erase a filter already defined
 		filter[type] = filter[type] or register_or_warn
 	end
 
-	-- apply the filter to blocks
+	-- run the filter through blocks
 	blocks:walk(filter)
 
 end
@@ -4597,7 +4598,7 @@ function Walker:crossreferences()
 				if id then 
 					link.target = '#'..id
 					link.content = format_link_content(link.content,
-										identifiers[id].crossref_label
+										identifiers[target_id].crossref_label
 										)
 					link.title = format_link_title(link.title,
 										identifiers[id].crossref_label,
@@ -4613,7 +4614,7 @@ function Walker:crossreferences()
 	if self.setup.options.citations then
 		filter.Cite = function(cite)
 
-			local has_statement_ref, has_biblio_ref
+		local has_statement_ref, has_biblio_ref
 
 			-- warn if the citations mix cross-label refs with standard ones
 	    for _,citation in ipairs(cite.citations) do
@@ -4632,7 +4633,8 @@ function Walker:crossreferences()
         return
    		end
 
-   		-- if statement crossreferences, turn Cite into Link(s)
+   		-- if statement crossreferences, turn Cite into
+   		-- prefix Inlines Link suffix Inlines; ...
 	    if has_statement_ref then
 
 	        -- get style from the first citation
@@ -4643,38 +4645,32 @@ function Walker:crossreferences()
 
 	        local inlines = pandoc.List:new()
 
-	        -- create link(s)
+	        -- create (list of) citation(s)
 
 	        for i = 1, #cite.citations do
 	        	citation = cite.citations[i]
 				-- was it a duplicated id with another id to try instead?
 				local id = 	(identifiers[citation.id].statement and citation.id)
-							or identifiers[citation.id].try_instead 
-				-- create link
+							or identifiers[citation.id].try_instead
+				-- values to create link
 				local target = '#'..id
-				local content = pandoc.List:new()
-				local title = ''
-				if citation.prefix then
-					content:extend(citation.prefix)
-					content:insert(pandoc.Space())
-				end
-				content:extend(identifiers[id].crossref_label)
-				if citation.suffix then
-					content:insert(pandoc.Space())
-					content:extend(citation.suffix)
-				end
-				-- make link title
-				--	simply reproduce the user content if prefix and suffix
-				--	otherwise create one from kind_label and crossref_label
-				if citation.prefix or citation.suffix then
-					title = stringify(content)
-				else
-					title = format_link_title('', 
-						identifiers[id].crossref_label,
+				local content = identifiers[id].crossref_label 
+								or pandoc.Inlines(pandoc.Str('??'))
+				local title = format_link_title('', content,
 						identifiers[id].kind_label)
-				end
 
+				-- prefix first
+				if #citation.prefix > 0 then
+					inlines:extend(citation.prefix)
+					inlines:insert(pandoc.Space())
+				end
+				-- then link
 	          	inlines:insert(pandoc.Link(content, target, title))
+	          	-- then suffix
+				if #citation.suffix > 0 then
+					inlines:insert(pandoc.Space())
+					inlines:extend(citation.suffix)
+				end
 
 	            -- add separator if needed
 	            if #cite.citations > 1 and i < #cite.citations then

@@ -48,24 +48,22 @@ references:
 # Section
 
 ::: {.theorem #mytheorem}
-A theorem to be cross-referenced. References can precede their target, see
-Theorem @the-old-theorem.
+A theorem to be cross-referenced. References can precede their target, see @the-old-theorem.
 :::
 
 Formatting tests:
 
-* `@mytheorem`, [@mytheorem]
-* `[@mytheorem]`, [@mytheorem]
-* `[-@mytheorem]`, [-@mytheorem]
-* `[See @mytheorem below]`, [See @mytheorem below]
-* `[See @mytheorem below; other theorem @the-old-theorem as well]`, [See @mytheorem below; @the-old-theorem as well]
-* `[]{#mytheorem}`, [](#mytheorem)
-* `[Theorem <>]{#mytheorem}`, [Theorem <>](#mytheorem)
-* 
+* `@mytheorem`: @mytheorem
+* `[@mytheorem]`: [@mytheorem]
+* `[-@mytheorem]`: [-@mytheorem]
+* `[See @mytheorem below]`: [See @mytheorem below]
+* `[See @mytheorem below; and @the-old-theorem as well]`: [See @mytheorem below; @the-old-theorem as well]
+* `[]{#mytheorem}`: [](#mytheorem)
+* `[Theorem <>]{#mytheorem}`: [Theorem <>](#mytheorem)
 
 Bug test. If a theorem's ID is a duplicate of [another element's]{#duplicate}, make sure the filter doesn't crash when we try to reference it with @duplicate
 or [](#duplicate). The filter will warn, change the theorem id and process
-references to it the best it can.
+references to this ID as pointing to the theorem. 
 
 ::: {.theorem #duplicate}
 A theorem to be cross-referenced. References can precede their target, see
@@ -105,8 +103,5 @@ Sed commodo posuere pede. Mauris ut est. Ut quis purus. Sed ac odio. Sed vehicul
 acronym, it can be crossreferenced by its acronym. Follow this to 
 go back to Theorem @mytheorem.
 :::
-
-
-
 
 # References

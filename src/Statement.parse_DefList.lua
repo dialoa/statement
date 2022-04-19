@@ -59,7 +59,7 @@ function Statement:parse_DefList(elem)
 		self.custom_label = result.custom_label
 		self.info = result.info
 
-		-- look for id in the remainder
+		-- look for an id in the remainder
 		if result.remainder then
 			local identifier, new_remainder = self:parse_identifier(result.remainder)
 			if identifier then

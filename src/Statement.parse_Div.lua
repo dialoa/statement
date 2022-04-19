@@ -54,6 +54,9 @@ function Statement:parse_Div(elem)
 		self.element.classes:remove(position)
 	end
 
+	-- get the Div's user-specified id, if any
+	self.identifier = elem.identifier
+
 	-- store statement content
 	self.content = elem.content -- element content
 	

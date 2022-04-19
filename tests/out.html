@@ -1,0 +1,1903 @@
+[ Header 1 ( "section" , [] , [] ) [ Str "Section" ]
+, BlockQuote
+    [ Para
+        [ Strong [ Str "Theorem" , Space , Str "1.1" , Str "." ]
+        , Space
+        , Str "A"
+        , Space
+        , Str "theorem"
+        , Space
+        , Str "to"
+        , Space
+        , Str "be"
+        , Space
+        , Str "cross-referenced."
+        , Space
+        , Str "References"
+        , Space
+        , Str "can"
+        , Space
+        , Str "precede"
+        , Space
+        , Str "their"
+        , Space
+        , Str "target,"
+        , Space
+        , Str "see"
+        , SoftBreak
+        , Str "Theorem"
+        , Space
+        , Link
+            ( "" , [] , [] )
+            [ Space
+            , Str "The"
+            , Space
+            , Str "Old"
+            , Space
+            , Str "Theorem"
+            , Space
+            ]
+            ( "#the-old-theorem" , " The Old Theorem " )
+        , Str "."
+        ]
+    ]
+, Para [ Str "Formatting" , Space , Str "tests:" ]
+, BulletList
+    [ [ Plain
+          [ Code ( "" , [] , [] ) "@mytheorem"
+          , Str ","
+          , Space
+          , Cite
+              [ Citation
+                  { citationId = "mytheorem"
+                  , citationPrefix = []
+                  , citationSuffix = []
+                  , citationMode = NormalCitation
+                  , citationNoteNum = 2
+                  , citationHash = 0
+                  }
+              ]
+              [ Str "[@mytheorem]" ]
+          ]
+      ]
+    , [ Plain
+          [ Code ( "" , [] , [] ) "[@mytheorem]"
+          , Str ","
+          , Space
+          , Cite
+              [ Citation
+                  { citationId = "mytheorem"
+                  , citationPrefix = []
+                  , citationSuffix = []
+                  , citationMode = NormalCitation
+                  , citationNoteNum = 3
+                  , citationHash = 0
+                  }
+              ]
+              [ Str "[@mytheorem]" ]
+          ]
+      ]
+    , [ Plain
+          [ Code ( "" , [] , [] ) "[-@mytheorem]"
+          , Str ","
+          , Space
+          , Cite
+              [ Citation
+                  { citationId = "mytheorem"
+                  , citationPrefix = []
+                  , citationSuffix = []
+                  , citationMode = SuppressAuthor
+                  , citationNoteNum = 4
+                  , citationHash = 0
+                  }
+              ]
+              [ Str "[-@mytheorem]" ]
+          ]
+      ]
+    , [ Plain
+          [ Code ( "" , [] , [] ) "[See @mytheorem below]"
+          , Str ","
+          , Space
+          , Cite
+              [ Citation
+                  { citationId = "mytheorem"
+                  , citationPrefix = [ Str "See" ]
+                  , citationSuffix = [ Space , Str "below" ]
+                  , citationMode = NormalCitation
+                  , citationNoteNum = 5
+                  , citationHash = 0
+                  }
+              ]
+              [ Str "[See"
+              , Space
+              , Str "@mytheorem"
+              , Space
+              , Str "below]"
+              ]
+          ]
+      ]
+    , [ Plain
+          [ Code
+              ( "" , [] , [] )
+              "[See @mytheorem below; other theorem @the-old-theorem as well]"
+          , Str ","
+          , Space
+          , Cite
+              [ Citation
+                  { citationId = "mytheorem"
+                  , citationPrefix = [ Str "See" ]
+                  , citationSuffix = [ Space , Str "below" ]
+                  , citationMode = NormalCitation
+                  , citationNoteNum = 6
+                  , citationHash = 0
+                  }
+              , Citation
+                  { citationId = "the-old-theorem"
+                  , citationPrefix = []
+                  , citationSuffix =
+                      [ Space , Str "as" , Space , Str "well" ]
+                  , citationMode = NormalCitation
+                  , citationNoteNum = 6
+                  , citationHash = 0
+                  }
+              ]
+              [ Str "[See"
+              , Space
+              , Str "@mytheorem"
+              , Space
+              , Str "below;"
+              , Space
+              , Str "@the-old-theorem"
+              , Space
+              , Str "as"
+              , Space
+              , Str "well]"
+              ]
+          ]
+      ]
+    , [ Plain
+          [ Code ( "" , [] , [] ) "[]{#mytheorem}"
+          , Str ","
+          , Space
+          , Link ( "" , [] , [] ) [] ( "#mytheorem" , "" )
+          ]
+      ]
+    , [ Plain
+          [ Code ( "" , [] , [] ) "[Theorem <>]{#mytheorem}"
+          , Str ","
+          , Space
+          , Link
+              ( "" , [] , [] )
+              [ Str "Theorem" , Space , Str "<>" ]
+              ( "#mytheorem" , "" )
+          ]
+      ]
+    , []
+    ]
+, Para
+    [ Str "Bug"
+    , Space
+    , Str "test."
+    , Space
+    , Str "If"
+    , Space
+    , Str "a"
+    , Space
+    , Str "theorem\8217s"
+    , Space
+    , Str "ID"
+    , Space
+    , Str "is"
+    , Space
+    , Str "a"
+    , Space
+    , Str "duplicate"
+    , Space
+    , Str "of"
+    , Space
+    , Span
+        ( "duplicate" , [] , [] )
+        [ Str "another" , Space , Str "element\8217s" ]
+    , Str ","
+    , Space
+    , Str "make"
+    , Space
+    , Str "sure"
+    , Space
+    , Str "the"
+    , Space
+    , Str "filter"
+    , Space
+    , Str "doesn\8217t"
+    , Space
+    , Str "crash"
+    , Space
+    , Str "when"
+    , Space
+    , Str "we"
+    , Space
+    , Str "try"
+    , Space
+    , Str "to"
+    , Space
+    , Str "reference"
+    , Space
+    , Str "it"
+    , Space
+    , Str "with"
+    , Space
+    , Cite
+        [ Citation
+            { citationId = "duplicate"
+            , citationPrefix = []
+            , citationSuffix = []
+            , citationMode = AuthorInText
+            , citationNoteNum = 7
+            , citationHash = 0
+            }
+        ]
+        [ Str "@duplicate" ]
+    , SoftBreak
+    , Str "or"
+    , Space
+    , Link ( "" , [] , [] ) [] ( "#duplicate" , "" )
+    , Str "."
+    , Space
+    , Str "The"
+    , Space
+    , Str "filter"
+    , Space
+    , Str "will"
+    , Space
+    , Str "warn,"
+    , Space
+    , Str "change"
+    , Space
+    , Str "the"
+    , Space
+    , Str "theorem"
+    , Space
+    , Str "id"
+    , Space
+    , Str "and"
+    , Space
+    , Str "process"
+    , SoftBreak
+    , Str "references"
+    , Space
+    , Str "to"
+    , Space
+    , Str "it"
+    , Space
+    , Str "the"
+    , Space
+    , Str "best"
+    , Space
+    , Str "it"
+    , Space
+    , Str "can."
+    ]
+, BlockQuote
+    [ Para
+        [ Strong [ Str "Theorem" , Space , Str "1.2" , Str "." ]
+        , Space
+        , Str "A"
+        , Space
+        , Str "theorem"
+        , Space
+        , Str "to"
+        , Space
+        , Str "be"
+        , Space
+        , Str "cross-referenced."
+        , Space
+        , Str "References"
+        , Space
+        , Str "can"
+        , Space
+        , Str "precede"
+        , Space
+        , Str "their"
+        , Space
+        , Str "target,"
+        , Space
+        , Str "see"
+        , SoftBreak
+        , Str "Theorem"
+        , Space
+        , Link
+            ( "" , [] , [] )
+            [ Space
+            , Str "The"
+            , Space
+            , Str "Old"
+            , Space
+            , Str "Theorem"
+            , Space
+            ]
+            ( "#the-old-theorem" , " The Old Theorem " )
+        , Str "."
+        ]
+    ]
+, Para
+    [ Str "Lorem"
+    , Space
+    , Str "ipsum"
+    , Space
+    , Str "dolor"
+    , Space
+    , Str "sit"
+    , Space
+    , Str "amet,"
+    , Space
+    , Str "consectetuer"
+    , Space
+    , Str "adipiscing"
+    , Space
+    , Str "elit."
+    , Space
+    , Str "Ut"
+    , Space
+    , Str "purus"
+    , Space
+    , Str "elit,"
+    , Space
+    , Str "vestibulum"
+    , Space
+    , Str "ut,"
+    , Space
+    , Str "placerat"
+    , Space
+    , Str "ac,"
+    , Space
+    , Str "adipiscing"
+    , Space
+    , Str "vitae,"
+    , Space
+    , Str "felis."
+    , Space
+    , Str "Curabitur"
+    , Space
+    , Str "dictum"
+    , Space
+    , Str "gravida"
+    , Space
+    , Str "mauris."
+    , Space
+    , Str "Nam"
+    , Space
+    , Str "arcu"
+    , Space
+    , Str "libero,"
+    , Space
+    , Str "nonummy"
+    , Space
+    , Str "eget,"
+    , Space
+    , Str "consectetuer"
+    , Space
+    , Str "id,"
+    , Space
+    , Str "vulputate"
+    , Space
+    , Str "a,"
+    , Space
+    , Str "magna."
+    , Space
+    , Str "Donec"
+    , Space
+    , Str "vehicula"
+    , Space
+    , Str "augue"
+    , Space
+    , Str "eu"
+    , Space
+    , Str "neque."
+    , Space
+    , Str "Pellentesque"
+    , Space
+    , Str "habitant"
+    , Space
+    , Str "morbi"
+    , Space
+    , Str "tristique"
+    , Space
+    , Str "senectus"
+    , Space
+    , Str "et"
+    , Space
+    , Str "netus"
+    , Space
+    , Str "et"
+    , Space
+    , Str "malesuada"
+    , Space
+    , Str "fames"
+    , Space
+    , Str "ac"
+    , Space
+    , Str "turpis"
+    , Space
+    , Str "egestas."
+    , Space
+    , Str "Mauris"
+    , Space
+    , Str "ut"
+    , Space
+    , Str "leo."
+    , Space
+    , Str "Cras"
+    , Space
+    , Str "viverra"
+    , Space
+    , Str "metus"
+    , Space
+    , Str "rhoncus"
+    , Space
+    , Str "sem."
+    , Space
+    , Str "Nulla"
+    , Space
+    , Str "et"
+    , Space
+    , Str "lectus"
+    , Space
+    , Str "vestibulum"
+    , Space
+    , Str "urna"
+    , Space
+    , Str "fringilla"
+    , Space
+    , Str "ultrices."
+    , Space
+    , Str "Phasellus"
+    , Space
+    , Str "eu"
+    , Space
+    , Str "tellus"
+    , Space
+    , Str "sit"
+    , Space
+    , Str "amet"
+    , Space
+    , Str "tortor"
+    , Space
+    , Str "gravida"
+    , Space
+    , Str "placerat."
+    , Space
+    , Str "Integer"
+    , Space
+    , Str "sapien"
+    , Space
+    , Str "est,"
+    , Space
+    , Str "iaculis"
+    , Space
+    , Str "in,"
+    , Space
+    , Str "pretium"
+    , Space
+    , Str "quis,"
+    , Space
+    , Str "viverra"
+    , Space
+    , Str "ac,"
+    , Space
+    , Str "nunc."
+    , Space
+    , Str "Praesent"
+    , Space
+    , Str "eget"
+    , Space
+    , Str "sem"
+    , Space
+    , Str "vel"
+    , Space
+    , Str "leo"
+    , Space
+    , Str "ultrices"
+    , Space
+    , Str "bibendum."
+    , Space
+    , Str "Aenean"
+    , Space
+    , Str "faucibus."
+    , Space
+    , Str "Morbi"
+    , Space
+    , Str "dolor"
+    , Space
+    , Str "nulla,"
+    , Space
+    , Str "malesuada"
+    , Space
+    , Str "eu,"
+    , Space
+    , Str "pulvinar"
+    , Space
+    , Str "at,"
+    , Space
+    , Str "mollis"
+    , Space
+    , Str "ac,"
+    , Space
+    , Str "nulla."
+    , Space
+    , Str "Cur-"
+    , Space
+    , Str "abitur"
+    , Space
+    , Str "auctor"
+    , Space
+    , Str "semper"
+    , Space
+    , Str "nulla."
+    , Space
+    , Str "Donec"
+    , Space
+    , Str "varius"
+    , Space
+    , Str "orci"
+    , Space
+    , Str "eget"
+    , Space
+    , Str "risus."
+    , Space
+    , Str "Duis"
+    , Space
+    , Str "nibh"
+    , Space
+    , Str "mi,"
+    , Space
+    , Str "congue"
+    , Space
+    , Str "eu,"
+    , Space
+    , Str "accumsan"
+    , Space
+    , Str "eleifend,"
+    , Space
+    , Str "sagittis"
+    , Space
+    , Str "quis,"
+    , Space
+    , Str "diam."
+    , Space
+    , Str "Duis"
+    , Space
+    , Str "eget"
+    , Space
+    , Str "orci"
+    , Space
+    , Str "sit"
+    , Space
+    , Str "amet"
+    , Space
+    , Str "orci"
+    , Space
+    , Str "dignissim"
+    , Space
+    , Str "rutrum."
+    ]
+, Para
+    [ Str "Nam"
+    , Space
+    , Str "dui"
+    , Space
+    , Str "ligula,"
+    , Space
+    , Str "fringilla"
+    , Space
+    , Str "a,"
+    , Space
+    , Str "euismod"
+    , Space
+    , Str "sodales,"
+    , Space
+    , Str "sollicitudin"
+    , Space
+    , Str "vel,"
+    , Space
+    , Str "wisi."
+    , Space
+    , Str "Morbi"
+    , Space
+    , Str "auctor"
+    , Space
+    , Str "lorem"
+    , Space
+    , Str "non"
+    , Space
+    , Str "justo."
+    , Space
+    , Str "Nam"
+    , Space
+    , Str "lacus"
+    , Space
+    , Str "libero,"
+    , Space
+    , Str "pretium"
+    , Space
+    , Str "at,"
+    , Space
+    , Str "lobortis"
+    , Space
+    , Str "vitae,"
+    , Space
+    , Str "ultricies"
+    , Space
+    , Str "et,"
+    , Space
+    , Str "tellus."
+    , Space
+    , Str "Donec"
+    , Space
+    , Str "aliquet,"
+    , Space
+    , Str "tortor"
+    , Space
+    , Str "sed"
+    , Space
+    , Str "accumsan"
+    , Space
+    , Str "bibendum,"
+    , Space
+    , Str "erat"
+    , Space
+    , Str "ligula"
+    , Space
+    , Str "aliquet"
+    , Space
+    , Str "magna,"
+    , Space
+    , Str "vitae"
+    , Space
+    , Str "ornare"
+    , Space
+    , Str "odio"
+    , Space
+    , Str "metus"
+    , Space
+    , Str "a"
+    , Space
+    , Str "mi."
+    , Space
+    , Str "Morbi"
+    , Space
+    , Str "ac"
+    , Space
+    , Str "orci"
+    , Space
+    , Str "et"
+    , Space
+    , Str "nisl"
+    , Space
+    , Str "hendrerit"
+    , Space
+    , Str "mollis."
+    , Space
+    , Str "Suspendisse"
+    , Space
+    , Str "ut"
+    , Space
+    , Str "massa."
+    , Space
+    , Str "Cras"
+    , Space
+    , Str "nec"
+    , Space
+    , Str "ante."
+    , Space
+    , Str "Pellentesque"
+    , Space
+    , Str "a"
+    , Space
+    , Str "nulla."
+    , Space
+    , Str "Cum"
+    , Space
+    , Str "sociis"
+    , Space
+    , Str "natoque"
+    , Space
+    , Str "penatibus"
+    , Space
+    , Str "et"
+    , Space
+    , Str "magnis"
+    , Space
+    , Str "dis"
+    , Space
+    , Str "parturient"
+    , Space
+    , Str "montes,"
+    , Space
+    , Str "nascetur"
+    , Space
+    , Str "ridiculus"
+    , Space
+    , Str "mus."
+    , Space
+    , Str "Aliquam"
+    , Space
+    , Str "tincidunt"
+    , Space
+    , Str "urna."
+    , Space
+    , Str "Nulla"
+    , Space
+    , Str "ullamcorper"
+    , Space
+    , Str "vestibulum"
+    , Space
+    , Str "turpis."
+    , Space
+    , Str "Pellentesque"
+    , Space
+    , Str "cursus"
+    , Space
+    , Str "luctus"
+    , Space
+    , Str "mauris."
+    ]
+, Header 1 ( "section-1" , [] , [] ) [ Str "Section" ]
+, Para
+    [ Str "Nulla"
+    , Space
+    , Str "malesuada"
+    , Space
+    , Str "porttitor"
+    , Space
+    , Str "diam."
+    , Space
+    , Str "Donec"
+    , Space
+    , Str "felis"
+    , Space
+    , Str "erat,"
+    , Space
+    , Str "congue"
+    , Space
+    , Str "non,"
+    , Space
+    , Str "volutpat"
+    , Space
+    , Str "at,"
+    , Space
+    , Str "tincidunt"
+    , Space
+    , Str "tristique,"
+    , Space
+    , Str "libero."
+    , Space
+    , Str "Vivamus"
+    , Space
+    , Str "viverra"
+    , Space
+    , Str "fermentum"
+    , Space
+    , Str "felis."
+    , Space
+    , Str "Donec"
+    , Space
+    , Str "nonummy"
+    , Space
+    , Str "pellentesque"
+    , Space
+    , Str "ante."
+    , Space
+    , Str "Phasellus"
+    , Space
+    , Str "adipiscing"
+    , Space
+    , Str "semper"
+    , Space
+    , Str "elit."
+    , Space
+    , Str "Proin"
+    , Space
+    , Str "fermentum"
+    , Space
+    , Str "massa"
+    , Space
+    , Str "ac"
+    , Space
+    , Str "quam."
+    , Space
+    , Str "Sed"
+    , Space
+    , Str "diam"
+    , Space
+    , Str "turpis,"
+    , Space
+    , Str "molestie"
+    , Space
+    , Str "vitae,"
+    , Space
+    , Str "placerat"
+    , Space
+    , Str "a,"
+    , Space
+    , Str "molestie"
+    , Space
+    , Str "nec,"
+    , Space
+    , Str "leo."
+    , Space
+    , Str "Mae-"
+    , Space
+    , Str "cenas"
+    , Space
+    , Str "lacinia."
+    , Space
+    , Str "Nam"
+    , Space
+    , Str "ipsum"
+    , Space
+    , Str "ligula,"
+    , Space
+    , Str "eleifend"
+    , Space
+    , Str "at,"
+    , Space
+    , Str "accumsan"
+    , Space
+    , Str "nec,"
+    , Space
+    , Str "suscipit"
+    , Space
+    , Str "a,"
+    , Space
+    , Str "ipsum."
+    , Space
+    , Str "Morbi"
+    , Space
+    , Str "blandit"
+    , Space
+    , Str "ligula"
+    , Space
+    , Str "feugiat"
+    , Space
+    , Str "magna."
+    , Space
+    , Str "Nunc"
+    , Space
+    , Str "eleifend"
+    , Space
+    , Str "consequat"
+    , Space
+    , Str "lorem."
+    , Space
+    , Str "Sed"
+    , Space
+    , Str "lacinia"
+    , Space
+    , Str "nulla"
+    , Space
+    , Str "vitae"
+    , Space
+    , Str "enim."
+    , Space
+    , Str "Pellentesque"
+    , Space
+    , Str "tincidunt"
+    , Space
+    , Str "purus"
+    , Space
+    , Str "vel"
+    , Space
+    , Str "magna."
+    , Space
+    , Str "Integer"
+    , Space
+    , Str "non"
+    , Space
+    , Str "enim."
+    , Space
+    , Str "Praesent"
+    , Space
+    , Str "euismod"
+    , Space
+    , Str "nunc"
+    , Space
+    , Str "eu"
+    , Space
+    , Str "purus."
+    , Space
+    , Str "Donec"
+    , Space
+    , Str "bibendum"
+    , Space
+    , Str "quam"
+    , Space
+    , Str "in"
+    , Space
+    , Str "tellus."
+    , Space
+    , Str "Nullam"
+    , Space
+    , Str "cur-"
+    , Space
+    , Str "sus"
+    , Space
+    , Str "pulvinar"
+    , Space
+    , Str "lectus."
+    , Space
+    , Str "Donec"
+    , Space
+    , Str "et"
+    , Space
+    , Str "mi."
+    , Space
+    , Str "Nam"
+    , Space
+    , Str "vulputate"
+    , Space
+    , Str "metus"
+    , Space
+    , Str "eu"
+    , Space
+    , Str "enim."
+    , Space
+    , Str "Vestibulum"
+    , Space
+    , Str "pellentesque"
+    , Space
+    , Str "felis"
+    , Space
+    , Str "eu"
+    , Space
+    , Str "massa."
+    ]
+, Para
+    [ Str "Quisque"
+    , Space
+    , Str "ullamcorper"
+    , Space
+    , Str "placerat"
+    , Space
+    , Str "ipsum."
+    , Space
+    , Str "Cras"
+    , Space
+    , Str "nibh."
+    , Space
+    , Str "Morbi"
+    , Space
+    , Str "vel"
+    , Space
+    , Str "justo"
+    , Space
+    , Str "vitae"
+    , Space
+    , Str "lacus"
+    , Space
+    , Str "tincidunt"
+    , Space
+    , Str "ultrices."
+    , Space
+    , Str "Lorem"
+    , Space
+    , Str "ipsum"
+    , Space
+    , Str "dolor"
+    , Space
+    , Str "sit"
+    , Space
+    , Str "amet,"
+    , Space
+    , Str "consectetuer"
+    , Space
+    , Str "adipiscing"
+    , Space
+    , Str "elit."
+    , Space
+    , Str "In"
+    , Space
+    , Str "hac"
+    , Space
+    , Str "habitasse"
+    , Space
+    , Str "platea"
+    , Space
+    , Str "dictumst."
+    , Space
+    , Str "Integer"
+    , Space
+    , Str "tempus"
+    , Space
+    , Str "convallis"
+    , Space
+    , Str "augue."
+    , Space
+    , Str "Etiam"
+    , Space
+    , Str "facilisis."
+    , Space
+    , Str "Nunc"
+    , Space
+    , Str "elementum"
+    , Space
+    , Str "fermentum"
+    , Space
+    , Str "wisi."
+    , Space
+    , Str "Aenean"
+    , Space
+    , Str "placerat."
+    , Space
+    , Str "Ut"
+    , Space
+    , Str "imperdiet,"
+    , Space
+    , Str "enim"
+    , Space
+    , Str "sed"
+    , Space
+    , Str "gravida"
+    , Space
+    , Str "sollicitudin,"
+    , Space
+    , Str "felis"
+    , Space
+    , Str "odio"
+    , Space
+    , Str "placerat"
+    , Space
+    , Str "quam,"
+    , Space
+    , Str "ac"
+    , Space
+    , Str "pulvinar"
+    , Space
+    , Str "elit"
+    , Space
+    , Str "purus"
+    , Space
+    , Str "eget"
+    , Space
+    , Str "enim."
+    , Space
+    , Str "Nunc"
+    , Space
+    , Str "vitae"
+    , Space
+    , Str "tortor."
+    , Space
+    , Str "Proin"
+    , Space
+    , Str "tempus"
+    , Space
+    , Str "nibh"
+    , Space
+    , Str "sit"
+    , Space
+    , Str "amet"
+    , Space
+    , Str "nisl."
+    , Space
+    , Str "Vivamus"
+    , Space
+    , Str "quis"
+    , Space
+    , Str "tortor"
+    , Space
+    , Str "vitae"
+    , Space
+    , Str "risus"
+    , Space
+    , Str "porta"
+    , Space
+    , Str "vehicula."
+    ]
+, Para
+    [ Str "Fusce"
+    , Space
+    , Str "mauris."
+    , Space
+    , Str "Vestibulum"
+    , Space
+    , Str "luctus"
+    , Space
+    , Str "nibh"
+    , Space
+    , Str "at"
+    , Space
+    , Str "lectus."
+    , Space
+    , Str "Sed"
+    , Space
+    , Str "bibendum,"
+    , Space
+    , Str "nulla"
+    , Space
+    , Str "a"
+    , Space
+    , Str "fau-"
+    , Space
+    , Str "cibus"
+    , Space
+    , Str "semper,"
+    , Space
+    , Str "leo"
+    , Space
+    , Str "velit"
+    , Space
+    , Str "ultricies"
+    , Space
+    , Str "tellus,"
+    , Space
+    , Str "ac"
+    , Space
+    , Str "venenatis"
+    , Space
+    , Str "arcu"
+    , Space
+    , Str "wisi"
+    , Space
+    , Str "vel"
+    , Space
+    , Str "nisl."
+    , Space
+    , Str "Vestibulum"
+    , Space
+    , Str "diam."
+    , Space
+    , Str "Aliquam"
+    , Space
+    , Str "pellentesque,"
+    , Space
+    , Str "augue"
+    , Space
+    , Str "quis"
+    , Space
+    , Str "sagittis"
+    , Space
+    , Str "posuere,"
+    , Space
+    , Str "turpis"
+    , Space
+    , Str "lacus"
+    , Space
+    , Str "congue"
+    , Space
+    , Str "quam,"
+    , Space
+    , Str "in"
+    , Space
+    , Str "hendrerit"
+    , Space
+    , Str "risus"
+    , Space
+    , Str "eros"
+    , Space
+    , Str "eget"
+    , Space
+    , Str "felis."
+    , Space
+    , Str "Maecenas"
+    , Space
+    , Str "eget"
+    , Space
+    , Str "erat"
+    , Space
+    , Str "in"
+    , Space
+    , Str "sapien"
+    , Space
+    , Str "mattis"
+    , Space
+    , Str "porttitor."
+    , Space
+    , Str "Vestibulum"
+    , Space
+    , Str "porttitor."
+    , Space
+    , Str "Nulla"
+    , Space
+    , Str "facilisi."
+    , Space
+    , Str "Sed"
+    , Space
+    , Str "a"
+    , Space
+    , Str "turpis"
+    , Space
+    , Str "eu"
+    , Space
+    , Str "lacus"
+    , Space
+    , Str "commodo"
+    , Space
+    , Str "facilisis."
+    , Space
+    , Str "Morbi"
+    , Space
+    , Str "fringilla,"
+    , Space
+    , Str "wisi"
+    , Space
+    , Str "in"
+    , Space
+    , Str "dignissim"
+    , Space
+    , Str "interdum,"
+    , Space
+    , Str "justo"
+    , Space
+    , Str "lectus"
+    , Space
+    , Str "sagittis"
+    , Space
+    , Str "dui,"
+    , Space
+    , Str "et"
+    , Space
+    , Str "vehicula"
+    , Space
+    , Str "libero"
+    , Space
+    , Str "dui"
+    , Space
+    , Str "cursus"
+    , Space
+    , Str "dui."
+    , Space
+    , Str "Mauris"
+    , Space
+    , Str "tempor"
+    , Space
+    , Str "ligula"
+    , Space
+    , Str "sed"
+    , Space
+    , Str "lacus."
+    , Space
+    , Str "Duis"
+    , Space
+    , Str "cursus"
+    , Space
+    , Str "enim"
+    , Space
+    , Str "ut"
+    , Space
+    , Str "augue."
+    , Space
+    , Str "Cras"
+    , Space
+    , Str "ac"
+    , Space
+    , Str "magna."
+    , Space
+    , Str "Cras"
+    , Space
+    , Str "nulla."
+    , Space
+    , Str "Nulla"
+    , Space
+    , Str "egestas."
+    , Space
+    , Str "Curabitur"
+    , Space
+    , Str "a"
+    , Space
+    , Str "leo."
+    , Space
+    , Str "Quisque"
+    , Space
+    , Str "egestas"
+    , Space
+    , Str "wisi"
+    , Space
+    , Str "eget"
+    , Space
+    , Str "nunc."
+    , Space
+    , Str "Nam"
+    , Space
+    , Str "feugiat"
+    , Space
+    , Str "lacus"
+    , Space
+    , Str "vel"
+    , Space
+    , Str "est."
+    , Space
+    , Str "Curabitur"
+    , Space
+    , Str "consectetuer."
+    ]
+, BlockQuote
+    [ Para
+        [ Strong
+            [ Str "The"
+            , Space
+            , Str "Old"
+            , Space
+            , Str "Theorem"
+            , Str "."
+            ]
+        , Space
+        , Str "This"
+        , Space
+        , Str "theorem"
+        , Space
+        , Str "has"
+        , Space
+        , Str "a"
+        , Space
+        , Str "custom"
+        , Space
+        , Str "label,"
+        , Space
+        , Str "not"
+        , Space
+        , Str "acronym."
+        , SoftBreak
+        , Str "It"
+        , Space
+        , Str "can"
+        , Space
+        , Str "be"
+        , Space
+        , Str "referenced"
+        , Space
+        , Str "by"
+        , Space
+        , Str "its"
+        , Space
+        , Str "label."
+        ]
+    , Plain [ Span ( "the-old-theorem" , [] , [] ) [] ]
+    ]
+, Para
+    [ Str "We"
+    , Space
+    , Str "can"
+    , Space
+    , Str "use"
+    , Space
+    , Str "the"
+    , Space
+    , Str "cite"
+    , Space
+    , Str "syntax,"
+    , Space
+    , Str "with"
+    , Space
+    , Str "brackets"
+    , Space
+    , Cite
+        [ Citation
+            { citationId = "mytheorem"
+            , citationPrefix = []
+            , citationSuffix = []
+            , citationMode = NormalCitation
+            , citationNoteNum = 9
+            , citationHash = 0
+            }
+        ]
+        [ Str "[@mytheorem]" ]
+    , Space
+    , Str "and"
+    , Space
+    , Str "without"
+    , Space
+    , Cite
+        [ Citation
+            { citationId = "mytheorem"
+            , citationPrefix = []
+            , citationSuffix = []
+            , citationMode = AuthorInText
+            , citationNoteNum = 10
+            , citationHash = 0
+            }
+        ]
+        [ Str "@mytheorem" ]
+    , Str ","
+    , SoftBreak
+    , Str "or"
+    , Space
+    , Str "the"
+    , Space
+    , Str "link"
+    , Space
+    , Str "syntax\160("
+    , Link ( "" , [] , [] ) [] ( "#mytheorem" , "" )
+    , Str ")."
+    , Space
+    , Str "This"
+    , Space
+    , Str "works"
+    , Space
+    , Str "with"
+    , Space
+    , Str "acronyms"
+    , Space
+    , Str "too:"
+    , Space
+    , Link
+        ( "" , [] , [] )
+        [ Space , Str "NP" , Space ]
+        ( "#NP" , " NP " )
+    , Str ","
+    , Space
+    , Link ( "" , [] , [] ) [ Str "NP" ] ( "#NP" , "NP" )
+    , Str "."
+    , SoftBreak
+    , Str "Standard"
+    , Space
+    , Str "citations"
+    , Space
+    , Str "still"
+    , Space
+    , Str "work"
+    , Space
+    , Cite
+        [ Citation
+            { citationId = "thatone"
+            , citationPrefix = []
+            , citationSuffix = []
+            , citationMode = NormalCitation
+            , citationNoteNum = 12
+            , citationHash = 0
+            }
+        , Citation
+            { citationId = "theother"
+            , citationPrefix = []
+            , citationSuffix = []
+            , citationMode = NormalCitation
+            , citationNoteNum = 12
+            , citationHash = 0
+            }
+        ]
+        [ Str "[@thatone;" , Space , Str "@theother]" ]
+    , Str "."
+    ]
+, Header 1 ( "section-2" , [] , [] ) [ Str "Section" ]
+, Para
+    [ Str "Suspendisse"
+    , Space
+    , Str "vel"
+    , Space
+    , Str "felis."
+    , Space
+    , Str "Ut"
+    , Space
+    , Str "lorem"
+    , Space
+    , Str "lorem,"
+    , Space
+    , Str "interdum"
+    , Space
+    , Str "eu,"
+    , Space
+    , Str "tincidunt"
+    , Space
+    , Str "sit"
+    , Space
+    , Str "amet,"
+    , SoftBreak
+    , Str "laoreet"
+    , Space
+    , Str "vitae,"
+    , Space
+    , Str "arcu."
+    , Space
+    , Str "Aenean"
+    , Space
+    , Str "faucibus"
+    , Space
+    , Str "pede"
+    , Space
+    , Str "eu"
+    , Space
+    , Str "ante."
+    , Space
+    , Str "Praesent"
+    , Space
+    , Str "enim"
+    , Space
+    , Str "elit,"
+    , Space
+    , Str "rutrum"
+    , Space
+    , Str "at,"
+    , Space
+    , Str "molestie"
+    , Space
+    , Str "non,"
+    , Space
+    , Str "nonummy"
+    , Space
+    , Str "vel,"
+    , Space
+    , Str "nisl."
+    , Space
+    , Str "Ut"
+    , Space
+    , Str "lectus"
+    , Space
+    , Str "eros,"
+    , Space
+    , Str "malesuada"
+    , Space
+    , Str "sit"
+    , Space
+    , Str "amet,"
+    , Space
+    , Str "fer-"
+    , Space
+    , Str "mentum"
+    , Space
+    , Str "eu,"
+    , Space
+    , Str "sodales"
+    , Space
+    , Str "cursus,"
+    , Space
+    , Str "magna."
+    , Space
+    , Str "Donec"
+    , Space
+    , Str "eu"
+    , Space
+    , Str "purus."
+    , Space
+    , Str "Quisque"
+    , Space
+    , Str "vehicula,"
+    , Space
+    , Str "urna"
+    , Space
+    , Str "sed"
+    , Space
+    , Str "ultricies"
+    , Space
+    , Str "auctor,"
+    , Space
+    , Str "pede"
+    , Space
+    , Str "lorem"
+    , Space
+    , Str "egestas"
+    , Space
+    , Str "dui,"
+    , Space
+    , Str "et"
+    , Space
+    , Str "convallis"
+    , Space
+    , Str "elit"
+    , Space
+    , Str "erat"
+    , Space
+    , Str "sed"
+    , Space
+    , Str "nulla."
+    , Space
+    , Str "Donec"
+    , Space
+    , Str "luctus."
+    , Space
+    , Str "Curabitur"
+    , Space
+    , Str "et"
+    , Space
+    , Str "nunc."
+    , Space
+    , Str "Aliquam"
+    , Space
+    , Str "dolor"
+    , Space
+    , Str "odio,"
+    , Space
+    , Str "commodo"
+    , Space
+    , Str "pretium,"
+    , Space
+    , Str "ultricies"
+    , Space
+    , Str "non,"
+    , Space
+    , Str "pharetra"
+    , Space
+    , Str "in,"
+    , Space
+    , Str "velit."
+    , Space
+    , Str "Integer"
+    , Space
+    , Str "arcu"
+    , Space
+    , Str "est,"
+    , Space
+    , Str "nonummy"
+    , Space
+    , Str "in,"
+    , Space
+    , Str "fermentum"
+    , Space
+    , Str "faucibus,"
+    , Space
+    , Str "egestas"
+    , Space
+    , Str "vel,"
+    , Space
+    , Str "odio."
+    ]
+, Para
+    [ Str "Sed"
+    , Space
+    , Str "commodo"
+    , Space
+    , Str "posuere"
+    , Space
+    , Str "pede."
+    , Space
+    , Str "Mauris"
+    , Space
+    , Str "ut"
+    , Space
+    , Str "est."
+    , Space
+    , Str "Ut"
+    , Space
+    , Str "quis"
+    , Space
+    , Str "purus."
+    , Space
+    , Str "Sed"
+    , Space
+    , Str "ac"
+    , Space
+    , Str "odio."
+    , Space
+    , Str "Sed"
+    , Space
+    , Str "vehicula"
+    , Space
+    , Str "hendrerit"
+    , Space
+    , Str "sem."
+    , Space
+    , Str "Duis"
+    , Space
+    , Str "non"
+    , Space
+    , Str "odio."
+    , Space
+    , Str "Morbi"
+    , Space
+    , Str "ut"
+    , Space
+    , Str "dui."
+    , Space
+    , Str "Sed"
+    , Space
+    , Str "accumsan"
+    , Space
+    , Str "risus"
+    , Space
+    , Str "eget"
+    , Space
+    , Str "odio."
+    , Space
+    , Str "In"
+    , Space
+    , Str "hac"
+    , Space
+    , Str "habitasse"
+    , Space
+    , Str "platea"
+    , Space
+    , Str "dictumst."
+    , Space
+    , Str "Pellentesque"
+    , Space
+    , Str "non"
+    , Space
+    , Str "elit."
+    , Space
+    , Str "Fusce"
+    , Space
+    , Str "sed"
+    , Space
+    , Str "justo"
+    , Space
+    , Str "eu"
+    , Space
+    , Str "urna"
+    , Space
+    , Str "porta"
+    , Space
+    , Str "tincidunt."
+    , Space
+    , Str "Mauris"
+    , Space
+    , Str "felis"
+    , Space
+    , Str "odio,"
+    , Space
+    , Str "sollicitudin"
+    , Space
+    , Str "sed,"
+    , Space
+    , Str "volutpat"
+    , Space
+    , Str "a,"
+    , Space
+    , Str "ornare"
+    , Space
+    , Str "ac,"
+    , Space
+    , Str "erat."
+    , Space
+    , Str "Morbi"
+    , Space
+    , Str "quis"
+    , Space
+    , Str "dolor."
+    , Space
+    , Str "Donec"
+    , Space
+    , Str "pellentesque,"
+    , Space
+    , Str "erat"
+    , Space
+    , Str "ac"
+    , Space
+    , Str "sagittis"
+    , Space
+    , Str "semper,"
+    , Space
+    , Str "nunc"
+    , Space
+    , Str "dui"
+    , Space
+    , Str "lobortis"
+    , Space
+    , Str "purus,"
+    , Space
+    , Str "quis"
+    , Space
+    , Str "congue"
+    , Space
+    , Str "purus"
+    , Space
+    , Str "metus"
+    , Space
+    , Str "ultricies"
+    , Space
+    , Str "tellus."
+    , Space
+    , Str "Proin"
+    , Space
+    , Str "et"
+    , Space
+    , Str "quam."
+    , Space
+    , Str "Class"
+    , Space
+    , Str "aptent"
+    , Space
+    , Str "taciti"
+    , Space
+    , Str "sociosqu"
+    , Space
+    , Str "ad"
+    , Space
+    , Str "litora"
+    , Space
+    , Str "torquent"
+    , Space
+    , Str "per"
+    , Space
+    , Str "conubia"
+    , Space
+    , Str "nostra,"
+    , Space
+    , Str "per"
+    , Space
+    , Str "inceptos"
+    , Space
+    , Str "hymenaeos."
+    , Space
+    , Str "Praesent"
+    , Space
+    , Str "sapien"
+    , Space
+    , Str "turpis,"
+    , Space
+    , Str "fermentum"
+    , Space
+    , Str "vel,"
+    , Space
+    , Str "eleifend"
+    , Space
+    , Str "faucibus,"
+    , Space
+    , Str "vehicula"
+    , Space
+    , Str "eu,"
+    , Space
+    , Str "lacus."
+    ]
+, BlockQuote
+    [ Para
+        [ Strong
+            [ Str "The"
+            , Space
+            , Str "New"
+            , Space
+            , Str "Principle"
+            , Space
+            , Str "("
+            , Str "NP"
+            , Str ")"
+            , Str "."
+            ]
+        , Space
+        , Str "This"
+        , Space
+        , Str "statement"
+        , Space
+        , Str "has"
+        , Space
+        , Str "a"
+        , Space
+        , Str "custom"
+        , Space
+        , Str "label"
+        , Space
+        , Str "and"
+        , SoftBreak
+        , Str "acronym,"
+        , Space
+        , Str "it"
+        , Space
+        , Str "can"
+        , Space
+        , Str "be"
+        , Space
+        , Str "crossreferenced"
+        , Space
+        , Str "by"
+        , Space
+        , Str "its"
+        , Space
+        , Str "acronym."
+        , Space
+        , Str "Follow"
+        , Space
+        , Str "this"
+        , Space
+        , Str "to"
+        , SoftBreak
+        , Str "go"
+        , Space
+        , Str "back"
+        , Space
+        , Str "to"
+        , Space
+        , Str "Theorem"
+        , Space
+        , Cite
+            [ Citation
+                { citationId = "mytheorem"
+                , citationPrefix = []
+                , citationSuffix = []
+                , citationMode = AuthorInText
+                , citationNoteNum = 13
+                , citationHash = 0
+                }
+            ]
+            [ Str "@mytheorem" ]
+        , Str "."
+        ]
+    , Plain [ Span ( "NP" , [] , [] ) [] ]
+    ]
+, Header 1 ( "references" , [] , [] ) [ Str "References" ]
+]
