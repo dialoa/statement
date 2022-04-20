@@ -47,7 +47,7 @@ function Walker:walk(blocks)
 	local content_is_list_of_blocks = pandoc.List:new(
 							{'BulletList', 'DefinitionList', 'OrderedList'})
 	local result = pandoc.List:new()
-	local is_modified = false
+	local is_modified = false -- whether anything is changed in this doc
 
 	-- go through the blocks in order
 	--		- find headings and update counters
@@ -87,32 +87,85 @@ function Walker:walk(blocks)
 
 			end
 
+		-- ends Div block processing
+
 		-- DefinitionLists: scan for statements
-		-- @TODO: break down lists with multiple definitions
+		-- The element is a list, each item is a pair (inlines, 
+		-- list of blocks). We need to check the list item per item,
+		-- split it if it contains statements, and process the
+		-- contents of non-statement items recursively.
 		elseif self.setup.options.definition_lists 
 						and block.t == 'DefinitionList' then
 
-			-- try to create a statement
-			sta = Statement:new(block, self.setup)
+			-- `previous_items`: store non-statement items one by one until
+			-- we encounter a statement 
+			local previous_items = pandoc.List:new() -- to store previous items
+--			local block_modified = false -- any changes in this block?
 
-			-- if successful, insert
-			if sta then
-				result:extend(sta:write())
-				is_modified = true
+			for _,item in ipairs(block.content) do
 
-			-- if none, process the content of each DefList definition
-			else
+				-- if we succeed in creating a statement, flush out
+				-- any previous items in a DefinitionList and insert
+				-- the statement.
+				local successful_insert = false 
+				-- if item is supposed to be a statement, try parsing and insert.
+				-- note that Statement:new expects a single-item DefinitionList.
+				if Statement:DefListitem_is_statement(item, self.setup) then
 
-				-- local sub_blocks = self:walk(block.content)
-				-- if sub_blocks then
-				-- 	block.content = sub_blocks
-				-- 	is_modified = true
-				-- 	result:insert(block)
-				-- else
-				-- 	result:insert(block)
-				-- end
+					-- try to parse
+					sta = Statement:new(pandoc.DefinitionList({item}), self.setup)
+					if sta then
+						-- if previous items, flush them out in a new DefinitionList
+						if #previous_items > 0 then
+							result:insert(pandoc.DefinitionList(previous_items))
+							previous_items = pandoc.List:new()
+						end
+						result:extend(sta:write())
+						is_modified = true
+						successful_insert = true
+					end
+				end
 
+				-- if not a statement or failed to parse, treat as 
+				-- standard DefinitionList item: process the contents
+				-- recursively and insert in previous items.
+				if not successful_insert then 
+
+					-- recursively process the item's contents (list of Blocks)
+					-- recall a DefinitionList item is a pair
+					-- item[1] Inlines expression defined
+					-- item[2] List of Blocks (list of lists of block elements)
+					local new_content = pandoc.List:new()
+					for _,blocks in ipairs(item[2]) do
+						local sub_blocks = self:walk(blocks)
+						if sub_blocks then
+							is_modified = true
+							new_content:insert(sub_blocks)
+						else
+							new_content:insert(sub_blocks)
+						end
+					end
+					-- if we've modified anything in the recursion, insert
+					-- the new content
+					if is_modified then
+						item[2] = new_content
+					end
+
+					-- store the item to be included in a future DefinitionList
+					previous_items:insert(item)
+
+				end
+
+			end -- end of the item loop
+
+			-- if any previous_items left, insert as DefinitionList
+
+			if #previous_items > 0 then
+				result:insert(pandoc.DefinitionList(previous_items))
+				previous_items = pandoc.List:new()
 			end
+
+		-- ends DefinitionList block processing
 
 		-- element with blocks content: process recursively
 		elseif content_is_blocks:includes(block.t) then

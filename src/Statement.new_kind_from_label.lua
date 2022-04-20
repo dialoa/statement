@@ -1,9 +1,23 @@
 --- Statement:new_kind_from_label: create and set a new kind from a 
 -- statement's custom label. 
--- updates the self.setup.kinds table with a new kind
+-- Uses:
+--		setup:set_style to create a style based on another
+--		self.kind the statement's kind
+--		self.custom_label the statement's custom label
+-- Updates:
+--		self.setup.kinds
+--		self.setup.styles
+--
+--@return nil
 function Statement:new_kind_from_label()
-	local kind = kind or self.kind
-	local kind_key, style_key
+	local setup = self.setup -- pointing to the setup
+	local styles = self.setup.styles -- pointer to the styles table
+	local kinds = self.setup.kinds -- pointer to the kinds table	
+	local kind = kind or self.kind -- key of the original statement style
+	local style = kinds[kind].style
+	local custom_label = self.custom_label
+	local new_kind, new_style -- keys of the new statement kind 
+														-- and (if needed) the new style
 
 	-- create_key_from_label: turn inlines into a key that
 	-- can safely be used as LaTeX envt name and html class
@@ -15,55 +29,55 @@ function Statement:new_kind_from_label()
 
 	-- Main function body
 
-	if not self.custom_label then
+	if not custom_label then
 		return
 	end
 
-	local label_str = create_key_from_label(self.custom_label)
-	kind_key = label_str
-	style_key = self.setup.kinds[kind].style -- original style
+	-- create a new kind key from label
+	local label_str = create_key_from_label(custom_label)
+	-- ensure it's a new key
+	local n = 0
+	new_kind = label_str
+	while kinds[new_kind] do
+		n = n + 1
+		new_kind = label_str..'-'..tostring(n)
+	end
 
 	-- do we need a new style too?
-	if self.setup.kinds[kind].custom_label_style then
-		local new_style = {}
-		-- copy the fields from the original statement style
-		-- except 'is_defined'
-		for k,v in pairs(self.setup.styles[style_key]) do
-			if k ~= 'is_defined' then
-				new_style[k] = v
-			end
+	-- check the custom_label_style of the original kind
+	if kinds[kind].custom_label_style then
+
+		local style_changes_map = kinds[kind].custom_label_style
+		style_changes_map.based_on = style
+
+		-- get a new style key
+		local str = new_kind -- use the new kind's name
+		-- ensure it's a new key
+		local n = 0
+		new_style = str
+		while styles[new_style] do
+			n = n + 1
+			new_style = str..'-'..tostring(n)
 		end
-		-- insert the custom_label_style modifications
-		for k,v in pairs(self.setup.kinds[kind].custom_label_style) do
-			new_style[k] = v
-		end
-		-- ensure we use a new style key
-		style_key = label_str
-		local n = 1
-		while self.setup.styles[style_key] do
-			style_key = label_str..'-'..tostring(n)
-		end
-		-- store the new style
-		self.setup.styles[style_key] = new_style
+
+		-- set the new style
+		setup:set_style(new_style, style_changes_map)
+
+	else
+
+		new_style = style
+
 	end
 
-	-- ensure we use a new kind key
-	local n = 1
-	while self.setup.kinds[kind_key] do
-		kind_key = label_str..'-'..tostring(n)
-		n = n + 1
-	end
-
-	-- create the new kind
-	-- keep the original prefix; new style if needed
-	-- set its new label to custom_label; set its counter to 'none'
-	self.setup.kinds[kind_key] = {}
-	self.setup.kinds[kind_key].prefix = self.setup.kinds[kind].prefix
-	self.setup.kinds[kind_key].style = style_key
-	self.setup.kinds[kind_key].label = self.custom_label -- Inlines
-	self.setup.kinds[kind_key].counter = 'none'
+	-- set the new kind
+	setup:set_kind(new_kind, {
+			prefix = kinds[kind].prefix,
+			style = new_style,
+			label = custom_label,
+			counter = 'none'
+	})
 
 	-- set this statement's kind to the new kind
-	self.kind = kind_key
+	self.kind = new_kind
 
 end

@@ -63,7 +63,7 @@ end
 
 !input Statement.parse_Div -- parse Div element as statement
 
-!input Statement.parse_Div_heading -- parse Div element as statement
+-- !input Statement.parse_Div_heading -- parse Div element as statement
 
 !input Statement.DefListitem_is_statement -- to tell whether an Definition list item is a statement and of which kind
 

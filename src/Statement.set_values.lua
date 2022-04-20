@@ -29,6 +29,6 @@ function Statement:set_values()
 	end
 
 	self:set_crossref_label() -- set crossref label
-	self:set_identifier(elem) -- set identifier, store crossref label for id
+	self:set_identifier() -- set identifier, store crossref label for id
 
 end

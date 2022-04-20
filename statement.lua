@@ -2956,139 +2956,32 @@ function Statement:parse_Div(elem)
 	-- get the Div's user-specified id, if any
 	self.identifier = elem.identifier
 
-	-- store statement content
-	self.content = elem.content -- element content
-	
-	-- extract any label, info, acronym
-	-- @TODO if attributes_syntax is enabled, parse the attribute syntax
-	-- Cf. <https://github.com/ickc/pandoc-amsthm>
-	self:parse_Div_heading()
+	-- extract any label, acronym, info
+	-- these are in the first paragraph, if any
+	-- NOTE: side-effect, the original tree's element is modified
+	if elem.content[1] and elem.content[1].t == 'Para' then
+		local result = self:parse_heading_inlines(elem.content[1].content)
+		if result then
+			self.acronym = result.acronym
+			self.custom_label = result.custom_label
+			self.info = result.info
+			-- if any remainder, place in the Para otherwise remove
+			if result.remainder and #result.remainder > 0 then
+				elem.content[1].content = result.remainder
+			else
+				elem.content:remove(1)
+			end
+		end
+	end
+
+	-- store the content
+	self.content = elem.content
 
 	return true
 
 end
 
---- Statement:parse_Div_heading: parse Div heading into custom label,
--- acronym, info if present, and extract it from the content.
--- Expected format, where [...] means optional:
---		[**[[Acronym] Custom Label] [Info1].**] [Info2[.]] Content
---		[**[[Acronym] Custom Label] [Info1]**.] [Info2[.]] Content
--- Where:
---		- Acronym is Inlines delimited by matching parentheses, e.g. (NPE)
---		- Info1, Info2 are either Inlines delimited by matching 
---			parentheses, or a Cite element,
---		- only one of Info1 or Info2 is present. The latter is treated
---			as part of the content otherwise.
---		- single spaces before the heading or surrounding the dot
---			are tolerated.
--- Updates:
---		self.custom_label Inlines or nil, content of the label if found
---		self.acronym Inlines or nil, acronym
---		self.content Blocks, remainder of the statement after extraction
---@return nil 
-function Statement:parse_Div_heading()
-	local content = self.content
-	local acro_delimiters = self.setup.options.acronym_delimiters 
-											or {'(',')'} -- acronym delimiters
-	local info_delimiters = self.setup.options.info_delimiters 
-											or {'(',')'} -- info delimiters
-	local para, custom_label, acronym, info
-	local is_modified = false
-
-	--- parse_Strong: try to parse a Strong element into acronym,
-	-- label and info.
-	-- @param elem pandoc Strong element
-	-- @return info, Inlines or Cite information if found
-	-- @return cust_lab, Inlines custom label if found
-	-- @return acronym, Inlines, acronym if found
-	function parse_Strong(elem)
-		-- must clone to avoid changing the original element 
-		-- in case parsing fails
-		local result = elem.content:clone()
-		local info, cust_lab, acro
-
-		-- remove trailing space / dot
-		result = self:trim_dot_space(result, 'reverse')
-
-		-- Info is first Cite or content between balanced brackets 
-		-- encountered in reverse order.
-		if result[#result].t == 'Cite' then
-			info = pandoc.Inlines(result[#result])
-			result:remove(#result)
-			result = self:trim_dot_space(result, 'reverse')
-		else
-			info, result = self:extract_fbb(result, 'reverse', info_delimiters)
-			result = self:trim_dot_space(result, 'reverse')
-		end
-
-		-- Acronym is first content between balanced brackets
-		-- encountered in forward order
-		if #result > 0 then
-			acro, result = self:extract_fbb(result, 'forward', acro_delimiters)
-			self:trim_dot_space(result, 'forward')
-		end
-			
-		-- Custom label is whatever remains
-		if #result > 0 then
-			cust_lab = result
-		end
-
-		-- If we have acro but not cust_label that's a failure
-		if acro and not cust_lab then
-			return nil, nil, nil
-		else
-			return info, cust_lab, acro
-		end
-	end
-
-	-- FUNCTION BODY
-
-	-- the first block must be a Para; we clone it for processing
-	if content[1] and content[1].t and content[1].t == 'Para' then
-		para = content[1]:clone()
-	else
-		return
-	end
-
-	-- Para starts with Strong?
-	-- if yes, try to parse and remove if successful
-	if para.content and para.content[1].t == 'Strong' then
-		info, custom_label, acronym = parse_Strong(para.content[1])
-		if custom_label or info then
-			para.content:remove(1)
-			para.content = self:trim_dot_space(para.content, 'forward')
-		end
-	end
-
-
-	-- if we don't have info yet, try to find it at the beginning
-	-- of (what remains of) the Para's content.
-	if not info then
-		if para.content[1] and para.content[1].t == 'Cite' then
-			info = pandoc.Inlines(para.content[1])
-			para.content:remove(1)
-			para.content = self:trim_dot_space(para.content, 'forward')
-		else
-			info, para.content = self:extract_fbb(para.content, 
-																	'forward', info_delimiters)
-			para.content = self:trim_dot_space(para.content, 'forward')
-		end
-
-	end
-
-	-- if we found anything, store components and update statement's 
-	-- first block.
-	if custom_label or info then
-		if acronym then
-			self.acronym = acronym
-		end
-		self.custom_label = custom_label
-		self.info = info
-		self.content[1] = para
-	end
-
-end
-
+-- !input Statement.parse_Div_heading -- parse Div element as statement
 ---Statement:DefListitem_is_statement: whether a DefinitionList item 
 -- is a statement. If yes, returns the kind it matches.
 -- An item is a statement if its defined expression starts
@@ -3427,7 +3320,6 @@ function Statement:trim_dot_space(inlines, direction)
 	while keep_looking do
 		keep_looking = false
 		if #inlines > 0 then
-
 			if inlines[firstpos(inlines)].t == 'Space' then
 				inlines:remove(firstpos(inlines))
 				keep_looking = true
@@ -3451,10 +3343,24 @@ end
 
 --- Statement:new_kind_from_label: create and set a new kind from a 
 -- statement's custom label. 
--- updates the self.setup.kinds table with a new kind
+-- Uses:
+--		setup:set_style to create a style based on another
+--		self.kind the statement's kind
+--		self.custom_label the statement's custom label
+-- Updates:
+--		self.setup.kinds
+--		self.setup.styles
+--
+--@return nil
 function Statement:new_kind_from_label()
-	local kind = kind or self.kind
-	local kind_key, style_key
+	local setup = self.setup -- pointing to the setup
+	local styles = self.setup.styles -- pointer to the styles table
+	local kinds = self.setup.kinds -- pointer to the kinds table	
+	local kind = kind or self.kind -- key of the original statement style
+	local style = kinds[kind].style
+	local custom_label = self.custom_label
+	local new_kind, new_style -- keys of the new statement kind 
+														-- and (if needed) the new style
 
 	-- create_key_from_label: turn inlines into a key that
 	-- can safely be used as LaTeX envt name and html class
@@ -3466,56 +3372,56 @@ function Statement:new_kind_from_label()
 
 	-- Main function body
 
-	if not self.custom_label then
+	if not custom_label then
 		return
 	end
 
-	local label_str = create_key_from_label(self.custom_label)
-	kind_key = label_str
-	style_key = self.setup.kinds[kind].style -- original style
+	-- create a new kind key from label
+	local label_str = create_key_from_label(custom_label)
+	-- ensure it's a new key
+	local n = 0
+	new_kind = label_str
+	while kinds[new_kind] do
+		n = n + 1
+		new_kind = label_str..'-'..tostring(n)
+	end
 
 	-- do we need a new style too?
-	if self.setup.kinds[kind].custom_label_style then
-		local new_style = {}
-		-- copy the fields from the original statement style
-		-- except 'is_defined'
-		for k,v in pairs(self.setup.styles[style_key]) do
-			if k ~= 'is_defined' then
-				new_style[k] = v
-			end
+	-- check the custom_label_style of the original kind
+	if kinds[kind].custom_label_style then
+
+		local style_changes_map = kinds[kind].custom_label_style
+		style_changes_map.based_on = style
+
+		-- get a new style key
+		local str = new_kind -- use the new kind's name
+		-- ensure it's a new key
+		local n = 0
+		new_style = str
+		while styles[new_style] do
+			n = n + 1
+			new_style = str..'-'..tostring(n)
 		end
-		-- insert the custom_label_style modifications
-		for k,v in pairs(self.setup.kinds[kind].custom_label_style) do
-			new_style[k] = v
-		end
-		-- ensure we use a new style key
-		style_key = label_str
-		local n = 1
-		while self.setup.styles[style_key] do
-			style_key = label_str..'-'..tostring(n)
-		end
-		-- store the new style
-		self.setup.styles[style_key] = new_style
+
+		-- set the new style
+		setup:set_style(new_style, style_changes_map)
+
+	else
+
+		new_style = style
+
 	end
 
-	-- ensure we use a new kind key
-	local n = 1
-	while self.setup.kinds[kind_key] do
-		kind_key = label_str..'-'..tostring(n)
-		n = n + 1
-	end
-
-	-- create the new kind
-	-- keep the original prefix; new style if needed
-	-- set its new label to custom_label; set its counter to 'none'
-	self.setup.kinds[kind_key] = {}
-	self.setup.kinds[kind_key].prefix = self.setup.kinds[kind].prefix
-	self.setup.kinds[kind_key].style = style_key
-	self.setup.kinds[kind_key].label = self.custom_label -- Inlines
-	self.setup.kinds[kind_key].counter = 'none'
+	-- set the new kind
+	setup:set_kind(new_kind, {
+			prefix = kinds[kind].prefix,
+			style = new_style,
+			label = custom_label,
+			counter = 'none'
+	})
 
 	-- set this statement's kind to the new kind
-	self.kind = kind_key
+	self.kind = new_kind
 
 end
 
@@ -3601,7 +3507,7 @@ function Statement:set_values()
 	end
 
 	self:set_crossref_label() -- set crossref label
-	self:set_identifier(elem) -- set identifier, store crossref label for id
+	self:set_identifier() -- set identifier, store crossref label for id
 
 end
 
@@ -3613,8 +3519,9 @@ end
 --@param elem pandoc element for which we want to create an id
 --@return nil
 function Statement:set_identifier(elem)
+	elem = elem or self.element
 	local identifiers = self.setup.identifiers -- pointer to identifiers table
-	local id = self.identifier or ''
+	local id
 
 	-- safe_register: register id or id-1, id-2 avoiding duplicates
 	-- store id and crossref_label in the identifiers table
@@ -3622,56 +3529,99 @@ function Statement:set_identifier(elem)
 	--@param id string the identifier to be registered
 	--@return id, the id generated
 	function safe_register(id)
+		local new_id = id
 		local n = 0
-		local str = id
-		while identifiers[str] do
+		while identifiers[new_id] do
 			n = n + 1
-			str = id..'-'..tostring(n)
+			new_id = id..'-'..tostring(n)
 		end
-		identifiers[id] = {
+		identifiers[new_id] = {
 			statement = true,
 			crossref_label = self.crossref_label,
 			kind_label = self.is_numbered and kinds[self.kind].label,
 		}
 
 		-- udpate the 'self.identifier' field
-		self.identifier = id
+		self.identifier = new_id
 		-- update the element's identifier in case writer functions 
 		-- return it to the document
 		if self.element.attr then
-			self.element.attr.identifier = id
+			self.element.attr.identifier = new_id
 		end
-		return str
+		return new_id
 	end
 
-	-- Function body: try to create an identifier
+	-- Function body
 
 	--		user-specified id?
-	if id ~= '' then
-			-- if the user-specified id is a duplicate, create a new one and warn
-			-- user may have written an empty Span `[]{#id}` instead of `[](#id)`
-			if identifiers[id] then
-				local new_id = safe_register(id)
-				-- storing the new id as something to try instead of the duplicated id
+	if self.identifier then
+		id = self.identifier
+		local new_id = safe_register(id)
+		if new_id ~= id then
+			-- if the original id wasn't a statement, make
+			-- this original id point to the statement instead.
+			-- This recovers from the common mistake of entering
+			-- [ref]{#target} instead of [ref](#target)
+			if not identifiers[id].statement then
 				identifiers[id].try_instead = new_id
-				message('WARNING', 	"A "..self.kind.." statement's identifier `"..id.."`"
-														..' was a duplicate, I changed it to `'..new_id..'`.'
-														..' Some crossreferences may fail.'
-														..' Have you used an empty Span `[]{#'..id..'}'
-														..' instead of a Link `[](#'..id..') somewhere?')
+				message('WARNING', 	'The ID `'..id..'` you gave to a `'..self.kind..'` statement'
+														..' turns out to be a duplicate. Either you used it twice,'
+														..' or it matches an automatically-generated section ID,'
+														..' or you tried to refer to the statement with '
+														..' an empty Span `[]{#'..id..'}` rather than a Link' 
+														..' `[](#'..id..') somewhere.'
+														.." I've changed the ID to `"..new_id..' and made '
+														..' all crossreferences to `'..id..'` point to it'
+														..' instead. Some crossreferences may not be correct,'
+														..' you should give this statement another ID.')
 			else
-				safe_register(id)
+				message('WARNING', 	'The ID `'..id..'` you gave to a `'..self.kind..'` statement'
+														.." turns out to be a duplicate: it's already the ID of"
+														..'another statement: '
+														..stringify(identifiers[id].crossref_label)..'.'
+														..' Either you used it twice, or it happens to match'
+														..' the automatically-generated ID of that other statement.'
+														.." I've changed it to `"..new_id..' but all crossreferences'
+														..' to `'..id..'` will point to the point to the other statement.'
+														..' This is probably not what you want, you should '
+														..' give this statement another ID.')
 			end
+		end -- end of changed id warnings
 
 	-- 		acronym?
 	elseif self.acronym then
 		id = stringify(self.acronym):gsub('[^%w]','-')
-		safe_register(id)
+		local new_id = safe_register(id)
+		if new_id ~= id then
+			message('WARNING', 'The acronym `'..id..'` you gave to a `'..self.kind..'` statement'
+													..' could not be used as its ID because that ID already existed.'
+													.." Make sure you didn't try to refer to this statement with "
+													..' an empty Span `[]{#'..id..'}` rather than a Link' 
+													..' `[](#'..id..') somewhere.'
+													.." I've given it ID "..new_id.." instead. If you're trying"
+													..' to refer to this statement by its acronym the '
+													..' crossreferences will fail, you should give it a custom'
+													..' ID instead.'
+				)
+		end
 
 	--	custom label?
 	elseif self.custom_label then
 		id = stringify(self.custom_label):lower():gsub('[^%w]','-')
-		safe_register(id)
+		local new_id = safe_register(id)
+		if new_id ~= id then
+			message('WARNING', 'The custom label `'..id..'` you gave to a `'..self.kind..'` statement'
+													..' could not be used as its ID because that ID already existed.'
+													.." Make sure you didn't try to refer to this statement with "
+													..' an empty Span `[]{#'..id..'}` rather than a Link' 
+													..' `[](#'..id..') somewhere.'
+													.." I've given it ID "..new_id.." instead. If you're trying"
+													..' to refer to this statement by its acronym the '
+													..' crossreferences will fail, you should give it a custom'
+													..' ID instead.'
+				)
+		end
+
 	end
 
 end
@@ -3966,7 +3916,7 @@ function Statement:write_style(style, format)
 		--@TODO: handle space after theorem head. Need to use space chars???
 		local style_def = styles[style]
 		local margin_top = self.setup:length_format(style_def.margin_top)
-		local margin_right = self.setup:length_format(style_def.margin_bottom)
+		local margin_bottom = self.setup:length_format(style_def.margin_bottom)
 		local margin_right = self.setup:length_format(style_def.margin_right)
 		local margin_left = self.setup:length_format(style_def.margin_left)
 		local body_font = self.setup:font_format(style_def.body_font)
@@ -3992,13 +3942,13 @@ function Statement:write_style(style, format)
 				css_spec = css_spec..'\tmargin-top: '..margin_top..';\n'
 			end
 			if margin_bottom then
-				css_spec = css_spec..'\tmargin-top: '..margin_bottom..';\n'
+				css_spec = css_spec..'\tmargin-bottom: '..margin_bottom..';\n'
 			end
 			if margin_left then
-				css_spec = css_spec..'\tmargin-top: '..margin_left..';\n'
+				css_spec = css_spec..'\tmargin-left: '..margin_left..';\n'
 			end
 			if margin_right then
-				css_spec = css_spec..'\tmargin-top: '..margin_right..';\n'
+				css_spec = css_spec..'\tmargin-right: '..margin_right..';\n'
 			end
 			if body_font then
 				css_spec = css_spec..'\t'..body_font..'\n'
@@ -4230,31 +4180,26 @@ function Statement:write_latex()
 	local blocks = pandoc.List:new()
 	local id_span -- a Span element to give the statement an identifier
 
-	-- if the element has an identifier, insert an empty identifier Span 
-	if self.identifier then
-		id_span = pandoc.Span({},pandoc.Attr(self.identifier))
-		if self.content[1] and self.content[1] == 'Para' then
-			self.content[1].content:insert(1, id_span)
-		else
-		self.content:insert(pandoc.Plain(id_span))
-		end
-	end
-
-	-- \begin{kind}[info inlines] content blocks \end{kind}
+	-- we start with Plain block `\begin{...}[info]\hypertarget'
 	local inlines = pandoc.List:new()
 	inlines:insert(pandoc.RawInline('latex', 
 						'\\begin{' .. self.kind .. '}'))
+	-- if info, insert in brackets
 	if self.info then
 		inlines:insert(pandoc.RawInline('latex', '['))
 		inlines:extend(self.info)
 		inlines:insert(pandoc.RawInline('latex', ']'))
 	end
-	-- insert a span as link target if the statement has an identifier
+	-- if the element has an identifier, insert an empty identifier Span 
 	if self.identifier then
-		inlines:insert(1, pandoc.Span({},pandoc.Attr(self.identifier)))
+		inlines:insert(pandoc.Span({},pandoc.Attr(self.identifier)))
 	end
 	blocks:insert(pandoc.Plain(inlines))
+
+	-- main content
 	blocks:extend(self.content)
+
+	-- close
 	blocks:insert(pandoc.RawBlock('latex',
 						'\\end{' .. self.kind .. '}'))
 
@@ -4374,11 +4319,24 @@ function Statement:write_jats()
 	local blocks = pandoc.List:new()
 
 	--write_to_jats: use pandoc to convert inlines to jats output
-	--@BUG this needs the document meta, otherwise biblio not found 
+	--passing writer options that affect inlines formatting in JATS
+	--@BUG even with the doc's meta, citeproc doesn't convert citations
 	function write_to_jats(inlines)
 		local result, doc
 		local options = pandoc.WriterOptions({
-				cite_method = PANDOC_WRITER_OPTIONS.cite_method
+				cite_method = PANDOC_WRITER_OPTIONS.cite_method,
+				columns = PANDOC_WRITER_OPTIONS.columns,
+				email_obfuscation = PANDOC_WRITER_OPTIONS.email_obfuscation,
+				extensions = PANDOC_WRITER_OPTIONS.extensions,
+				highlight_style = PANDOC_WRITER_OPTIONS.highlight_style,
+				identifier_prefix = PANDOC_WRITER_OPTIONS.identifier_prefix,
+				listings = PANDOC_WRITER_OPTIONS.listings,
+				prefer_ascii = PANDOC_WRITER_OPTIONS.prefer_ascii,
+				reference_doc = PANDOC_WRITER_OPTIONS.reference_doc,
+				reference_links = PANDOC_WRITER_OPTIONS.reference_links,
+				reference_location = PANDOC_WRITER_OPTIONS.reference_location,
+				tab_stop = PANDOC_WRITER_OPTIONS.tab_stop,
+				wrap_text = PANDOC_WRITER_OPTIONS.wrap_text,
 		})
 		doc = pandoc.Pandoc(pandoc.Plain(inlines), doc_meta)
 		result = pandoc.write(doc, 'jats', options)
@@ -4807,7 +4765,7 @@ function Walker:walk(blocks)
 	local content_is_list_of_blocks = pandoc.List:new(
 							{'BulletList', 'DefinitionList', 'OrderedList'})
 	local result = pandoc.List:new()
-	local is_modified = false
+	local is_modified = false -- whether anything is changed in this doc
 
 	-- go through the blocks in order
 	--		- find headings and update counters
@@ -4847,32 +4805,85 @@ function Walker:walk(blocks)
 
 			end
 
+		-- ends Div block processing
+
 		-- DefinitionLists: scan for statements
-		-- @TODO: break down lists with multiple definitions
+		-- The element is a list, each item is a pair (inlines, 
+		-- list of blocks). We need to check the list item per item,
+		-- split it if it contains statements, and process the
+		-- contents of non-statement items recursively.
 		elseif self.setup.options.definition_lists 
 						and block.t == 'DefinitionList' then
 
-			-- try to create a statement
-			sta = Statement:new(block, self.setup)
+			-- `previous_items`: store non-statement items one by one until
+			-- we encounter a statement 
+			local previous_items = pandoc.List:new() -- to store previous items
+--			local block_modified = false -- any changes in this block?
 
-			-- if successful, insert
-			if sta then
-				result:extend(sta:write())
-				is_modified = true
+			for _,item in ipairs(block.content) do
 
-			-- if none, process the content of each DefList definition
-			else
+				-- if we succeed in creating a statement, flush out
+				-- any previous items in a DefinitionList and insert
+				-- the statement.
+				local successful_insert = false 
+				-- if item is supposed to be a statement, try parsing and insert.
+				-- note that Statement:new expects a single-item DefinitionList.
+				if Statement:DefListitem_is_statement(item, self.setup) then
 
-				-- local sub_blocks = self:walk(block.content)
-				-- if sub_blocks then
-				-- 	block.content = sub_blocks
-				-- 	is_modified = true
-				-- 	result:insert(block)
-				-- else
-				-- 	result:insert(block)
-				-- end
+					-- try to parse
+					sta = Statement:new(pandoc.DefinitionList({item}), self.setup)
+					if sta then
+						-- if previous items, flush them out in a new DefinitionList
+						if #previous_items > 0 then
+							result:insert(pandoc.DefinitionList(previous_items))
+							previous_items = pandoc.List:new()
+						end
+						result:extend(sta:write())
+						is_modified = true
+						successful_insert = true
+					end
+				end
 
+				-- if not a statement or failed to parse, treat as 
+				-- standard DefinitionList item: process the contents
+				-- recursively and insert in previous items.
+				if not successful_insert then 
+
+					-- recursively process the item's contents (list of Blocks)
+					-- recall a DefinitionList item is a pair
+					-- item[1] Inlines expression defined
+					-- item[2] List of Blocks (list of lists of block elements)
+					local new_content = pandoc.List:new()
+					for _,blocks in ipairs(item[2]) do
+						local sub_blocks = self:walk(blocks)
+						if sub_blocks then
+							is_modified = true
+							new_content:insert(sub_blocks)
+						else
+							new_content:insert(sub_blocks)
+						end
+					end
+					-- if we've modified anything in the recursion, insert
+					-- the new content
+					if is_modified then
+						item[2] = new_content
+					end
+
+					-- store the item to be included in a future DefinitionList
+					previous_items:insert(item)
+
+				end
+
+			end -- end of the item loop
+
+			-- if any previous_items left, insert as DefinitionList
+
+			if #previous_items > 0 then
+				result:insert(pandoc.DefinitionList(previous_items))
+				previous_items = pandoc.List:new()
 			end
+
+		-- ends DefinitionList block processing
 
 		-- element with blocks content: process recursively
 		elseif content_is_blocks:includes(block.t) then

@@ -14,11 +14,24 @@ function Statement:write_jats()
 	local blocks = pandoc.List:new()
 
 	--write_to_jats: use pandoc to convert inlines to jats output
-	--@BUG this needs the document meta, otherwise biblio not found 
+	--passing writer options that affect inlines formatting in JATS
+	--@BUG even with the doc's meta, citeproc doesn't convert citations
 	function write_to_jats(inlines)
 		local result, doc
 		local options = pandoc.WriterOptions({
-				cite_method = PANDOC_WRITER_OPTIONS.cite_method
+				cite_method = PANDOC_WRITER_OPTIONS.cite_method,
+				columns = PANDOC_WRITER_OPTIONS.columns,
+				email_obfuscation = PANDOC_WRITER_OPTIONS.email_obfuscation,
+				extensions = PANDOC_WRITER_OPTIONS.extensions,
+				highlight_style = PANDOC_WRITER_OPTIONS.highlight_style,
+				identifier_prefix = PANDOC_WRITER_OPTIONS.identifier_prefix,
+				listings = PANDOC_WRITER_OPTIONS.listings,
+				prefer_ascii = PANDOC_WRITER_OPTIONS.prefer_ascii,
+				reference_doc = PANDOC_WRITER_OPTIONS.reference_doc,
+				reference_links = PANDOC_WRITER_OPTIONS.reference_links,
+				reference_location = PANDOC_WRITER_OPTIONS.reference_location,
+				tab_stop = PANDOC_WRITER_OPTIONS.tab_stop,
+				wrap_text = PANDOC_WRITER_OPTIONS.wrap_text,
 		})
 		doc = pandoc.Pandoc(pandoc.Plain(inlines), doc_meta)
 		result = pandoc.write(doc, 'jats', options)

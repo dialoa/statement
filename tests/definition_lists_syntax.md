@@ -2,51 +2,82 @@
 title: Definition list synatx with the statement filter
 ---
 
+# Examples
+
 Theorem.
 : A simple theorem with definition label `Theorem`.
 
-<!-- This separates the lists; needed for the moment. --> 
-
 lem
 : A simple theorem with a short prefix label `lem`.
-: This definition list has two definitions.
+: This definition list has several definitions.
 
-  The second has two blocks.
+  Some of them have multiple blocks.
 
-<!-- This separates the lists; needed for the moment. --> 
+: All are included in the theorem's content.
 
 Theorem (some info).
 : This statement has only info.
 
-<!-- This separates the lists; needed for the moment. --> 
+Theorem some stuff that's not *bracketed*
+: When the theorem name is followed by some content that's
+    not marked out as custom label or info (no brackets),
+    we insert it in the statement's content.
 
-Theorem some ongoing text without *structure*
-: What to do with info that's not in brackets?
+Term1
+: We can insert genuine Definition Lists in the middle.
 
-<!-- This separates the lists; needed for the moment. --> 
+Term2
+: Here `Term1` and `Term2` are defined. The entire
+    DefinitionList is split into items.
 
 Theorem (some info).
 : We can place a dot after the info.
 
-<!-- This separates the lists; needed for the moment. --> 
-
 Theorem. (some info)
 : Or before.
-
-<!-- This separates the lists; needed for the moment. --> 
 
 Theorem (some info) \label{mytheorem}
 : This label receives an identifier with the LaTeX
     `\label{...}` command.
 
-<!-- This separates the lists; needed for the moment. --> 
-
 Theorem (some info) {#another}
 : This label receives an identifier with markdown
     syntax {#another}.
 
-Some crossreferences: @mytheorem refers to the former
-and @another to the latter.
+Some crossreferences: @mytheorem refers to the one identified
+with `\label{...}` and @another to the one identified with
+`{#...}`. @KL use an acronym to refer to the one below:
 
-Lemma **Klein's lemma** (source) \label{KL}
+Lemma **(KL) Klein's lemma** (source)
 : Perhaps we could Strong elements to create custom labels?
+
+# Recursion test
+
+Term3
+:   This is a standard definition. Its contents are processed
+    recursively in case they contain further definitions.
+:   Here we include a Div-style statement:
+
+    ::: theorem
+    My embedded theorem
+    :::
+
+    It should be rendered as a theorem.
+
+:   Pandoc doesn't create DefinitionLists within DefinitionLists
+    so we don't test that.
+:   But we can test Div-style statements within bullet lists
+    within definitions.
+
+    - list item
+    - list item that contains a lemma
+    
+      ::: lemma
+      My embedded lemma
+      :::
+
+    - list item
+
+: This is the last definition of Term3.
+
+The definition of Term 3 is complete.

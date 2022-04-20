@@ -57,13 +57,26 @@ function Statement:parse_Div(elem)
 	-- get the Div's user-specified id, if any
 	self.identifier = elem.identifier
 
-	-- store statement content
-	self.content = elem.content -- element content
-	
-	-- extract any label, info, acronym
-	-- @TODO if attributes_syntax is enabled, parse the attribute syntax
-	-- Cf. <https://github.com/ickc/pandoc-amsthm>
-	self:parse_Div_heading()
+	-- extract any label, acronym, info
+	-- these are in the first paragraph, if any
+	-- NOTE: side-effect, the original tree's element is modified
+	if elem.content[1] and elem.content[1].t == 'Para' then
+		local result = self:parse_heading_inlines(elem.content[1].content)
+		if result then
+			self.acronym = result.acronym
+			self.custom_label = result.custom_label
+			self.info = result.info
+			-- if any remainder, place in the Para otherwise remove
+			if result.remainder and #result.remainder > 0 then
+				elem.content[1].content = result.remainder
+			else
+				elem.content:remove(1)
+			end
+		end
+	end
+
+	-- store the content
+	self.content = elem.content
 
 	return true
 

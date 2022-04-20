@@ -122,7 +122,7 @@ function Statement:write_style(style, format)
 		--@TODO: handle space after theorem head. Need to use space chars???
 		local style_def = styles[style]
 		local margin_top = self.setup:length_format(style_def.margin_top)
-		local margin_right = self.setup:length_format(style_def.margin_bottom)
+		local margin_bottom = self.setup:length_format(style_def.margin_bottom)
 		local margin_right = self.setup:length_format(style_def.margin_right)
 		local margin_left = self.setup:length_format(style_def.margin_left)
 		local body_font = self.setup:font_format(style_def.body_font)
@@ -148,13 +148,13 @@ function Statement:write_style(style, format)
 				css_spec = css_spec..'\tmargin-top: '..margin_top..';\n'
 			end
 			if margin_bottom then
-				css_spec = css_spec..'\tmargin-top: '..margin_bottom..';\n'
+				css_spec = css_spec..'\tmargin-bottom: '..margin_bottom..';\n'
 			end
 			if margin_left then
-				css_spec = css_spec..'\tmargin-top: '..margin_left..';\n'
+				css_spec = css_spec..'\tmargin-left: '..margin_left..';\n'
 			end
 			if margin_right then
-				css_spec = css_spec..'\tmargin-top: '..margin_right..';\n'
+				css_spec = css_spec..'\tmargin-right: '..margin_right..';\n'
 			end
 			if body_font then
 				css_spec = css_spec..'\t'..body_font..'\n'

@@ -19,7 +19,6 @@ function Statement:trim_dot_space(inlines, direction)
 	while keep_looking do
 		keep_looking = false
 		if #inlines > 0 then
-
 			if inlines[firstpos(inlines)].t == 'Space' then
 				inlines:remove(firstpos(inlines))
 				keep_looking = true

@@ -49,6 +49,7 @@ This statement has no label or info.
 
 ::: thm
 @thatone [@theother] This statement has a couple of citations as info.
+In JATS, citeproc fails to process the info's embedded citations.
 :::
 
 ::: thm

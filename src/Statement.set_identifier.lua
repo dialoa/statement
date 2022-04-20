@@ -6,8 +6,9 @@
 --@param elem pandoc element for which we want to create an id
 --@return nil
 function Statement:set_identifier(elem)
+	elem = elem or self.element
 	local identifiers = self.setup.identifiers -- pointer to identifiers table
-	local id = self.identifier or ''
+	local id
 
 	-- safe_register: register id or id-1, id-2 avoiding duplicates
 	-- store id and crossref_label in the identifiers table
@@ -15,56 +16,99 @@ function Statement:set_identifier(elem)
 	--@param id string the identifier to be registered
 	--@return id, the id generated
 	function safe_register(id)
+		local new_id = id
 		local n = 0
-		local str = id
-		while identifiers[str] do
+		while identifiers[new_id] do
 			n = n + 1
-			str = id..'-'..tostring(n)
+			new_id = id..'-'..tostring(n)
 		end
-		identifiers[id] = {
+		identifiers[new_id] = {
 			statement = true,
 			crossref_label = self.crossref_label,
 			kind_label = self.is_numbered and kinds[self.kind].label,
 		}
 
 		-- udpate the 'self.identifier' field
-		self.identifier = id
+		self.identifier = new_id
 		-- update the element's identifier in case writer functions 
 		-- return it to the document
 		if self.element.attr then
-			self.element.attr.identifier = id
+			self.element.attr.identifier = new_id
 		end
-		return str
+		return new_id
 	end
 
-	-- Function body: try to create an identifier
+	-- Function body
 
 	--		user-specified id?
-	if id ~= '' then
-			-- if the user-specified id is a duplicate, create a new one and warn
-			-- user may have written an empty Span `[]{#id}` instead of `[](#id)`
-			if identifiers[id] then
-				local new_id = safe_register(id)
-				-- storing the new id as something to try instead of the duplicated id
+	if self.identifier then
+		id = self.identifier
+		local new_id = safe_register(id)
+		if new_id ~= id then
+			-- if the original id wasn't a statement, make
+			-- this original id point to the statement instead.
+			-- This recovers from the common mistake of entering
+			-- [ref]{#target} instead of [ref](#target)
+			if not identifiers[id].statement then
 				identifiers[id].try_instead = new_id
-				message('WARNING', 	"A "..self.kind.." statement's identifier `"..id.."`"
-														..' was a duplicate, I changed it to `'..new_id..'`.'
-														..' Some crossreferences may fail.'
-														..' Have you used an empty Span `[]{#'..id..'}'
-														..' instead of a Link `[](#'..id..') somewhere?')
+				message('WARNING', 	'The ID `'..id..'` you gave to a `'..self.kind..'` statement'
+														..' turns out to be a duplicate. Either you used it twice,'
+														..' or it matches an automatically-generated section ID,'
+														..' or you tried to refer to the statement with '
+														..' an empty Span `[]{#'..id..'}` rather than a Link' 
+														..' `[](#'..id..') somewhere.'
+														.." I've changed the ID to `"..new_id..' and made '
+														..' all crossreferences to `'..id..'` point to it'
+														..' instead. Some crossreferences may not be correct,'
+														..' you should give this statement another ID.')
 			else
-				safe_register(id)
+				message('WARNING', 	'The ID `'..id..'` you gave to a `'..self.kind..'` statement'
+														.." turns out to be a duplicate: it's already the ID of"
+														..'another statement: '
+														..stringify(identifiers[id].crossref_label)..'.'
+														..' Either you used it twice, or it happens to match'
+														..' the automatically-generated ID of that other statement.'
+														.." I've changed it to `"..new_id..' but all crossreferences'
+														..' to `'..id..'` will point to the point to the other statement.'
+														..' This is probably not what you want, you should '
+														..' give this statement another ID.')
 			end
+		end -- end of changed id warnings
 
 	-- 		acronym?
 	elseif self.acronym then
 		id = stringify(self.acronym):gsub('[^%w]','-')
-		safe_register(id)
+		local new_id = safe_register(id)
+		if new_id ~= id then
+			message('WARNING', 'The acronym `'..id..'` you gave to a `'..self.kind..'` statement'
+													..' could not be used as its ID because that ID already existed.'
+													.." If you're not planning to crossrefer to this statement, "
+													.." that's not a problem. But if you are the crossreferences "
+													.." won't work as intended."
+													.." Make sure you didn't try to refer to this statement with "
+													..' an empty Span `[]{#'..id..'}` rather than a Link' 
+													..' `[](#'..id..') somewhere, and otherwise give it a custom ID.'
+													.." In the meanwhile I've given it ID "..new_id.." instead."
+				)
+		end
 
 	--	custom label?
 	elseif self.custom_label then
 		id = stringify(self.custom_label):lower():gsub('[^%w]','-')
-		safe_register(id)
+		local new_id = safe_register(id)
+		if new_id ~= id then
+			message('WARNING', 'The custom label `'..id..'` you gave to a `'..self.kind..'` statement'
+													..' could not be used as its ID because that ID already existed.'
+													.." If you're not planning to crossrefer to this statement, "
+													.." that's not a problem. But if you are the crossreferences "
+													.." won't work as intended."
+													.." Make sure you didn't try to refer to this statement with "
+													..' an empty Span `[]{#'..id..'}` rather than a Link' 
+													..' `[](#'..id..') somewhere, and otherwise give it a custom ID.'
+													.." In the meanwhile I've given it ID "..new_id.." instead."
+				)
+		end
+
 	end
 
 end

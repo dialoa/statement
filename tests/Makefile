@@ -29,40 +29,49 @@ jats: $(JATS_TARGETS)
 docx: $(DOCX_TARGETS)
 
 number_offset.html : number_offset.md $(ROOT)statement.lua
+	@echo Generating $@
 	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \
 		--number-offset=2,2,2 \
 		--top-level-division=chapter \
 		--mathjax --number-sections --citeproc --to=html --output $@
 
 automatic_locale.tex : automatic_locale.md $(ROOT)statement.lua
+	@echo Generating $@
 	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \
 		--pdf-engine lualatex \
 		--number-sections --citeproc --to=latex --output $@
 
 automatic_locale.pdf : automatic_locale.md $(ROOT)statement.lua
+	@echo Generating $@
 	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \
 		--pdf-engine lualatex \
 		--number-sections --citeproc --to=pdf --output $@
 
 %.tex: %.md $(ROOT)statement.lua
+	@echo Generating $@
 	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \
 		--number-sections --citeproc --to=latex --output $@
 
 %.pdf: %.md $(ROOT)statement.lua
+	@echo Generating $@
 	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \
 		--number-sections --citeproc --to=pdf --output $@
 
 %.html: %.md $(ROOT)statement.lua
+	@echo Generating $@
 	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \
 		--mathjax --number-sections --citeproc --to=html --output $@
 
 %.xml: %.md $(ROOT)statement.lua
+	@echo Generating $@
 	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \
 		--citeproc --to=jats --output $@
 
 %.docx: %.md $(ROOT)statement.lua
+	@echo Generating $@
 	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \
 		--number-sections --citeproc --to=docx --output $@
 
 clean: 
+	@echo Cleaning up generated files
 	@rm -f $(LATEX_TARGETS) $(PDF_TARGETS) $(HTML_TARGETS) $(JATS_TARGETS) $(DOCX_TARGETS)
