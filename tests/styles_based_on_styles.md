@@ -1,23 +1,27 @@
 ---
 statement-styles:
+    plain:
+        space_after_head: 3em # try to redefine `plain`
     style1:
-        margin_top: 12pt
-        based_on: style2
+        label: Style1 Theorem
+        margin-top: 12pt
+        based-on: style2
     style2:
-        margin_top: 2em
-        margin_bottom: 2em
-        based_on: remark
+        margin-top: 2em
+        margin-bottom: 2em
+        punctuation: ':'
+        based-on: remark
     style5:
-        margin_top: 5em
-        based_on: style3 # circularity, this will generate an error but no crash
+        margin-top: 5em
+        based-on: style3 # circularity, this will generate an error but no crash
 statement:
     styles:
         style3:
-            margin_top: 3em
-            based_on: style4
+            margin-top: 3em
+            based-on: style4
         style4:
-            margin_top: 4em
-            based_on: style5
+            margin-top: 4em
+            based-on: style5
 statement-kinds:
     thm1:
         style: style1
@@ -34,12 +38,19 @@ statement-kinds:
         style: style5
 ---
 
+::: theorem
+This is in `plain` style, redefined to have a large space after head.
+
+:::
+
 ::: thm1
-This is in `style1`.
+This is in `style1`. Not declared as based on anything, so it is
+assumed to be based on `plain`. 
 :::
 
 ::: thm2
-This is in `style2`.
+This is in `style2`. It is based on `remark`. No label has been provided. We've
+changed the punctuation to ':'.
 :::
 
 ::: thm3

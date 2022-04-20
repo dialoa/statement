@@ -42,6 +42,11 @@ function Setup:create_kinds_and_styles_defaults(meta)
 						end
 					end
 
+					-- once defined, not based on anymore
+					-- (Ensures that if user redefines the basis style, it doesn't
+					--	affect new styles based on this derived style)
+					definition.based_on = nil
+
 					-- No need for this in Lua as tables are passed by references
 					-- but putting it there as a reminder of what happens
 					-- self.styles[style] = definition

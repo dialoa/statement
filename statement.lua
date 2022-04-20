@@ -1476,6 +1476,9 @@ function Setup:create_kinds_and_styles_defaults(meta)
 						end
 					end
 
+					-- once defined, not based on anymore
+					definition.based_on = nil
+
 					-- No need for this in Lua as tables are passed by references
 					-- but putting it there as a reminder of what happens
 					-- self.styles[style] = definition
@@ -3595,13 +3598,13 @@ function Statement:set_identifier(elem)
 		if new_id ~= id then
 			message('WARNING', 'The acronym `'..id..'` you gave to a `'..self.kind..'` statement'
 													..' could not be used as its ID because that ID already existed.'
+													.." If you're not planning to crossrefer to this statement, "
+													.." that's not a problem. But if you are the crossreferences "
+													.." won't work as intended."
 													.." Make sure you didn't try to refer to this statement with "
 													..' an empty Span `[]{#'..id..'}` rather than a Link' 
-													..' `[](#'..id..') somewhere.'
-													.." I've given it ID "..new_id.." instead. If you're trying"
-													..' to refer to this statement by its acronym the '
-													..' crossreferences will fail, you should give it a custom'
-													..' ID instead.'
+													..' `[](#'..id..') somewhere, and otherwise give it a custom ID.'
+													.." In the meanwhile I've given it ID "..new_id.." instead."
 				)
 		end
 
@@ -3612,13 +3615,13 @@ function Statement:set_identifier(elem)
 		if new_id ~= id then
 			message('WARNING', 'The custom label `'..id..'` you gave to a `'..self.kind..'` statement'
 													..' could not be used as its ID because that ID already existed.'
+													.." If you're not planning to crossrefer to this statement, "
+													.." that's not a problem. But if you are the crossreferences "
+													.." won't work as intended."
 													.." Make sure you didn't try to refer to this statement with "
 													..' an empty Span `[]{#'..id..'}` rather than a Link' 
-													..' `[](#'..id..') somewhere.'
-													.." I've given it ID "..new_id.." instead. If you're trying"
-													..' to refer to this statement by its acronym the '
-													..' crossreferences will fail, you should give it a custom'
-													..' ID instead.'
+													..' `[](#'..id..') somewhere, and otherwise give it a custom ID.'
+													.." In the meanwhile I've given it ID "..new_id.." instead."
 				)
 		end
 
