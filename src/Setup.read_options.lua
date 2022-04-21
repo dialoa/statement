@@ -90,6 +90,7 @@ function Setup:read_options(meta)
 			only_statement = 'only-statement',
 			define_in_header = 'define-in-header',
 			citations = 'citations',
+			pandoc_amsthm = 'pandoc-amsthm',
 		}
 		for key,option in pairs(boolean_options) do
 			if type(meta.statement[option]) == 'boolean' then
@@ -98,11 +99,22 @@ function Setup:read_options(meta)
 		end
 
 		-- read count-within option, level or LaTeX level name
+		-- two locations:
+		-- (1) pandoc-amsthm style options, in amsthm: counter_depth (number)
+		-- (2) statement:count-within
+		-- The latter prevails.
+		if self.options.pandoc_amsthm and meta.amsthm 
+				and meta.amsthm.counter_depth then
+			local count_within = tonumber(stringify(meta.amsthm.counter_depth))
+			if self:get_LaTeX_name_by_level(count_within) then
+				self.options.count_within = count_within
+			end
+		end
 		if meta.statement['count-within'] then
 			local count_within = stringify(meta.statement['count-within']):lower()
 			if self:get_level_by_LaTeX_name(count_within) then
 				self.options.count_within = count_within
-			elseif self:get_level_by_LaTeX_name(count_within) then
+			elseif self:get_LaTeX_name_by_level(count_within) then
 				self.options.count_within = count_within
 			end
 		end

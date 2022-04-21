@@ -53,8 +53,8 @@ Setup.DEFAULTS.STYLES = {
 	},
 	basic = {
 		plain = { do_not_define_in_latex = true,
-			margin_top = '\\baselineskip',
-			margin_bottom = '\\baselineskip',
+			margin_top = nil,
+			margin_bottom = nil,
 			margin_left = nil,
 			margin_right = nil,
 			body_font = 'italics',

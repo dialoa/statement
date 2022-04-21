@@ -82,14 +82,15 @@ Setup.options = {
 	only_statement = false, -- only process Divs of 'statement' class
 	definition_lists = true, -- process DefinitionLists
 	citations = true, -- allow citation syntax for crossreferences
+	count_within = nil, -- default count-within
+	pandoc_amsthm = true, -- process pandoc-amsthm style meta and theorems
 	language = 'en', -- LOCALE setting
 	fontsize = nil, -- document fontsize
-	count_within = nil, -- default count-within
 	LaTeX_section_level = 1, -- heading level for to LaTeX's 'section'
 	LaTeX_in_list_afterskip = '.5em', -- space after statement first item in list
 	LaTeX_in_list_rightskip = '2em', -- right margin for statement first item in list
-	acronym_delimiters = {'(',')'}, -- in case we want to open this to the user
-	info_delimiters = {'(',')'}, -- in case we want to open this to the user
+	acronym_delimiters = {'(',')'}, -- in output, in case we want to open this to the user
+	info_delimiters = {'(',')'}, -- in output, in case we want to open this to the user
 }
 
 --- Setup.meta, pointer to the doc's meta
@@ -219,8 +220,8 @@ Setup.DEFAULTS.STYLES = {
 	},
 	basic = {
 		plain = { do_not_define_in_latex = true,
-			margin_top = '\\baselineskip',
-			margin_bottom = '\\baselineskip',
+			margin_top = nil,
+			margin_bottom = nil,
 			margin_left = nil,
 			margin_right = nil,
 			body_font = 'italics',
@@ -1357,6 +1358,7 @@ function Setup:read_options(meta)
 			only_statement = 'only-statement',
 			define_in_header = 'define-in-header',
 			citations = 'citations',
+			pandoc_amsthm = 'pandoc-amsthm',
 		}
 		for key,option in pairs(boolean_options) do
 			if type(meta.statement[option]) == 'boolean' then
@@ -1365,11 +1367,22 @@ function Setup:read_options(meta)
 		end
 
 		-- read count-within option, level or LaTeX level name
+		-- two locations:
+		-- (1) pandoc-amsthm style options, in amsthm: counter_depth (number)
+		-- (2) statement:count-within
+		-- The latter prevails.
+		if self.options.pandoc_amsthm and meta.amsthm 
+				and meta.amsthm.counter_depth then
+			local count_within = tonumber(stringify(meta.amsthm.counter_depth))
+			if self:get_LaTeX_name_by_level(count_within) then
+				self.options.count_within = count_within
+			end
+		end
 		if meta.statement['count-within'] then
 			local count_within = stringify(meta.statement['count-within']):lower()
 			if self:get_level_by_LaTeX_name(count_within) then
 				self.options.count_within = count_within
-			elseif self:get_level_by_LaTeX_name(count_within) then
+			elseif self:get_LaTeX_name_by_level(count_within) then
 				self.options.count_within = count_within
 			end
 		end
@@ -1477,6 +1490,8 @@ function Setup:create_kinds_and_styles_defaults(meta)
 					end
 
 					-- once defined, not based on anymore
+					-- (Ensures that if user redefines the basis style, it doesn't
+					--	affect new styles based on this derived style)
 					definition.based_on = nil
 
 					-- No need for this in Lua as tables are passed by references
@@ -1536,6 +1551,8 @@ end
 --@param meta pandoc Meta object, document's metadata
 --@return nil 
 function Setup:create_kinds_and_styles_user(meta)
+	local options = self.options -- points to the options table
+	local styles = self.styles -- points to the styles table
 	local new_kinds, new_styles
 
 	---dash_keys_to_underscore: replace dashes with underscores in a 
@@ -1544,7 +1561,7 @@ function Setup:create_kinds_and_styles_user(meta)
 	--@return
 	local function dash_keys_to_underscore(map)
 		new_map = {}
-		for key,value in pairs(map) do
+		for key,_ in pairs(map) do
 			new_map[key:gsub('%-','_')] = map[key]
 		end
 		return new_map
@@ -1591,6 +1608,8 @@ function Setup:create_kinds_and_styles_user(meta)
 		local function try_define_style(style, definition, recursion_trail)
 			-- if already defined, we're good
 			if definition.is_defined then return end
+			-- replace dashes with underscores
+			definition = dash_keys_to_underscore(definition)
 			-- if `based_on` is set, possible cases:
 			--		- basis not in defaults or new_styles: ignore
 			--		- current style among those to be defined: circularity, ignore
@@ -1600,7 +1619,7 @@ function Setup:create_kinds_and_styles_user(meta)
 			if definition.based_on then
 				local parent_style = stringify(definition.based_on)
 
-				if not self.styles[parent_style] 
+				if not styles[parent_style] 
 						and not new_styles[parent_style] then
 					message('ERROR', 'Style `'..style..'` is supposed to be based'
 														..' on style `'..parent_style..'`'
@@ -1647,13 +1666,17 @@ function Setup:create_kinds_and_styles_user(meta)
 	end -- end of user-defined styles
 
 	-- User-defined kinds
-	-- The ones in 'statement' prevail over those in 'statement-kinds'
+	-- Can be found in four locations.
+	--		(a) full definitions in 'statement:kinds:' and 'statement-kinds'
+	--				(the former prevails)
+	--		(b) by-style label only in 'statement' or 'pandoc-amsthm'				
 	-- @note using type(X) == 'table' to test both existence and type
-	if type(meta['statement-kinds']) == 'table' 
-			or meta.statement and type(meta.statement.kinds) == 'table' then
+	if meta.statement
+			or type(meta['statement-kinds']) == 'table' 
+			or options.pandoc_amsthm and type(meta.amsthm) == 'table' then
 
-		-- gather the kinds to be defined
-		new_kinds = {}
+		-- Gather kinds to be defined
+		new_kinds = {} -- map
 		--- insert_new_kind: function to insert a kind `in new_kinds`
 		local function insert_new_kind(kind,definition)
 			if type(definition) == 'table' then
@@ -1664,24 +1687,78 @@ function Setup:create_kinds_and_styles_user(meta)
 													.." I've ignored it.")
 			end
 		end
-		-- gather the kinds to be defined
+		--- parse_by_style: parse a list of kinds for a given style
+		-- in the style of pandoc-amsthm kind definitions.
+		-- remark: Case
+		-- plain: [Theorem, Lemma, Corollary, Conjecture, Proposition]
+		-- definition:
+		-- - Definition
+		-- remark-unnumbered: ...
+		--@param style_key string key of the styles table
+		--@param list List, string or Inlines, kinds
+		local function parse_by_style(style_key, list, counter)
+			if type(list) == 'string' or type(list) == 'Inlines' then
+				list = pandoc.List:new( {list} )
+			end
+			if type(list) == 'List' then
+				for _,item in ipairs(list) do
+					-- each item is a kind's label, or a map (kind = list_subkinds)
+					if type(item) == 'string' or type(item) == 'Inlines' then
+						local kind = stringify(item):gsub('[^%w]','_')
+						insert_new_kind(kind, {
+								label = item,
+								counter = counter, -- may be nil, set_kind takes care of it
+								style = style_key,
+						})
+					end
+				end
+			end
+		end
+		--- parse_by_styles: parse a Meta map looking for 
+		-- keys that correspond to a style, and parse each of these
+		-- as a list of kinds.
+		local function parse_by_styles(map)
+			for style,list in pairs(styles) do
+				if map[style] then 
+					parse_by_style(style, map[style])
+				end
+				-- is there a <style>-unnumbered list to process as well?
+				-- only process if it's not already a style
+				if map[style..'-unnumbered'] 
+						and not styles[style..'-unnumbered'] then 
+					parse_by_style(style, map[style..'-unnumbered'], 'none')
+				end
+			end
+		end
+		-- Gather definitions from four locations
+		-- lowest priority first: the latter erase the former
+		-- (1) pandoc-amsthm's `amsthm` field, kinds given by style
+		if options.pandoc_amsthm and type(meta.amsthm) == 'table' then
+			parse_by_styles(meta.amsthm)
+		end
+		-- (2) `statement` field, kinds given by style
+		if meta.statement then 
+			parse_by_styles(meta.statement)
+		end
+		-- (3) `statement-kinds` map of full definitions
 		if type(meta['statement-kinds']) == 'table' then
 			for kind,definition in pairs(meta['statement-kinds']) do
 				insert_new_kind(kind,definition)
 			end
 		end
+		-- (4) `statement:kinds` map of full definitions
 		if meta.statement and type(meta.statement.kinds) == 'table' then
 			for kind,definition in pairs(meta.statement.kinds) do
 				insert_new_kind(kind,definition)
 			end
 		end
 
-		-- main loop to define kinds
+		-- main loop to define the kind definitions we've gathered
 		for kind,definition in pairs(new_kinds) do
 			self:set_kind(kind,definition,new_kinds)
 		end
 
-	end -- end of user-defined kinds
+	end -- end of statement kinds
 
 end
 
@@ -2182,7 +2259,7 @@ function Setup:length_format(str, format)
 			latex = {0.01, '\\linewidth'}
 	}
 	-- LATEX_LENGTHS and their conversions
-	local LATEX_LENGTHS = {
+	local LATEX_LENGTHS = {		
 		baselineskip = {	-- height between lines, roughly 2.7 ex
 			css = {2.7, 'ex'},
 		},

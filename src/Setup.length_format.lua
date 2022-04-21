@@ -74,7 +74,7 @@ function Setup:length_format(str, format)
 			latex = {0.01, '\\linewidth'}
 	}
 	-- LATEX_LENGTHS and their conversions
-	local LATEX_LENGTHS = {
+	local LATEX_LENGTHS = {		
 		baselineskip = {	-- height between lines, roughly 2.7 ex
 			css = {2.7, 'ex'},
 		},
