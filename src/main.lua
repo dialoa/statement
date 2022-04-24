@@ -9,8 +9,13 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @license MIT - see LICENSE file for details.
 @release 0.4.1
 
-@TODO parse-only mode? Find statements and process crossref, but do not 
-			format anything. Collection filter: needs to turn Cites into Links
+@TODO handle reference prefixes like pandoc-crossref
+			[@thm:id] theorem 1, [@Thm:id] Theorem 1
+			[-@thm:id] 1
+			@thm:id handled like [@thm:id].
+@TODO rethink prefixes: allow several (thm, thms) and treat the first only as alias
+@TODO parse-only mode? Find statements and write crossrefs, but do not 
+			write statements themselves. Collection filter: needs to turn Cites into Links
 			in order to isolate. Needs to find all statements to sort out
 			the Cites into crossref vs biblio.
 @TODO provide head-pattern, '<label> <num>. **<info>**', relying on Pandoc's rawinline parsing

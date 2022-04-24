@@ -21,8 +21,9 @@ function Statement:new_kind_from_label()
 
 	-- create_key_from_label: turn inlines into a key that
 	-- can safely be used as LaTeX envt name and html class
+	-- we add 'statement_' in case the label matches a LaTeX command
 	local function create_key_from_label(inlines)
-		local result = stringify(inlines):gsub('[^%w]','_'):lower()
+		local result = 'statement_'..stringify(inlines):gsub('[^%w]','_'):lower()
 		if result == '' then result = '_' end
 		return result
 	end

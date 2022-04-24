@@ -9,8 +9,13 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @license MIT - see LICENSE file for details.
 @release 0.4.1
 
-@TODO parse-only mode? Find statements and process crossref, but do not 
-			format anything. Collection filter: needs to turn Cites into Links
+@TODO handle reference prefixes like pandoc-crossref
+			[@thm:id] theorem 1, [@Thm:id] Theorem 1
+			[-@thm:id] 1
+			@thm:id handled like [@thm:id].
+@TODO rethink prefixes: allow several (thm, thms) and treat the first only as alias
+@TODO parse-only mode? Find statements and write crossrefs, but do not 
+			write statements themselves. Collection filter: needs to turn Cites into Links
 			in order to isolate. Needs to find all statements to sort out
 			the Cites into crossref vs biblio.
 @TODO provide head-pattern, '<label> <num>. **<info>**', relying on Pandoc's rawinline parsing
@@ -3485,8 +3490,9 @@ function Statement:new_kind_from_label()
 
 	-- create_key_from_label: turn inlines into a key that
 	-- can safely be used as LaTeX envt name and html class
+	-- we add 'statement_' in case the label matches a LaTeX command
 	local function create_key_from_label(inlines)
-		local result = stringify(inlines):gsub('[^%w]','_'):lower()
+		local result = 'statement_'..stringify(inlines):gsub('[^%w]','_'):lower()
 		if result == '' then result = '_' end
 		return result
 	end
