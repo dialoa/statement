@@ -25,10 +25,12 @@ Theorem some stuff that's not *bracketed*
 
 Term1
 : We can insert genuine Definition Lists in the middle.
+: Here `Term1` and `Term2` are defined.
 
 Term2
-: Here `Term1` and `Term2` are defined. The entire
-    DefinitionList is split into items.
+: In the source they are part of a DefinitionList that
+    includes the theorems above and below; the filter
+    splits it. 
 
 Theorem (some info).
 : We can place a dot after the info.

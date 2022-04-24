@@ -7,24 +7,24 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @author Thomas Hodgson <hello@twshodgson.net>
 @copyright 2021-2022 Julien Dutant, Thomas Hodgson
 @license MIT - see LICENSE file for details.
-@release 0.3
+@release 0.4.1
 
-@TODO provide 'break-after-head' style field
+@TODO parse-only mode? Find statements and process crossref, but do not 
+			format anything. Collection filter: needs to turn Cites into Links
+			in order to isolate. Needs to find all statements to sort out
+			the Cites into crossref vs biblio.
 @TODO provide head-pattern, '<label> <num>. **<info>**', relying on Pandoc's rawinline parsing
 @TODO provide \ref \label crossreferences in LaTeX?
 @TODO handle pandoc-amsthm style Div attributes?
 @TODO handle the Case environment?
 
 @TODO proof environment in non-LaTeX outputs
-proof environement in LaTeX AMS:
-- does not define a new theorem kind and style
-- has a \proofname command to be redefined
-- has an optional argument for label
-\begin{proof}[label]
-\end{proof}
-how do we handle it in html, jats? best would be not to create 
-a new class every time, so mirror LaTeX. 
-
+			in LaTeX AMS the proof envt doesn't define a new th kind and style
+			as a proofname command to be redefined as "Proof", "Démonstration" etc.
+			has an optional argument to be used as label:
+			\begin{proof}[label]
+			\end{proof}
+			In other formats, we should mirror LaTeX: use the info as label
 ]]
 
 -- # Global helper functions

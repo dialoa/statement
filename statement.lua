@@ -7,24 +7,24 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @author Thomas Hodgson <hello@twshodgson.net>
 @copyright 2021-2022 Julien Dutant, Thomas Hodgson
 @license MIT - see LICENSE file for details.
-@release 0.3
+@release 0.4.1
 
-@TODO provide 'break-after-head' style field
+@TODO parse-only mode? Find statements and process crossref, but do not 
+			format anything. Collection filter: needs to turn Cites into Links
+			in order to isolate. Needs to find all statements to sort out
+			the Cites into crossref vs biblio.
 @TODO provide head-pattern, '<label> <num>. **<info>**', relying on Pandoc's rawinline parsing
 @TODO provide \ref \label crossreferences in LaTeX?
 @TODO handle pandoc-amsthm style Div attributes?
 @TODO handle the Case environment?
 
 @TODO proof environment in non-LaTeX outputs
-proof environement in LaTeX AMS:
-- does not define a new theorem kind and style
-- has a \proofname command to be redefined
-- has an optional argument for label
-\begin{proof}[label]
-\end{proof}
-how do we handle it in html, jats? best would be not to create 
-a new class every time, so mirror LaTeX. 
-
+			in LaTeX AMS the proof envt doesn't define a new th kind and style
+			as a proofname command to be redefined as "Proof", "Démonstration" etc.
+			has an optional argument to be used as label:
+			\begin{proof}[label]
+			\end{proof}
+			In other formats, we should mirror LaTeX: use the info as label
 ]]
 
 -- # Global helper functions
@@ -112,7 +112,7 @@ Setup.kinds = {
 --- Setup.styles: styles of statement, e.g. 'plain', 'remark'
 Setup.styles = {
 	-- stylename = {
-	--			do_not_define_in_latex = bool, whether to define in LaTeX amsthm
+	--		do_not_define_in_latex = bool, whether to define in LaTeX amsthm
 	--		based_on = 'plain' -- base on another style
 	--		margin_top = '\\baselineskip', -- space before
 	--		margin_bottom = '\\baselineskip', -- space after
@@ -123,6 +123,7 @@ Setup.styles = {
 	--		head_font = 'bold', -- head font
 	--		punctuation = '.', -- punctuation after statement heading
 	--		space_after_head = '1em', -- horizontal space after heading 
+	-- 		linebreak_after_head = bool, -- linebreak after heading
 	--		heading_pattern = nil, -- heading pattern (not used yet)
 	--	}
 }
@@ -214,7 +215,7 @@ Setup.DEFAULTS.STYLES = {
 			indent = '0pt',
 			head_font = 'smallcaps',
 			punctuation = '',
-			space_after_head = ' ',
+			space_after_head = ' ', -- use '\n' or '\\n' or '\newline' for linebreak
 			heading_pattern = nil,			
 		},
 	},
@@ -1529,6 +1530,19 @@ function Setup:create_kinds_and_styles_defaults(meta)
 	-- fill in styles based on other styles
 	based_on_styles()
 
+	-- styles: convert newlines in 'space_after_head' 
+	-- to linebreak_after_head = true
+	for style,definition in pairs(self.styles) do
+		if definition.space_after_head and
+			(definition.space_after_head == '\n'
+				or definition.space_after_head == '\\n'
+				or definition.space_after_head == '\\newline'
+				) then
+			self.styles[style].linebreak_after_head = true
+			self.styles[style].space_after_head = nil
+		end
+	end
+
 	-- if count_within, change defaults with 'self' counter 
 	-- to 'count_within' counter
 	if self.options.count_within then
@@ -1815,7 +1829,8 @@ function Setup:set_style(style,map,new_styles)
 	local new_style = {}
 	local based_on = map.based_on and stringify(map.based_on) or nil
 
-	-- basis: user-defined, default version of this style, 'plain' or 'empty'
+	-- basis: user-defined basis, or default version of this style if any,
+	-- 				otherwise 'plain', otherwise 'empty'
 	-- user-defined can be a pre-existing (=default) style 
 	--									or a new style other than itself
 	if based_on then
@@ -1828,7 +1843,8 @@ function Setup:set_style(style,map,new_styles)
 			based_on = nil
 		else
 			message('ERROR', 'Style '..style..' could not be based on'
-												..'`'..based_on..'`')
+												..'`'..based_on..'`. Check if the latter'
+												..' is defined.')
 			based_on = nil
 		end
 	end
@@ -1855,16 +1871,39 @@ function Setup:set_style(style,map,new_styles)
 	end
 
 	-- validate and insert options, or copy from the style it's based on
-	local length_fields = {
+	local length_fields = pandoc.List:new({
 		'margin_top', 'margin_bottom', 'margin_left', 'margin_right',
-		'indent', 'space_after_head'
-	}
+		'indent'
+	})
 	local font_fields = {
 		'body_font', 'head_font'
 	}
 	local string_fields = { 
 		'punctuation', 'heading_pattern'
 	}
+	-- handles linebreak_after_head style
+	-- (a) linebreak_after_head already set: ignore space_after_head
+	-- (b) space_after_head is \n or \newline: set linebreak_after_head
+	-- (c) otherwise, read space_after_head as a length
+	-- special case: space_after_head can be `\n` or `\\n` or `\\newline`
+	-- if not, assume it's a length
+	if map.linebreak_after_head or styles[based_on].linebreak_after_head then
+		new_style.linebreak_after_head = true		
+	elseif map.space_after_head and
+			(map.space_after_head == 
+							pandoc.MetaInlines(pandoc.RawInline('tex', '\\n'))
+				or map.space_after_head == 
+							pandoc.MetaInlines(pandoc.RawInline('tex', '\\newline'))
+				or map.space_after_head == 
+							pandoc.MetaInlines(pandoc.RawInline('latex', '\\n'))
+				or map.space_after_head == 
+							pandoc.MetaInlines(pandoc.RawInline('latex', '\\newline'))
+			) then
+		new_style.linebreak_after_head = true
+	else
+		length_fields:insert('space_after_head')
+	end
+
 	for _,length_field in ipairs(length_fields) do
 		new_style[length_field] = (map[length_field] 
 															and self:length_format(map[length_field])
@@ -3034,7 +3073,9 @@ function Statement:parse_Div(elem)
 	end
 
 	-- get the Div's user-specified id, if any
-	self.identifier = elem.identifier
+	if elem.identifier and elem.identifier ~= '' then
+		self.identifier = elem.identifier
+	end
 
 	-- extract any label, acronym, info
 	-- these are in the first paragraph, if any
@@ -3467,7 +3508,8 @@ function Statement:new_kind_from_label()
 	end
 
 	-- do we need a new style too?
-	-- check the custom_label_style of the original kind
+	-- custom_label_style of the original kind holds user-defined changes
+	-- for the rest set the basis style as the original style
 	if kinds[kind].custom_label_style then
 
 		local style_changes_map = kinds[kind].custom_label_style
@@ -3961,7 +4003,9 @@ function Statement:write_style(style, format)
 			local head_font = self.setup:font_format(style_def.head_font) or ''
 			local punctuation = style_def.punctuation or ''
 			-- NB, space_after_head can't be '' or LaTeX crashes. use ' ' or '0pt'
-			local space_after_head = self.setup:length_format(style_def.space_after_head) or ' '
+			local space_after_head = style_def.linebreak_after_head and '\\newline'
+															or self.setup:length_format(style_def.space_after_head) 
+															or ' '
 			local heading_pattern = style_def.heading_pattern or ''
 			local LaTeX_command = '\\newtheoremstyle{'..style..'}'
 										..'{'..space_above..'}'
@@ -3979,6 +4023,7 @@ function Statement:write_style(style, format)
 	elseif format:match('html') then
 
 		-- CSS specification 
+		-- @TODO: handle linebreak_after_head
 		-- .statement.<style> {
 		--			margin-top:
 		--			margin-bottom:
@@ -4009,8 +4054,13 @@ function Statement:write_style(style, format)
 		end
 		-- local indent = self.setup:length_format(style_def.indent)
 		-- local punctuation = style_def.punctuation HANDLED BY WRITE
-		local space_after_head = self.setup:length_format(style_def.space_after_head) 
+		local linebreak_after_head, space_after_head
+		if style_def.linebreak_after_head then
+			linebreak_after_head = true
+		else
+			space_after_head = self.setup:length_format(style_def.space_after_head) 
 														or '0.333em'
+		end
 		--local heading_pattern = style_def.heading_pattern or ''
 
 		local css_spec = ''
@@ -4040,10 +4090,19 @@ function Statement:write_style(style, format)
 			css_spec = css_spec..'\t'..head_font..'\n'
 			css_spec = css_spec..'}\n'
 		end
+		-- linebreak after heading or space after heading
+		-- linebreak after heading: use '\a' and white-space: pre
 		-- space after heading: use word-spacing
-		css_spec = css_spec..'.statement.'..style..' .statement-spah {\n'
-		css_spec = css_spec..'\t'..'word-spacing: '..space_after_head..';\n'
-		css_spec = css_spec..'}\n'
+		if linebreak_after_head then
+			css_spec = css_spec..'.statement.'..style..' .statement-spah:after {\n'
+			css_spec = css_spec.."\tcontent: '\\a';\n"
+			css_spec = css_spec..'\twhite-space: pre;\n'
+			css_spec = css_spec..'}\n'
+		elseif space_after_head then
+			css_spec = css_spec..'.statement.'..style..' .statement-spah {\n'
+			css_spec = css_spec..'\tword-spacing: '..space_after_head..';\n'
+			css_spec = css_spec..'}\n'
+		end
 
 		-- info style: always clean (as in AMS theorems)
 		css_spec = css_spec..'.statement.'..style..' .statement-info {\n'
@@ -4259,6 +4318,7 @@ end
 function Statement:write_latex()
 	local blocks = pandoc.List:new()
 	local id_span -- a Span element to give the statement an identifier
+	local style_def = self.setup.styles[self.setup.kinds[self.kind].style]
 
 	-- we start with Plain block `\begin{...}[info]\hypertarget'
 	local inlines = pandoc.List:new()
@@ -4274,6 +4334,17 @@ function Statement:write_latex()
 	if self.identifier then
 		inlines:insert(pandoc.Span({},pandoc.Attr(self.identifier)))
 	end
+	-- if the blocks start with a list, amsthm needs to be told to start a newline
+	-- if the style has a linebreak already, needs a negative baselineskip too
+	if self.content[1] and self.content[1].t
+			and (self.content[1].t == 'BulletList' or self.content[1].t == 'OrderedList'
+				or self.content[1].t == 'DefinitionList') then
+		inlines:insert(pandoc.RawInline('latex', '\\leavevmode'))
+		if style_def.linebreak_after_head then
+			inlines:insert(pandoc.RawInline('latex', '\\vspace{-\\baselineskip}'))
+		end
+	end
+	-- insert \begin{...}[...] etc. as Plain block
 	blocks:insert(pandoc.Plain(inlines))
 
 	-- main content
@@ -4452,8 +4523,8 @@ end
 -- We wrap the statement in a Blockquote
 --@return Blocks
 function Statement:write_native()
-	local styles = self.setup.styles -- pointer to the styles table
-	local style = self.setup.kinds[self.kind].style -- this statement's style
+	-- pick the style definition for punctuation, linebreak after head...
+	local style_def = self.setup.styles[self.setup.kinds[self.kind].style]
 	--@TODO implement font format functions
 	local label_format = function(inlines) return inlines end
 	local body_format = function(inlines) return inlines end
@@ -4483,9 +4554,9 @@ function Statement:write_native()
 	-- label?
 	label_inlines = self:write_label() 
 	if #label_inlines > 0 then
-		if styles[style].punctuation then
+		if style_def.punctuation then
 			label_inlines:insert(pandoc.Str(
-				styles[style].punctuation
+				style_def.punctuation
 				))
 		label_inlines = label_format(label_inlines)
 		end
@@ -4502,9 +4573,14 @@ function Statement:write_native()
 
 	-- insert heading
 	-- combine statement heading with the first paragraph if any
+	-- take care of linebreak after head
 	if #heading > 0 then
 		if self.content[1] and self.content[1].t == 'Para' then
-			heading:insert(pandoc.Space())
+			if style_def.linebreak_after_head then
+				heading:insert(pandoc.Linebreak())
+			else
+				heading:insert(pandoc.Space())
+			end
 			heading:extend(self.content[1].content)
 			self.content[1] = pandoc.Para(heading)
 		else
@@ -4907,7 +4983,8 @@ function Walker:walk(blocks)
 				-- the statement.
 				local successful_insert = false 
 				-- if item is supposed to be a statement, try parsing and insert.
-				-- note that Statement:new expects a single-item DefinitionList.
+				-- note that Statement:new needs a single-item DefinitionList,
+				-- so we create one and pass it.
 				if Statement:DefListitem_is_statement(item, self.setup) then
 
 					-- try to parse
@@ -4940,7 +5017,7 @@ function Walker:walk(blocks)
 							is_modified = true
 							new_content:insert(sub_blocks)
 						else
-							new_content:insert(sub_blocks)
+							new_content:insert(blocks)
 						end
 					end
 					-- if we've modified anything in the recursion, insert

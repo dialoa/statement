@@ -43,7 +43,7 @@ Setup.kinds = {
 --- Setup.styles: styles of statement, e.g. 'plain', 'remark'
 Setup.styles = {
 	-- stylename = {
-	--			do_not_define_in_latex = bool, whether to define in LaTeX amsthm
+	--		do_not_define_in_latex = bool, whether to define in LaTeX amsthm
 	--		based_on = 'plain' -- base on another style
 	--		margin_top = '\\baselineskip', -- space before
 	--		margin_bottom = '\\baselineskip', -- space after
@@ -54,6 +54,7 @@ Setup.styles = {
 	--		head_font = 'bold', -- head font
 	--		punctuation = '.', -- punctuation after statement heading
 	--		space_after_head = '1em', -- horizontal space after heading 
+	-- 		linebreak_after_head = bool, -- linebreak after heading
 	--		heading_pattern = nil, -- heading pattern (not used yet)
 	--	}
 }

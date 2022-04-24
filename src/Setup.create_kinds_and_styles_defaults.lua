@@ -82,6 +82,19 @@ function Setup:create_kinds_and_styles_defaults(meta)
 	-- fill in styles based on other styles
 	based_on_styles()
 
+	-- styles: convert newlines in 'space_after_head' 
+	-- to linebreak_after_head = true
+	for style,definition in pairs(self.styles) do
+		if definition.space_after_head and
+			(definition.space_after_head == '\n'
+				or definition.space_after_head == '\\n'
+				or definition.space_after_head == '\\newline'
+				) then
+			self.styles[style].linebreak_after_head = true
+			self.styles[style].space_after_head = nil
+		end
+	end
+
 	-- if count_within, change defaults with 'self' counter 
 	-- to 'count_within' counter
 	if self.options.count_within then

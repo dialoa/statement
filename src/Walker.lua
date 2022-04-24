@@ -109,7 +109,8 @@ function Walker:walk(blocks)
 				-- the statement.
 				local successful_insert = false 
 				-- if item is supposed to be a statement, try parsing and insert.
-				-- note that Statement:new expects a single-item DefinitionList.
+				-- note that Statement:new needs a single-item DefinitionList,
+				-- so we create one and pass it.
 				if Statement:DefListitem_is_statement(item, self.setup) then
 
 					-- try to parse
@@ -142,7 +143,7 @@ function Walker:walk(blocks)
 							is_modified = true
 							new_content:insert(sub_blocks)
 						else
-							new_content:insert(sub_blocks)
+							new_content:insert(blocks)
 						end
 					end
 					-- if we've modified anything in the recursion, insert

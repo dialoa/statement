@@ -45,13 +45,14 @@ statement-styles:
         head-font: bold
         punctuation: '.'
         space-after-head: .5em
+        head_spec_latex: '\thmnote{#3}'
     break:
         margin-top: 9pt
         margin-bottom: 9pt
         body-font: italics
         head-font: bold
         punctuation: '.'
-        space-after-head: \newline 
+        space-after-head: \n 
 references:
 - type: article-journal
   id: thatone
@@ -77,7 +78,7 @@ Ahlfors' Lemma gives the principal criterion for obtaining lower bounds
 on the Kobayashi metric.
 
 ::: lemma
-**Ahlfors' Lemma**. Let $ds^2 = h(z)|dz|^2$ be a Hermitian
+**Ahlfors's Lemma**. Let $ds^2 = h(z)|dz|^2$ be a Hermitian
 pseudo-metric on $\mathbf{D}_r$, $h\in C^2(\mathbf{D}_r)$, with $\omega$
 the associated $(1,1)$-form. If
 $\mathop{\mathrm{Ric}}\nolimits\omega\geq\omega$ on $\mathbf{D}_r$, then
@@ -94,13 +95,13 @@ $\omega^i \leq\omega_r$ for all $i$.
 
 Then our main theorem:
 
-::: {.theorem #sdq}
+::: {.theorem #pigspan}
 Let $d_{\max}$ and $d_{\min}$ be the maximum,
-resp. minimum distance between any two adjacent vertices of a
+resp.\ minimum distance between any two adjacent vertices of a
 quadrilateral $Q$. Let $\sigma$ be the diagonal pigspan of a pig $P$
 with four legs. Then $P$ is capable of standing on the corners of $Q$
 iff 
-$$\sigma\geq \sqrt{d_{\max}^2+d_{\min}^2}.$$
+$$\sigma\geq \sqrt{d_{\max}^2+d_{\min}^2}.$$ {#sdq}
 :::
 
 ::: corollary
@@ -117,7 +118,7 @@ polygon of order $2$ is uninteresting.
 # Custom theorem styles
 
 ::: exercise
-Generalize Theorem @sdq to three and four dimensions.
+Generalize Theorem\ @pigspan to three and four dimensions.
 :::
 
 ::: note
@@ -144,7 +145,7 @@ Here is a test of the proof environment.
 :::
 
 ::: proof
-(Proof of Theorem @sdq) And another test.
+(Proof of Theorem @pigspan) And another test.
 :::
 
 ::: proof

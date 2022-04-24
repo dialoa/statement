@@ -2,8 +2,8 @@
 -- We wrap the statement in a Blockquote
 --@return Blocks
 function Statement:write_native()
-	local styles = self.setup.styles -- pointer to the styles table
-	local style = self.setup.kinds[self.kind].style -- this statement's style
+	-- pick the style definition for punctuation, linebreak after head...
+	local style_def = self.setup.styles[self.setup.kinds[self.kind].style]
 	--@TODO implement font format functions
 	local label_format = function(inlines) return inlines end
 	local body_format = function(inlines) return inlines end
@@ -33,9 +33,9 @@ function Statement:write_native()
 	-- label?
 	label_inlines = self:write_label() 
 	if #label_inlines > 0 then
-		if styles[style].punctuation then
+		if style_def.punctuation then
 			label_inlines:insert(pandoc.Str(
-				styles[style].punctuation
+				style_def.punctuation
 				))
 		label_inlines = label_format(label_inlines)
 		end
@@ -52,9 +52,14 @@ function Statement:write_native()
 
 	-- insert heading
 	-- combine statement heading with the first paragraph if any
+	-- take care of linebreak after head
 	if #heading > 0 then
 		if self.content[1] and self.content[1].t == 'Para' then
-			heading:insert(pandoc.Space())
+			if style_def.linebreak_after_head then
+				heading:insert(pandoc.Linebreak())
+			else
+				heading:insert(pandoc.Space())
+			end
 			heading:extend(self.content[1].content)
 			self.content[1] = pandoc.Para(heading)
 		else

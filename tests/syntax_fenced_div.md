@@ -36,10 +36,17 @@ references:
 ---
 
 ::: thm
+
+* Starts with
+* A list
+
 This statement has no label or info.
 :::
 
 ::: thm
+1. Starts with
+2. a list
+
 (some info) This statement has only info.
 :::
 

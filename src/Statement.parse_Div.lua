@@ -55,7 +55,9 @@ function Statement:parse_Div(elem)
 	end
 
 	-- get the Div's user-specified id, if any
-	self.identifier = elem.identifier
+	if elem.identifier and elem.identifier ~= '' then
+		self.identifier = elem.identifier
+	end
 
 	-- extract any label, acronym, info
 	-- these are in the first paragraph, if any

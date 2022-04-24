@@ -47,7 +47,7 @@ Setup.DEFAULTS.STYLES = {
 			indent = '0pt',
 			head_font = 'smallcaps',
 			punctuation = '',
-			space_after_head = ' ',
+			space_after_head = ' ', -- use '\n' or '\\n' or '\newline' for linebreak
 			heading_pattern = nil,			
 		},
 	},

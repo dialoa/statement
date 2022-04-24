@@ -9,7 +9,8 @@ function Setup:set_style(style,map,new_styles)
 	local new_style = {}
 	local based_on = map.based_on and stringify(map.based_on) or nil
 
-	-- basis: user-defined, default version of this style, 'plain' or 'empty'
+	-- basis: user-defined basis, or default version of this style if any,
+	-- 				otherwise 'plain', otherwise 'empty'
 	-- user-defined can be a pre-existing (=default) style 
 	--									or a new style other than itself
 	if based_on then
@@ -22,7 +23,8 @@ function Setup:set_style(style,map,new_styles)
 			based_on = nil
 		else
 			message('ERROR', 'Style '..style..' could not be based on'
-												..'`'..based_on..'`')
+												..'`'..based_on..'`. Check if the latter'
+												..' is defined.')
 			based_on = nil
 		end
 	end
@@ -49,16 +51,39 @@ function Setup:set_style(style,map,new_styles)
 	end
 
 	-- validate and insert options, or copy from the style it's based on
-	local length_fields = {
+	local length_fields = pandoc.List:new({
 		'margin_top', 'margin_bottom', 'margin_left', 'margin_right',
-		'indent', 'space_after_head'
-	}
+		'indent'
+	})
 	local font_fields = {
 		'body_font', 'head_font'
 	}
 	local string_fields = { 
 		'punctuation', 'heading_pattern'
 	}
+	-- handles linebreak_after_head style
+	-- (a) linebreak_after_head already set: ignore space_after_head
+	-- (b) space_after_head is \n or \newline: set linebreak_after_head
+	-- (c) otherwise, read space_after_head as a length
+	-- special case: space_after_head can be `\n` or `\\n` or `\\newline`
+	-- if not, assume it's a length
+	if map.linebreak_after_head or styles[based_on].linebreak_after_head then
+		new_style.linebreak_after_head = true		
+	elseif map.space_after_head and
+			(map.space_after_head == 
+							pandoc.MetaInlines(pandoc.RawInline('tex', '\\n'))
+				or map.space_after_head == 
+							pandoc.MetaInlines(pandoc.RawInline('tex', '\\newline'))
+				or map.space_after_head == 
+							pandoc.MetaInlines(pandoc.RawInline('latex', '\\n'))
+				or map.space_after_head == 
+							pandoc.MetaInlines(pandoc.RawInline('latex', '\\newline'))
+			) then
+		new_style.linebreak_after_head = true
+	else
+		length_fields:insert('space_after_head')
+	end
+
 	for _,length_field in ipairs(length_fields) do
 		new_style[length_field] = (map[length_field] 
 															and self:length_format(map[length_field])

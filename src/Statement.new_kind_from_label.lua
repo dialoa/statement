@@ -44,7 +44,8 @@ function Statement:new_kind_from_label()
 	end
 
 	-- do we need a new style too?
-	-- check the custom_label_style of the original kind
+	-- custom_label_style of the original kind holds user-defined changes
+	-- for the rest set the basis style as the original style
 	if kinds[kind].custom_label_style then
 
 		local style_changes_map = kinds[kind].custom_label_style

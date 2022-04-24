@@ -87,7 +87,9 @@ function Statement:write_style(style, format)
 			local head_font = self.setup:font_format(style_def.head_font) or ''
 			local punctuation = style_def.punctuation or ''
 			-- NB, space_after_head can't be '' or LaTeX crashes. use ' ' or '0pt'
-			local space_after_head = self.setup:length_format(style_def.space_after_head) or ' '
+			local space_after_head = style_def.linebreak_after_head and '\\newline'
+															or self.setup:length_format(style_def.space_after_head) 
+															or ' '
 			local heading_pattern = style_def.heading_pattern or ''
 			local LaTeX_command = '\\newtheoremstyle{'..style..'}'
 										..'{'..space_above..'}'
@@ -105,6 +107,7 @@ function Statement:write_style(style, format)
 	elseif format:match('html') then
 
 		-- CSS specification 
+		-- @TODO: handle linebreak_after_head
 		-- .statement.<style> {
 		--			margin-top:
 		--			margin-bottom:
@@ -135,8 +138,13 @@ function Statement:write_style(style, format)
 		end
 		-- local indent = self.setup:length_format(style_def.indent)
 		-- local punctuation = style_def.punctuation HANDLED BY WRITE
-		local space_after_head = self.setup:length_format(style_def.space_after_head) 
+		local linebreak_after_head, space_after_head
+		if style_def.linebreak_after_head then
+			linebreak_after_head = true
+		else
+			space_after_head = self.setup:length_format(style_def.space_after_head) 
 														or '0.333em'
+		end
 		--local heading_pattern = style_def.heading_pattern or ''
 
 		local css_spec = ''
@@ -166,10 +174,19 @@ function Statement:write_style(style, format)
 			css_spec = css_spec..'\t'..head_font..'\n'
 			css_spec = css_spec..'}\n'
 		end
+		-- linebreak after heading or space after heading
+		-- linebreak after heading: use '\a' and white-space: pre
 		-- space after heading: use word-spacing
-		css_spec = css_spec..'.statement.'..style..' .statement-spah {\n'
-		css_spec = css_spec..'\t'..'word-spacing: '..space_after_head..';\n'
-		css_spec = css_spec..'}\n'
+		if linebreak_after_head then
+			css_spec = css_spec..'.statement.'..style..' .statement-spah:after {\n'
+			css_spec = css_spec.."\tcontent: '\\a';\n"
+			css_spec = css_spec..'\twhite-space: pre;\n'
+			css_spec = css_spec..'}\n'
+		elseif space_after_head then
+			css_spec = css_spec..'.statement.'..style..' .statement-spah {\n'
+			css_spec = css_spec..'\tword-spacing: '..space_after_head..';\n'
+			css_spec = css_spec..'}\n'
+		end
 
 		-- info style: always clean (as in AMS theorems)
 		css_spec = css_spec..'.statement.'..style..' .statement-info {\n'
