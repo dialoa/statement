@@ -72,3 +72,10 @@ conditional on the hypothesis that the chance of
 $p$ is $x$ should be $x$.
 :::
 
+Labels can contain UTF-8 chars and symbols. These are replaced by 
+`_` and the letters are turned to lower-case:
+
+::: statement
+**Poincaré's conjecture**. Every simply connected, closed, three-dimensional manifold is topologically equivalent to $S^3$.
+:::
+

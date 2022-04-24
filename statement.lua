@@ -3489,11 +3489,20 @@ function Statement:new_kind_from_label()
 														-- and (if needed) the new style
 
 	-- create_key_from_label: turn inlines into a key that
-	-- can safely be used as LaTeX envt name and html class
+	-- can safely be used as LaTeX envt name and html class.
+	-- we go through utf8 chars and only keep ASCII alphanum ones
 	-- we add 'statement_' in case the label matches a LaTeX command
 	local function create_key_from_label(inlines)
-		local result = 'statement_'..stringify(inlines):gsub('[^%w]','_'):lower()
-		if result == '' then result = '_' end
+		local result = 'statement_'
+		for _,code in utf8.codes(stringify(inlines)) do
+			if (code >= 48 and code <= 57) -- digits 
+					or (code >= 65 and code <= 90) -- A-Z 
+					or (code >= 97 and code <= 122) then
+				result = result..utf8.char(code):lower()
+			else
+				result = result..'_'
+			end
+		end
 		return result
 	end
 
