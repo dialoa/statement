@@ -85,7 +85,7 @@ end
 
 !input Statement.set_is_numbered -- determine whether statement is numbered
 
-!input Statement.set_crossref_label -- to set the crossref label
+!input Statement.set_labels -- to set label and crossref label
 
 !input Statement.set_count -- to update the count of this statement's kind
 

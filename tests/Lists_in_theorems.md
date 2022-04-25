@@ -34,13 +34,19 @@ A theorem with an ordered list.
 * second item
 :::
 
+The following is a statement without label:
+
+::: statement
+* This statement should *not* start with
+* a `\newline` because it has no label
+:::
+
 ::: proof
 * first item
 * second item
 
 Bullet list within proof.
 :::
-
 
 ::: proof
 1. first item

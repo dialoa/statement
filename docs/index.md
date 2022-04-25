@@ -88,3 +88,9 @@ This will generate the following in your PDF:
   `en`, `es`, `eu`, `fi`, `fr`, `gl`, `he`, `hr`, `hu`, `ia`, `id`,
   `it`, `ja`, `ko`, `nb`, `nl`, `nn`, `pl`, `pt_br`, `pt_pt`, `ro`,
   `ru`, `sk`, `sl`, `sr`, `sv`, `tr`, `uk`, `zh_cn`, `zh_tw`. 
+
+## Interaction with other filters
+
+* Compatible with Pandoc-crossref (which is useful to number equations).
+* Compatible with Custom label lists. To get the right placement of lists
+  that start a theorem, run Statement before CLL.

@@ -3615,15 +3615,21 @@ end
 
 ---Statement:set_fields: set a statement's fields based on parsed values
 -- This function is called after parsing a Div or DefinitionList
--- Updates:
+-- Uses:
+--		self.kind
+-- 		self.identifier
+--		self.custom_label
+--		self.acronym
+--		self.info
 --		self.content
---		self.identifier
+-- Updates and sets:
+--		self.kind   (may create a new kind from custom label)
+--		self.identifier 	(assigns automatic IDs)
+--		self.is_numbered  (whether the statement is numbered)
+--		self.kinds[self.kind].count the statement's count
 -- 		self.label
 --		self.custom_label
---		self.kind
---		self.acronym
 --		self.crossref_label
--- 		
 --@param elem pandoc Div element (optional) element to be parsed
 --											defaults to self.element
 --@return bool true if successful, false if not
@@ -3643,8 +3649,8 @@ function Statement:set_values()
 		self:set_count() -- update the kind's counter
 	end
 
-	self:set_crossref_label() -- set crossref label
-	self:set_identifier() -- set identifier, store crossref label for id
+	-- set label and crossref labels
+	self:set_labels() -- set crossref label
 
 end
 
@@ -3811,22 +3817,58 @@ function Statement:set_is_numbered(elem)
 end
 
 
---- Statement:set_crossref_label
--- Set a statement's crossref label, i.e. the text that will be
--- used in crossreferences to the statement.
--- priority:
+--- Statement:set_labels: Set a statement's label and 
+-- crossref label. The label is used in the statement
+-- heading, the crossref label in references. 
+-- Ex: label "Theorem 1.1", crossref_label "1.1"
+-- Updates:
+--		self.label
+--		self.crossref_label
+-- Crossref label priority:
 --		- use self.crossref_label, if user set
 -- 		- use self.acronym, otherwise
 --		- use self.label (custom label), otherwise
 --		- use formatted statement count
 --		- '??'
---@return nil sets self.crossref_label, pandoc Inlines
-function Statement:set_crossref_label()
-	local delimiter = '.' -- separates section counter and statement counter
+--@return nil
+function Statement:set_labels()
 	local kinds = self.setup.kinds -- pointer to the kinds table
+	local kind = self.kind -- the statement's kind
+	local delimiter = '.' -- separates section counter and statement counter
 	local counters = self.setup.counters -- pointer to the counters table
+	local number -- string formatted number, if numbered statement
 
-	-- use self.crossref_label if set
+	-- If numbered, create the `number` string
+	if self.is_numbered then
+		-- counter; if shared, use the source counter
+		local counter = kinds[kind].counter
+		if kinds[counter] then
+			counter = kinds[counter].counter
+		end
+		-- format depending on counter == `self`, <level> or 'none'/unintelligible
+		local level = self.setup:get_level_by_LaTeX_name(counter)
+		local count = kinds[kind].count or 0
+		if level then
+			number = self.setup:write_counter(counter)..delimiter..count
+		elseif counter == 'self' then
+			number = tostring(count)
+		else
+			number = '??'
+		end
+	end
+
+	-- Label
+	if self.custom_label then
+		self.label = self.custom_label
+	elseif kinds[kind].label then
+		self.label = kinds[kind].label
+		if number then
+			self.label:extend({pandoc.Space(), pandoc.Str(number)})
+		end
+	end
+
+	-- Crossref Label
+	-- (future use) use self.crossref_label if set (open this to Div attributes?)
 	if self.crossref_label then
 	-- or use acronym
 	elseif self.acronym then
@@ -3835,30 +3877,8 @@ function Statement:set_crossref_label()
 	elseif self.custom_label then
 		self.crossref_label = self.custom_label
 	-- or formatted statement count
-	elseif self.is_numbered then
-		-- if shared counter, switch kind to the shared counter's kind
-		local kind = self.kind
-		local counter = kinds[kind].counter
-		if kinds[counter] then
-			kind = counter
-			counter = kinds[counter].counter
-		end
-		-- format result depending of 'self', <level> or 'none'/unintelligible
-		if counter =='self' then
-			local count = kinds[kind].count or 0
-			self.crossref_label = pandoc.Inlines(pandoc.Str(tostring(count)))
-		elseif type(counter) == 'number' 
-			or self.setup:get_level_by_LaTeX_name(counter) then
-			if type(counter) ~= 'number' then
-				counter = self.setup:get_level_by_LaTeX_name(counter)
-			end
-			local count = kinds[kind].count or 0
-			local prefix = self.setup:write_counter(counter)
-			local str = prefix..delimiter..tostring(count)
-			self.crossref_label = pandoc.Inlines(pandoc.Str(str))
-		else
-			self.crossref_label = pandoc.Inlines(pandoc.Str('??'))
-		end
+	elseif number then
+		self.crossref_label = pandoc.Inlines(pandoc.Str(number))
 	-- or set it to '??'
 	else
 		self.crossref_label = pandoc.Inlines(pandoc.Str('??'))
@@ -4349,9 +4369,11 @@ function Statement:write_latex()
 	if self.identifier then
 		inlines:insert(pandoc.Span({},pandoc.Attr(self.identifier)))
 	end
-	-- if the blocks start with a list, amsthm needs to be told to start a newline
+	-- if the blocks start with a list and has a label, 
+	-- amsthm needs to be told to start a newline
 	-- if the style has a linebreak already, needs a negative baselineskip too
 	if self.content[1] and self.content[1].t
+		  and (self.label or self.custom_label)
 			and (self.content[1].t == 'BulletList' or self.content[1].t == 'OrderedList'
 				or self.content[1].t == 'DefinitionList') then
 		inlines:insert(pandoc.RawInline('latex', '\\leavevmode'))
@@ -4592,7 +4614,7 @@ function Statement:write_native()
 	if #heading > 0 then
 		if self.content[1] and self.content[1].t == 'Para' then
 			if style_def.linebreak_after_head then
-				heading:insert(pandoc.Linebreak())
+				heading:insert(pandoc.LineBreak())
 			else
 				heading:insert(pandoc.Space())
 			end

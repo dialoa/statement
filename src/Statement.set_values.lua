@@ -1,14 +1,20 @@
 ---Statement:set_fields: set a statement's fields based on parsed values
 -- This function is called after parsing a Div or DefinitionList
--- Updates:
+-- Uses:
+--		self.kind
+-- 		self.identifier
+--		self.custom_label
+--		self.acronym
+--		self.info
 --		self.content
---		self.identifier
+-- Updates and sets:
+--		self.kind   (may create a new kind from custom label)
+--		self.identifier 	(assigns automatic IDs)
+--		self.is_numbered  (whether the statement is numbered)
+--		self.kinds[self.kind].count the statement's count
 -- 		self.label
 --		self.custom_label
---		self.kind
---		self.acronym
 --		self.crossref_label
--- 		
 --@param elem pandoc Div element (optional) element to be parsed
 --											defaults to self.element
 --@return bool true if successful, false if not
@@ -28,7 +34,7 @@ function Statement:set_values()
 		self:set_count() -- update the kind's counter
 	end
 
-	self:set_crossref_label() -- set crossref label
-	self:set_identifier() -- set identifier, store crossref label for id
+	-- set label and crossref labels
+	self:set_labels() -- set crossref label
 
 end

@@ -56,7 +56,7 @@ function Statement:write_native()
 	if #heading > 0 then
 		if self.content[1] and self.content[1].t == 'Para' then
 			if style_def.linebreak_after_head then
-				heading:insert(pandoc.Linebreak())
+				heading:insert(pandoc.LineBreak())
 			else
 				heading:insert(pandoc.Space())
 			end

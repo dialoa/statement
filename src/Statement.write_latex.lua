@@ -22,9 +22,11 @@ function Statement:write_latex()
 	if self.identifier then
 		inlines:insert(pandoc.Span({},pandoc.Attr(self.identifier)))
 	end
-	-- if the blocks start with a list, amsthm needs to be told to start a newline
+	-- if the blocks start with a list and has a label, 
+	-- amsthm needs to be told to start a newline
 	-- if the style has a linebreak already, needs a negative baselineskip too
 	if self.content[1] and self.content[1].t
+		  and (self.label or self.custom_label)
 			and (self.content[1].t == 'BulletList' or self.content[1].t == 'OrderedList'
 				or self.content[1].t == 'DefinitionList') then
 		inlines:insert(pandoc.RawInline('latex', '\\leavevmode'))
