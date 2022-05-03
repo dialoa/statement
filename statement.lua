@@ -9,39 +9,362 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @license MIT - see LICENSE file for details.
 @release 0.4.1
 
-@TODO handle reference prefixes like pandoc-crossref
-			[@thm:id] theorem 1, [@Thm:id] Theorem 1
-			[-@thm:id] 1
-			@thm:id handled like [@thm:id].
-@TODO rethink prefixes: allow several (thm, thms) and treat the first only as alias
-@TODO parse-only mode? Find statements and write crossrefs, but do not 
-			write statements themselves. Collection filter: needs to turn Cites into Links
-			in order to isolate. Needs to find all statements to sort out
-			the Cites into crossref vs biblio.
-@TODO provide head-pattern, '<label> <num>. **<info>**', relying on Pandoc's rawinline parsing
-@TODO provide \ref \label crossreferences in LaTeX?
-@TODO handle pandoc-amsthm style Div attributes?
-@TODO handle the Case environment?
-
-@TODO proof environment in non-LaTeX outputs
-			in LaTeX AMS the proof envt doesn't define a new th kind and style
-			as a proofname command to be redefined as "Proof", "Démonstration" etc.
-			has an optional argument to be used as label:
-			\begin{proof}[label]
-			\end{proof}
-			In other formats, we should mirror LaTeX: use the info as label
 ]]
 
 -- # Global helper functions
--- # Helper functions
+---Helpers class: helper functions
+--This class collects helper functions that do not depend 
+--on the filter's data structure.
+Helpers = {}
+--- Helpers.font_format: parse font features into the desired format
+-- @param len Inlines or string to be interpreted
+-- @param format (optional) desired format if other than FORMAT
+-- @return string or function or nil
+--				string specifying font features in the desired format 
+--				or (native format) function Inlines -> Inlines
+--				or nil
+Helpers.font_format = function (str, format)
+	local format = format or FORMAT
+	local result = ''
+	-- ensure str is defined and a string
+	if not str then
+		return nil
+	end
+	if type(str) ~= 'string' then
+		if type(str) == 'Inlines' then
+			str = stringify(str)
+		else
+			return nil
+		end
+	end
 
---- stringify: Pandoc's stringify function
-stringify = pandoc.utils.stringify
+	-- within this function, format is 'css' when css features are needed
+	if format:match('html') then
+		format = 'css'
+	end
+	-- FEATURES and their conversion
+	local FEATURES = {
+		upright = {
+			latex = '\\upshape',
+			css = 'font-style: normal;',
+		},
+		italics = {
+			latex = '\\itshape',
+			css = 'font-style: italic;',
+		},
+		smallcaps = {
+			latex = '\\scshape',
+			css = 'font-variant: small-caps;',
+		},
+		bold = {
+			latex = '\\bfseries',
+			css = 'font-weight: bold;',
+		},
+		normal = {
+			latex = '\\normalfont',
+			css = 'font-style: normal; font-weight: normal; font-variant:normal;'
+		}
+	}
+	-- provide some aliases
+	local ALIASES = {
+		italics = {'italic'},
+		normal = {'normalfont'},
+		smallcaps = {'small%-caps'}, -- used as a pattern, so `-` must be escaped
+	}
 
---- message: send message to std_error
+	for feature,definition in pairs(FEATURES) do
+		if str:match(feature) and definition[format] then
+			result = result..definition[format]
+		-- avoid multiple copies by only looking for aliases
+		-- if main feature key not found and breaking if we find any alias 
+		elseif ALIASES[feature] then 
+			for _,alias in ipairs(ALIASES[feature]) do
+				if str:match(alias) and definition[format] then
+					result = result..definition[format]
+					break -- ensures no multiple copies
+				end
+			end
+		end
+	end
+
+	return result
+
+end
+
+--- Helpers.length_format: parse a length in the desired format
+-- @param len Inlines or string to be interpreted
+-- @param format (optional) desired format if other than FORMAT
+-- @return string specifying the length in the desired format or ''
+Helpers.length_format = function (str, format)
+	local format = format or FORMAT
+	-- ensure str is defined and a string
+	if not str then
+		return nil
+	end
+	if type(str) ~= 'string' then
+		if type(str) == 'Inlines' then
+			str = stringify(str)
+		else
+			return nil
+		end
+	end
+
+	-- within this function, format is 'css' when css lengths are needed
+	if format:match('html') then
+		format = 'css'
+	end
+
+	-- UNITS and their conversions
+	local UNITS = {
+		pc = {},	-- pica, 12pt
+		pt = {},	-- point, 1/72.27 inch, 28.45 mm
+		cm = {}, 	-- cm
+		mm = {}, 	-- mm
+		bp = { 		-- big point, 1/72 inch, 1.00375 pt
+			css = {1.00375, 'pt'},
+		},
+		dd = { 		-- dido point, 1.07 pt
+			css = {1.07, 'pt'},
+		},
+		cc = { 		-- cicero, 12dd, 12.84 pt
+			css = {12.84, 'pt'},
+		},
+		sp = { 		-- scaled pt, 1/65536 pt
+			css = {28.45/65536, 'mm'},
+		},
+		px = { 		-- pixel, using default conversion 16px = 12pt
+			latex = {3/4, 'pt'},
+		},
+		em = {},	-- em, width of 'm'
+		ex = {},	-- ex, height of 'x'
+		mu = {		-- mu, 1/18 of em
+			css = {1/18, 'em'},
+		},
+		ch = {		-- width of '0', roughly .5 em
+			latex = {0.5, 'em'},
+		},
+		rem = {		-- root element font size
+					-- proper latex conversion needs doc's fontsize
+			latex = {1, 'em'},
+		},
+		vw = { 		-- 1% of the viewport's width
+			latex = {0.01, '\\textwidth'},
+		},
+		vh = {		-- 1% of the viewport's height
+			latex = {0.01, '\\textheight'},
+		},
+		vmin = { 	-- 1% of the viewport's minimal dimension
+			latex = {0.01, '\\textwidth'},
+		},
+		vmax = {	-- 1% of the viewport's maximal dimension
+			latex = {0.01, '\\textheight'},
+		},
+	}
+	-- '%' and 'in' keys can't be used in the constructor, add now
+	UNITS['in'] = {} 	-- inch, 72.27 pt
+	UNITS['%'] = {		-- %, percentage of the parent element's width
+			latex = {0.01, '\\linewidth'}
+	}
+	-- LATEX_LENGTHS and their conversions
+	local LATEX_LENGTHS = {		
+		baselineskip = {	-- height between lines, roughly 2.7 ex
+			css = {2.7, 'ex'},
+		},
+		linewidth = {		-- line width, use length of the parent element
+			css = {100, '%'},
+		},
+		textwidth = {		-- width of text, use length of the parent element
+			css = {100, '%'},
+		},
+		paperwidth = {		-- paper width, use viewport width
+			css = {100, 'vw'}
+		},
+		paperheight = {		-- paper width, use viewport height
+			css = {100, 'vh'}
+		},
+		evensidemargin = {	-- even side margin, 40pt or 6.5% paperwidth
+			css = {6.5, 'vw'},
+		},
+		oddsidemargin = {	-- odd side margin, 40pt or 6.5% paperwidth
+			css = {6.5, 'vw'},
+		},
+		topmargin = {		-- top margin, about half of side margins
+			css = {3, 'vw'}
+		},
+		parindent = {		-- parindent; @TODO better read meta.indent
+			css = {1, 'em'}
+		},
+		tabcolsep = {		-- separation of table columns, typically .5em
+			css = {.5, 'em'}
+		},
+		columnsep = {		-- separation of text columns, roughly 0.8 em
+			css = {0.8, 'em'},
+		},
+	}
+	-- add `\` to LATEX_LENGTHS keys (can't be done directly)
+	local new_latex_lengths = {} -- needs to make a copy
+	for key,value in pairs(LATEX_LENGTHS) do
+		new_latex_lengths['\\'..key] = value
+	end
+	LATEX_LENGTHS = new_latex_lengths
+	-- HTML_ENTITIES and their translations in 'main plus minus' format
+	local HTML_ENTITIES = {}
+	HTML_ENTITIES['&nbsp;'] = '0.333em plus 0.666em minus 0.111em'
+	HTML_ENTITIES['&#32;'] = '0.333em plus 0.666em minus 0.111em' -- space
+
+	--- parse_length: parse a '<number><unit>' string.
+	-- checks the unit against UNITS and LATEX_LENGTHS
+	--@param str string to be parsed
+	--@return number amount parsed
+	--@return table with `amount` and `unit` fields 
+	local function parse_length(str)
+		if type(str) ~= 'string' then
+			return nil
+		end
+
+		local amount, unit
+		-- match number and unit, possibly separated by spaces
+		-- nb, %g for printable characters except spaces
+		amount, unit = str:match('%s*(%-?%s*%d*%.?%d*)%s*(%g+)%s*')
+		-- allow amount + unit, or no amount ('') + LaTeX unit
+		if amount then
+			-- need to remove spaces before attempting `tonumber`
+			amount = amount:gsub('%s','')
+			-- either we have a number + unit:
+			if tonumber(amount) and (UNITS[unit] or LATEX_LENGTHS[unit]) then
+				-- ensure amount is a number
+				amount = tonumber(amount)
+				-- conversion if available
+				if UNITS[unit] and UNITS[unit][format] then
+					amount = amount * UNITS[unit][format][1]
+					unit = UNITS[unit][format][2]
+				elseif LATEX_LENGTHS[unit] and LATEX_LENGTHS[unit][format] then
+					amount = amount * LATEX_LENGTHS[unit][format][1]
+					unit = LATEX_LENGTHS[unit][format][2]
+				end -- end of conversions
+				-- return result as table
+				return { 
+					amount = amount,
+					unit = unit,
+				}
+			-- or we have a latex length on its own
+			elseif amount=='' and LATEX_LENGTHS[unit] then
+				amount = 1
+				-- convert if possible
+				if LATEX_LENGTHS[unit] and LATEX_LENGTHS[unit][format] then
+					amount = LATEX_LENGTHS[unit][format][1]
+					unit = LATEX_LENGTHS[unit][format][2]
+				end -- end of conversions
+				-- return result as table
+				return { 
+					amount = amount,
+					unit = unit,
+				}
+			end -- no legit amount / unit combination
+		end -- no string match
+	end -- end of parse_length
+
+	--- parse_plus_minus: parse a '<length>plus<length>minus<length>'
+	-- string.
+	--@param str string to be parse
+	--@return table with `main`, `plus`, `minus` fields, each a
+	-- 	table with `amount` and `unit` fields or nil
+	local function parse_plus_minus(str)
+
+		local main, plus, minus
+
+		-- special cases: length is just '0' or space or HTML entity
+		if tonumber(str) and tonumber(str) == 0 then
+			return {
+					main = {amount = 0, unit = 'em'} 
+				}
+		elseif str == ' ' then
+		 	main,plus,minus = '0.333em', '0.666em', '0.111em' 
+		elseif HTML_ENTITIES[str] then
+			str = HTML_ENTITIES[str]
+		end
+		-- otherwise try matching plus and minus
+		if not main then
+			main,plus,minus = str:match('(.*)plus(.*)minus(.*)')
+		end
+		if not main then
+			-- illegal in LaTeX but we'll allow it
+			main,minus,plus = str:match('(.*)minus(.*)plus(.*)')
+		end
+		if not main then
+			main,plus = str:match('(.*)plus(.*)')
+		end
+		if not main then
+			main,minus = str:match('(.*)minus(.*)')
+		end
+		if not main then
+			main = str
+		end
+		-- parse each into amount and unit (or nil if unintelligible)
+		return {
+			main = parse_length(main),
+			plus = parse_length(plus),
+			minus = parse_length(minus),
+		}
+
+	end
+
+	-- MAIN BODY of the function
+
+	-- parse `str` into a length table
+	-- length = {
+	--		main = { amount = number, unit = string} or nil
+	--		plus = { amount = number, unit = string} or nil
+	--		minus = { amount = number, unit = string} or nil
+	-- }
+	local length = parse_plus_minus(str)
+	
+	-- issue a warning if nothing found
+	if not length or not length.main then
+		message('WARNING', 
+			'Could not parse the length specification: `'..str..'`.')
+		return nil
+	end
+
+	-- return a string appropriate to the output format
+	-- LaTeX: <number><unit> plus <number><unit> minus <number><unit>
+	-- css: <number><unit>
+	if format == 'latex' then
+
+		local result = string.format('%.10g', length.main.amount)
+						.. length.main.unit
+		for _,key in ipairs({'plus','minus'}) do
+			if length[key] then
+				result = result..' '..key..' '
+					.. string.format('%10.g', length[key].amount)
+					.. length[key].unit
+			end
+		end
+
+		return result
+
+	elseif format == 'css' then
+
+		local result = string.format('%.10g', length.main.amount)
+						.. length.main.unit
+
+		return result
+
+	else -- other formats: return nothing
+
+		return nil
+
+	end
+
+end
+
+--- Helpers:stringify: Pandoc's stringify function
+Helpers.stringify = pandoc.utils.stringify
+
+--- Helpers:message: send message to std_error
 -- @param type string INFO, WARNING, ERROR
 -- @param text string message text
-function message(type, text)
+Helpers.message = function (type, text)
     local level = {INFO = 0, WARNING = 1, ERROR = 2}
     if level[type] == nil then type = 'ERROR' end
     if level[PANDOC_STATE.verbosity] <= level[type] then
@@ -58,7 +381,7 @@ end
 -- Caution: not to be used on non-Meta Pandoc elements, the 
 -- results will differ (only 'Block', 'Blocks', 'Inline', 'Inlines' in
 -- >=2.17, the .t string in <2.17).
-local type = pandoc.utils.type or function (obj)
+Helpers.type = pandoc.utils.type or function (obj)
         local tag = type(obj) == 'table' and obj.t and obj.t:gsub('^Meta', '')
         return tag and tag ~= 'Map' and tag or type(obj)
     end
@@ -67,9 +390,16 @@ local type = pandoc.utils.type or function (obj)
 -- If elem is nil returns an empty list
 -- @param elem a Pandoc element
 -- @return a Pandoc List
-function ensure_list(elem)
-	return type(elem) == 'List' and elem or pandoc.List:new({elem})
+Helpers.ensure_list = function (elem)
+    return type(elem) == 'List' and elem or pandoc.List:new({elem})
 end
+
+---Global names for some helper functions
+
+stringify = Helpers.stringify
+type = Helpers.type
+ensure_list = Helpers.ensure_list
+message = Helpers.message
 
 -- # Filter components
 --- Setup class: statement filter setup.
@@ -1830,6 +2160,8 @@ end
 --@param new_styles table map of new styles to be defined
 function Setup:set_style(style,map,new_styles)
 	local styles = self.styles -- points to the styles map
+	local length_format = Helpers.length_format
+	local font_format = Helpers.length_format
 	local map = map or {}
 	local new_style = {}
 	local based_on = map.based_on and stringify(map.based_on) or nil
@@ -1911,13 +2243,13 @@ function Setup:set_style(style,map,new_styles)
 
 	for _,length_field in ipairs(length_fields) do
 		new_style[length_field] = (map[length_field] 
-															and self:length_format(map[length_field])
+															and length_format(map[length_field])
 															and stringify(map[length_field]))
 															or styles[based_on][length_field]
 	end
 	for _,font_field in ipairs(font_fields) do
 		new_style[font_field] = (map[font_field] 
-														and self:font_format(map[font_field])
+														and font_format(map[font_field])
 														and map[font_field])
 														or styles[based_on][font_field]
 	end
@@ -2227,349 +2559,9 @@ function Setup:update_meta(meta)
 end
 
 
---- Setup:length_format: parse a length in the desired format
---@TODO what if a space is provided (space after head)
--- @param len Inlines or string to be interpreted
--- @param format (optional) desired format if other than FORMAT
--- @return string specifying the length in the desired format or ''
-function Setup:length_format(str, format)
-	local format = format or FORMAT
-	-- ensure str is defined and a string
-	if not str then
-		return nil
-	end
-	if type(str) ~= 'string' then
-		if type(str) == 'Inlines' then
-			str = stringify(str)
-		else
-			return nil
-		end
-	end
+-- !input Setup.length_format -- to convert length values
 
-	-- within this function, format is 'css' when css lengths are needed
-	if format:match('html') then
-		format = 'css'
-	end
-
-	-- UNITS and their conversions
-	local UNITS = {
-		pc = {},	-- pica, 12pt
-		pt = {},	-- point, 1/72.27 inch, 28.45 mm
-		cm = {}, 	-- cm
-		mm = {}, 	-- mm
-		bp = { 		-- big point, 1/72 inch, 1.00375 pt
-			css = {1.00375, 'pt'},
-		},
-		dd = { 		-- dido point, 1.07 pt
-			css = {1.07, 'pt'},
-		},
-		cc = { 		-- cicero, 12dd, 12.84 pt
-			css = {12.84, 'pt'},
-		},
-		sp = { 		-- scaled pt, 1/65536 pt
-			css = {28.45/65536, 'mm'},
-		},
-		px = { 		-- pixel, using default conversion 16px = 12pt
-			latex = {3/4, 'pt'},
-		},
-		em = {},	-- em, width of 'm'
-		ex = {},	-- ex, height of 'x'
-		mu = {		-- mu, 1/18 of em
-			css = {1/18, 'em'},
-		},
-		ch = {		-- width of '0', roughly .5 em
-			latex = {0.5, 'em'},
-		},
-		rem = {		-- root element font size
-					-- proper latex conversion needs doc's fontsize
-			latex = {1, 'em'},
-		},
-		vw = { 		-- 1% of the viewport's width
-			latex = {0.01, '\\textwidth'},
-		},
-		vh = {		-- 1% of the viewport's height
-			latex = {0.01, '\\textheight'},
-		},
-		vmin = { 	-- 1% of the viewport's minimal dimension
-			latex = {0.01, '\\textwidth'},
-		},
-		vmax = {	-- 1% of the viewport's maximal dimension
-			latex = {0.01, '\\textheight'},
-		},
-	}
-	-- '%' and 'in' keys can't be used in the constructor, add now
-	UNITS['in'] = {} 	-- inch, 72.27 pt
-	UNITS['%'] = {		-- %, percentage of the parent element's width
-			latex = {0.01, '\\linewidth'}
-	}
-	-- LATEX_LENGTHS and their conversions
-	local LATEX_LENGTHS = {		
-		baselineskip = {	-- height between lines, roughly 2.7 ex
-			css = {2.7, 'ex'},
-		},
-		linewidth = {		-- line width, use length of the parent element
-			css = {100, '%'},
-		},
-		textwidth = {		-- width of text, use length of the parent element
-			css = {100, '%'},
-		},
-		paperwidth = {		-- paper width, use viewport width
-			css = {100, 'vw'}
-		},
-		paperheight = {		-- paper width, use viewport height
-			css = {100, 'vh'}
-		},
-		evensidemargin = {	-- even side margin, 40pt or 6.5% paperwidth
-			css = {6.5, 'vw'},
-		},
-		oddsidemargin = {	-- odd side margin, 40pt or 6.5% paperwidth
-			css = {6.5, 'vw'},
-		},
-		topmargin = {		-- top margin, about half of side margins
-			css = {3, 'vw'}
-		},
-		parindent = {		-- parindent; @TODO better read meta.indent
-			css = {1, 'em'}
-		},
-		tabcolsep = {		-- separation of table columns, typically .5em
-			css = {.5, 'em'}
-		},
-		columnsep = {		-- separation of text columns, roughly 0.8 em
-			css = {0.8, 'em'},
-		},
-	}
-	-- add `\` to LATEX_LENGTHS keys (can't be done directly)
-	local new_latex_lengths = {} -- needs to make a copy
-	for key,value in pairs(LATEX_LENGTHS) do
-		new_latex_lengths['\\'..key] = value
-	end
-	LATEX_LENGTHS = new_latex_lengths
-	-- HTML_ENTITIES and their translations in 'main plus minus' format
-	local HTML_ENTITIES = {}
-	HTML_ENTITIES['&nbsp;'] = '0.333em plus 0.666em minus 0.111em'
-	HTML_ENTITIES['&#32;'] = '0.333em plus 0.666em minus 0.111em' -- space
-
-	--- parse_length: parse a '<number><unit>' string.
-	-- checks the unit against UNITS and LATEX_LENGTHS
-	--@param str string to be parsed
-	--@return number amount parsed
-	--@return table with `amount` and `unit` fields 
-	local function parse_length(str)
-		if type(str) ~= 'string' then
-			return nil
-		end
-
-		local amount, unit
-		-- match number and unit, possibly separated by spaces
-		-- nb, %g for printable characters except spaces
-		amount, unit = str:match('%s*(%-?%s*%d*%.?%d*)%s*(%g+)%s*')
-		-- allow amount + unit, or no amount ('') + LaTeX unit
-		if amount then
-			-- need to remove spaces before attempting `tonumber`
-			amount = amount:gsub('%s','')
-			-- either we have a number + unit:
-			if tonumber(amount) and (UNITS[unit] or LATEX_LENGTHS[unit]) then
-				-- ensure amount is a number
-				amount = tonumber(amount)
-				-- conversion if available
-				if UNITS[unit] and UNITS[unit][format] then
-					amount = amount * UNITS[unit][format][1]
-					unit = UNITS[unit][format][2]
-				elseif LATEX_LENGTHS[unit] and LATEX_LENGTHS[unit][format] then
-					amount = amount * LATEX_LENGTHS[unit][format][1]
-					unit = LATEX_LENGTHS[unit][format][2]
-				end -- end of conversions
-				-- return result as table
-				return { 
-					amount = amount,
-					unit = unit,
-				}
-			-- or we have a latex length on its own
-			elseif amount=='' and LATEX_LENGTHS[unit] then
-				amount = 1
-				-- convert if possible
-				if LATEX_LENGTHS[unit] and LATEX_LENGTHS[unit][format] then
-					amount = LATEX_LENGTHS[unit][format][1]
-					unit = LATEX_LENGTHS[unit][format][2]
-				end -- end of conversions
-				-- return result as table
-				return { 
-					amount = amount,
-					unit = unit,
-				}
-			end -- no legit amount / unit combination
-		end -- no string match
-	end -- end of parse_length
-
-	--- parse_plus_minus: parse a '<length>plus<length>minus<length>'
-	-- string.
-	--@param str string to be parse
-	--@return table with `main`, `plus`, `minus` fields, each a
-	-- 	table with `amount` and `unit` fields or nil
-	local function parse_plus_minus(str)
-
-		local main, plus, minus
-
-		-- special cases: length is just '0' or space or HTML entity
-		if tonumber(str) and tonumber(str) == 0 then
-			return {
-					main = {amount = 0, unit = 'em'} 
-				}
-		elseif str == ' ' then
-		 	main,plus,minus = '0.333em', '0.666em', '0.111em' 
-		elseif HTML_ENTITIES[str] then
-			str = HTML_ENTITIES[str]
-		end
-		-- otherwise try matching plus and minus
-		if not main then
-			main,plus,minus = str:match('(.*)plus(.*)minus(.*)')
-		end
-		if not main then
-			-- illegal in LaTeX but we'll allow it
-			main,minus,plus = str:match('(.*)minus(.*)plus(.*)')
-		end
-		if not main then
-			main,plus = str:match('(.*)plus(.*)')
-		end
-		if not main then
-			main,minus = str:match('(.*)minus(.*)')
-		end
-		if not main then
-			main = str
-		end
-		-- parse each into amount and unit (or nil if unintelligible)
-		return {
-			main = parse_length(main),
-			plus = parse_length(plus),
-			minus = parse_length(minus),
-		}
-
-	end
-
-	-- MAIN BODY of the function
-
-	-- parse `str` into a length table
-	-- length = {
-	--		main = { amount = number, unit = string} or nil
-	--		plus = { amount = number, unit = string} or nil
-	--		minus = { amount = number, unit = string} or nil
-	-- }
-	local length = parse_plus_minus(str)
-	
-	-- issue a warning if nothing found
-	if not length or not length.main then
-		message('WARNING', 
-			'Could not parse the length specification: `'..str..'`.')
-		return nil
-	end
-
-	-- return a string appropriate to the output format
-	-- LaTeX: <number><unit> plus <number><unit> minus <number><unit>
-	-- css: <number><unit>
-	if format == 'latex' then
-
-		local result = string.format('%.10g', length.main.amount)
-						.. length.main.unit
-		for _,key in ipairs({'plus','minus'}) do
-			if length[key] then
-				result = result..' '..key..' '
-					.. string.format('%10.g', length[key].amount)
-					.. length[key].unit
-			end
-		end
-
-		return result
-
-	elseif format == 'css' then
-
-		local result = string.format('%.10g', length.main.amount)
-						.. length.main.unit
-
-		return result
-
-	else -- other formats: return nothing
-
-		return nil
-
-	end
-
-end
-
---- Setup:length_format: parse font features into the desired format
---@TODO what if a space is provided (space after head)
--- @param len Inlines or string to be interpreted
--- @param format (optional) desired format if other than FORMAT
--- @return string or function or nil
---				string specifying font features in the desired format 
---				or (native format) function Inlines -> Inlines
---				or nil
-function Setup:font_format(str, format)
-	local format = format or FORMAT
-	local result = ''
-	-- ensure str is defined and a string
-	if not str then
-		return nil
-	end
-	if type(str) ~= 'string' then
-		if type(str) == 'Inlines' then
-			str = stringify(str)
-		else
-			return nil
-		end
-	end
-
-	-- within this function, format is 'css' when css features are needed
-	if format:match('html') then
-		format = 'css'
-	end
-	-- FEATURES and their conversion
-	local FEATURES = {
-		upright = {
-			latex = '\\upshape',
-			css = 'font-style: normal;',
-		},
-		italics = {
-			latex = '\\itshape',
-			css = 'font-style: italic;',
-		},
-		smallcaps = {
-			latex = '\\scshape',
-			css = 'font-variant: small-caps;',
-		},
-		bold = {
-			latex = '\\bfseries',
-			css = 'font-weight: bold;',
-		},
-		normal = {
-			latex = '\\normalfont',
-			css = 'font-style: normal; font-weight: normal; font-variant:normal;'
-		}
-	}
-	-- provide some aliases
-	local ALIASES = {
-		italics = {'italic'},
-		normal = {'normalfont'},
-		smallcaps = {'small%-caps'}, -- used as a pattern, so `-` must be escaped
-	}
-
-	for feature,definition in pairs(FEATURES) do
-		if str:match(feature) and definition[format] then
-			result = result..definition[format]
-		-- avoid multiple copies by only looking for aliases
-		-- if main feature key not found and breaking if we find any alias 
-		elseif ALIASES[feature] then 
-			for _,alias in ipairs(ALIASES[feature]) do
-				if str:match(alias) and definition[format] then
-					result = result..definition[format]
-					break -- ensures no multiple copies
-				end
-			end
-		end
-	end
-
-	return result
-
-end
+-- !input Setup.font_format -- to convert font features values
 
 --- Setup:new: construct a Setup object 
 --@param meta Pandoc Meta object
@@ -3959,6 +3951,8 @@ end
 -- @return blocks or {}, blocks to be added locally if any
 function Statement:write_style(style, format)
 	local format = format or FORMAT
+	local length_format = Helpers.length_format
+	local font_format = Helpers.font_format
 	local styles = self.setup.styles -- points to the styles table
 	local style = style or self.setup.kinds[self.kind].style
 	local blocks = pandoc.List:new() -- blocks to be written
@@ -4021,11 +4015,11 @@ function Statement:write_style(style, format)
 			--		{length} space after theorem head
 			--		{pattern} theorem heading pattern
 			local style_def = styles[style]
-			local space_above = self.setup:length_format(style_def.margin_top) or '0pt'
-			local space_below = self.setup:length_format(style_def.margin_bottom) or '0pt'
-			local margin_right = self.setup:length_format(style_def.margin_right)
-			local margin_left = self.setup:length_format(style_def.margin_left)
-			local body_font = self.setup:font_format(style_def.body_font) or ''
+			local space_above = length_format(style_def.margin_top) or '0pt'
+			local space_below = length_format(style_def.margin_bottom) or '0pt'
+			local margin_right = length_format(style_def.margin_right)
+			local margin_left = length_format(style_def.margin_left)
+			local body_font = font_format(style_def.body_font) or ''
 			if margin_right then
 				body_font = '\\addtolength{\\rightskip}{'..style_def.margin_left..'}'
 										..body_font
@@ -4034,12 +4028,12 @@ function Statement:write_style(style, format)
 				body_font = '\\addtolength{\\leftskip}{'..style_def.margin_left..'}'
 										..body_font
 			end
-			local indent = self.setup:length_format(style_def.indent) or ''
-			local head_font = self.setup:font_format(style_def.head_font) or ''
+			local indent = length_format(style_def.indent) or ''
+			local head_font = font_format(style_def.head_font) or ''
 			local punctuation = style_def.punctuation or ''
 			-- NB, space_after_head can't be '' or LaTeX crashes. use ' ' or '0pt'
 			local space_after_head = style_def.linebreak_after_head and '\\newline'
-															or self.setup:length_format(style_def.space_after_head) 
+															or length_format(style_def.space_after_head) 
 															or ' '
 			local heading_pattern = style_def.heading_pattern or ''
 			local LaTeX_command = '\\newtheoremstyle{'..style..'}'
@@ -4075,25 +4069,25 @@ function Statement:write_style(style, format)
 		--@TODO: handle indent, 'text-ident' on the first paragraph only, before heading
 		--@TODO: handle space after theorem head. Need to use space chars???
 		local style_def = styles[style]
-		local margin_top = self.setup:length_format(style_def.margin_top)
-		local margin_bottom = self.setup:length_format(style_def.margin_bottom)
-		local margin_right = self.setup:length_format(style_def.margin_right)
-		local margin_left = self.setup:length_format(style_def.margin_left)
-		local body_font = self.setup:font_format(style_def.body_font)
-		local head_font = self.setup:font_format(style_def.head_font)
+		local margin_top = length_format(style_def.margin_top)
+		local margin_bottom = length_format(style_def.margin_bottom)
+		local margin_right = length_format(style_def.margin_right)
+		local margin_left = length_format(style_def.margin_left)
+		local body_font = font_format(style_def.body_font)
+		local head_font = font_format(style_def.head_font)
 		-- make sure head and info aren't affected by body_font
 		if body_font then
 			head_font = head_font or ''
 			head_font = 'font-style: normal; font-weight: normal;'
 									..' font-variant: normal; '..head_font
 		end
-		-- local indent = self.setup:length_format(style_def.indent)
+		-- local indent = length_format(style_def.indent)
 		-- local punctuation = style_def.punctuation HANDLED BY WRITE
 		local linebreak_after_head, space_after_head
 		if style_def.linebreak_after_head then
 			linebreak_after_head = true
 		else
-			space_after_head = self.setup:length_format(style_def.space_after_head) 
+			space_after_head = length_format(style_def.space_after_head) 
 														or '0.333em'
 		end
 		--local heading_pattern = style_def.heading_pattern or ''
@@ -4639,7 +4633,7 @@ end
 
 --- Walker: class to hold methods that walk through the document
 Walker = {}
----Walker:collect_ids: Collect ids of non-statement in a document
+---Walker:collect_ids: Collect ids of non-statements in a document
 -- Updates self.setup.identifiers
 --@param blocks (optional) pandoc Blocks, a list of Block elements
 --								defaults to self.blocks
@@ -4933,6 +4927,8 @@ function Walker:new(setup, doc)
 
 	-- pointer to the setup table
 	o.setup = setup
+
+	-- pointer to the blocks table
 	o.blocks = doc.blocks
 
 	-- collect ids of non-statement elements

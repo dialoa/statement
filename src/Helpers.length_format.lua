@@ -1,8 +1,8 @@
---- Setup:length_format: parse a length in the desired format
+--- Helpers.length_format: parse a length in the desired format
 -- @param len Inlines or string to be interpreted
 -- @param format (optional) desired format if other than FORMAT
 -- @return string specifying the length in the desired format or ''
-function Setup:length_format(str, format)
+Helpers.length_format = function (str, format)
 	local format = format or FORMAT
 	-- ensure str is defined and a string
 	if not str then

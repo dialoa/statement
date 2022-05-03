@@ -8,6 +8,8 @@
 -- @return blocks or {}, blocks to be added locally if any
 function Statement:write_style(style, format)
 	local format = format or FORMAT
+	local length_format = Helpers.length_format
+	local font_format = Helpers.font_format
 	local styles = self.setup.styles -- points to the styles table
 	local style = style or self.setup.kinds[self.kind].style
 	local blocks = pandoc.List:new() -- blocks to be written
@@ -70,11 +72,11 @@ function Statement:write_style(style, format)
 			--		{length} space after theorem head
 			--		{pattern} theorem heading pattern
 			local style_def = styles[style]
-			local space_above = self.setup:length_format(style_def.margin_top) or '0pt'
-			local space_below = self.setup:length_format(style_def.margin_bottom) or '0pt'
-			local margin_right = self.setup:length_format(style_def.margin_right)
-			local margin_left = self.setup:length_format(style_def.margin_left)
-			local body_font = self.setup:font_format(style_def.body_font) or ''
+			local space_above = length_format(style_def.margin_top) or '0pt'
+			local space_below = length_format(style_def.margin_bottom) or '0pt'
+			local margin_right = length_format(style_def.margin_right)
+			local margin_left = length_format(style_def.margin_left)
+			local body_font = font_format(style_def.body_font) or ''
 			if margin_right then
 				body_font = '\\addtolength{\\rightskip}{'..style_def.margin_left..'}'
 										..body_font
@@ -83,12 +85,12 @@ function Statement:write_style(style, format)
 				body_font = '\\addtolength{\\leftskip}{'..style_def.margin_left..'}'
 										..body_font
 			end
-			local indent = self.setup:length_format(style_def.indent) or ''
-			local head_font = self.setup:font_format(style_def.head_font) or ''
+			local indent = length_format(style_def.indent) or ''
+			local head_font = font_format(style_def.head_font) or ''
 			local punctuation = style_def.punctuation or ''
 			-- NB, space_after_head can't be '' or LaTeX crashes. use ' ' or '0pt'
 			local space_after_head = style_def.linebreak_after_head and '\\newline'
-															or self.setup:length_format(style_def.space_after_head) 
+															or length_format(style_def.space_after_head) 
 															or ' '
 			local heading_pattern = style_def.heading_pattern or ''
 			local LaTeX_command = '\\newtheoremstyle{'..style..'}'
@@ -124,25 +126,25 @@ function Statement:write_style(style, format)
 		--@TODO: handle indent, 'text-ident' on the first paragraph only, before heading
 		--@TODO: handle space after theorem head. Need to use space chars???
 		local style_def = styles[style]
-		local margin_top = self.setup:length_format(style_def.margin_top)
-		local margin_bottom = self.setup:length_format(style_def.margin_bottom)
-		local margin_right = self.setup:length_format(style_def.margin_right)
-		local margin_left = self.setup:length_format(style_def.margin_left)
-		local body_font = self.setup:font_format(style_def.body_font)
-		local head_font = self.setup:font_format(style_def.head_font)
+		local margin_top = length_format(style_def.margin_top)
+		local margin_bottom = length_format(style_def.margin_bottom)
+		local margin_right = length_format(style_def.margin_right)
+		local margin_left = length_format(style_def.margin_left)
+		local body_font = font_format(style_def.body_font)
+		local head_font = font_format(style_def.head_font)
 		-- make sure head and info aren't affected by body_font
 		if body_font then
 			head_font = head_font or ''
 			head_font = 'font-style: normal; font-weight: normal;'
 									..' font-variant: normal; '..head_font
 		end
-		-- local indent = self.setup:length_format(style_def.indent)
+		-- local indent = length_format(style_def.indent)
 		-- local punctuation = style_def.punctuation HANDLED BY WRITE
 		local linebreak_after_head, space_after_head
 		if style_def.linebreak_after_head then
 			linebreak_after_head = true
 		else
-			space_after_head = self.setup:length_format(style_def.space_after_head) 
+			space_after_head = length_format(style_def.space_after_head) 
 														or '0.333em'
 		end
 		--local heading_pattern = style_def.heading_pattern or ''

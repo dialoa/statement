@@ -126,9 +126,9 @@ Setup.LATEX_NAMES = pandoc.List:new(
 
 !input Setup.update_meta -- to update a document's meta
 
-!input Setup.length_format -- to convert length values
+-- !input Setup.length_format -- to convert length values
 
-!input Setup.font_format -- to convert font features values
+-- !input Setup.font_format -- to convert font features values
 
 --- Setup:new: construct a Setup object 
 --@param meta Pandoc Meta object

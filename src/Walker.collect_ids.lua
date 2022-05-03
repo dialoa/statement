@@ -1,4 +1,4 @@
----Walker:collect_ids: Collect ids of non-statement in a document
+---Walker:collect_ids: Collect ids of non-statements in a document
 -- Updates self.setup.identifiers
 --@param blocks (optional) pandoc Blocks, a list of Block elements
 --								defaults to self.blocks

@@ -22,6 +22,8 @@ function Walker:new(setup, doc)
 
 	-- pointer to the setup table
 	o.setup = setup
+
+	-- pointer to the blocks table
 	o.blocks = doc.blocks
 
 	-- collect ids of non-statement elements

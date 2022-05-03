@@ -5,6 +5,8 @@
 --@param new_styles table map of new styles to be defined
 function Setup:set_style(style,map,new_styles)
 	local styles = self.styles -- points to the styles map
+	local length_format = Helpers.length_format
+	local font_format = Helpers.length_format
 	local map = map or {}
 	local new_style = {}
 	local based_on = map.based_on and stringify(map.based_on) or nil
@@ -86,13 +88,13 @@ function Setup:set_style(style,map,new_styles)
 
 	for _,length_field in ipairs(length_fields) do
 		new_style[length_field] = (map[length_field] 
-															and self:length_format(map[length_field])
+															and length_format(map[length_field])
 															and stringify(map[length_field]))
 															or styles[based_on][length_field]
 	end
 	for _,font_field in ipairs(font_fields) do
 		new_style[font_field] = (map[font_field] 
-														and self:font_format(map[font_field])
+														and font_format(map[font_field])
 														and map[font_field])
 														or styles[based_on][font_field]
 	end
