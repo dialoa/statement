@@ -7,6 +7,7 @@ PDF_TARGETS = $(patsubst %.md,%.pdf,$(TEST_FILES))
 HTML_TARGETS = $(patsubst %.md,%.html,$(TEST_FILES))
 JATS_TARGETS = $(patsubst %.md,%.xml,$(TEST_FILES))
 DOCX_TARGETS = $(patsubst %.md,%.docx,$(TEST_FILES))
+NATIVE_TARGETS = $(patsubst %.md,%.native,$(TEST_FILES))
 
 .PHONY:
 
@@ -27,6 +28,8 @@ html: $(HTML_TARGETS)
 jats: $(JATS_TARGETS)
 
 docx: $(DOCX_TARGETS)
+
+native: $(NATIVE_TARGETS)
 
 number_offset.html : number_offset.md $(ROOT)statement.lua
 	@echo Generating $@
@@ -72,6 +75,12 @@ automatic_locale.pdf : automatic_locale.md $(ROOT)statement.lua
 	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \
 		--number-sections --citeproc --to=docx --output $@
 
+%.native: %.md $(ROOT)statement.lua
+	@echo Generating $@
+	@pandoc $< --lua-filter $(ROOT)statement.lua -s --$(INFO) \
+		--number-sections --citeproc --to=native --output $@
+
 clean: 
 	@echo Cleaning up generated files
-	@rm -f $(LATEX_TARGETS) $(PDF_TARGETS) $(HTML_TARGETS) $(JATS_TARGETS) $(DOCX_TARGETS)
+	@rm -f $(LATEX_TARGETS) $(PDF_TARGETS) $(HTML_TARGETS) \
+			$(JATS_TARGETS) $(DOCX_TARGETS) $(NATIVE_TARGETS)

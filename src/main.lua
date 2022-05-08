@@ -15,13 +15,6 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 
 !input Helpers -- global helper functions
 
----Global names for some helper functions
-
-stringify = Helpers.stringify
-type = Helpers.type
-ensure_list = Helpers.ensure_list
-message = Helpers.message
-
 -- # Filter components
 
 !input Setup -- the Setup class
@@ -37,6 +30,7 @@ message = Helpers.message
 function main(doc) 
 
 	-- JATS writer requires pandoc.write
+	-- font formatting in generic output requires 2.17 to work well
 	-- not sure which is the lowest compatible version otherwise, 
 	-- 2.14 is definitely enough, 2.12 should be good
 	if FORMAT:match('jats') then

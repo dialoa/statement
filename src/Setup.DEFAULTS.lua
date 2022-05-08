@@ -66,7 +66,7 @@ Setup.DEFAULTS.STYLES = {
 		 },
 		definition = { do_not_define_in_latex = true,
 			based_on = 'plain',
-			body_font = '', -- '' used to reset the basis' field to nil
+			body_font = '', -- '' used to reset the basis's field to nil
 		 },
 		remark = { do_not_define_in_latex = true,
 			based_on = 'plain',

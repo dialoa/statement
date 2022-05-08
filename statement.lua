@@ -7,7 +7,7 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @author Thomas Hodgson <hello@twshodgson.net>
 @copyright 2021-2022 Julien Dutant, Thomas Hodgson
 @license MIT - see LICENSE file for details.
-@release 0.4.1
+@release 0.5
 
 ]]
 
@@ -16,32 +16,53 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 --This class collects helper functions that do not depend 
 --on the filter's data structure.
 Helpers = {}
+
+-- # Global functions
+
+stringify = pandoc.utils.stringify
+
+--- type: pandoc-friendly type function
+-- pandoc.utils.type is only defined in Pandoc >= 2.17
+-- if it isn't, we extend Lua's type function to give the same values
+-- as pandoc.utils.type on Meta objects: Inlines, Inline, Blocks, Block,
+-- string and boolean
+-- Caution: not to be used on non-Meta Pandoc elements, the 
+-- results will differ (only 'Block', 'Blocks', 'Inline', 'Inlines' in
+-- >=2.17, the .t string in <2.17).
+Helpers.type = pandoc.utils.type or function (obj)
+        local tag = type(obj) == 'table' and obj.t and obj.t:gsub('^Meta', '')
+        -- convert to Block, Blocks, Inline, Inlines
+        return tag and tag ~= 'Map' and tag or type(obj)
+    end
+type = Helpers.type
+
+--- ensure_list: turns an element into a list if needed
+-- If elem is nil returns an empty list
+-- @param elem a Pandoc element
+-- @return a Pandoc List
+ensure_list = function (elem)
+    return type(elem) == 'List' and elem or pandoc.List:new({elem})
+end
+
+---message: send message to std_error
+-- @param type string INFO, WARNING, ERROR
+-- @param text string message text
+message = function (type, text)
+    local level = {INFO = 0, WARNING = 1, ERROR = 2}
+    if level[type] == nil then type = 'ERROR' end
+    if level[PANDOC_STATE.verbosity] <= level[type] then
+        io.stderr:write('[' .. type .. '] Collection lua filter: ' 
+            .. text .. '\n')
+    end
+end
+
+-- ## Functions stored in Helpers fields
 --- Helpers.font_format: parse font features into the desired format
 -- @param len Inlines or string to be interpreted
 -- @param format (optional) desired format if other than FORMAT
--- @return string or function or nil
---				string specifying font features in the desired format 
---				or (native format) function Inlines -> Inlines
---				or nil
+-- @return string, font commands in the desired format or ''
 Helpers.font_format = function (str, format)
 	local format = format or FORMAT
-	local result = ''
-	-- ensure str is defined and a string
-	if not str then
-		return nil
-	end
-	if type(str) ~= 'string' then
-		if type(str) == 'Inlines' then
-			str = stringify(str)
-		else
-			return nil
-		end
-	end
-
-	-- within this function, format is 'css' when css features are needed
-	if format:match('html') then
-		format = 'css'
-	end
 	-- FEATURES and their conversion
 	local FEATURES = {
 		upright = {
@@ -72,22 +93,167 @@ Helpers.font_format = function (str, format)
 		smallcaps = {'small%-caps'}, -- used as a pattern, so `-` must be escaped
 	}
 
-	for feature,definition in pairs(FEATURES) do
-		if str:match(feature) and definition[format] then
-			result = result..definition[format]
-		-- avoid multiple copies by only looking for aliases
-		-- if main feature key not found and breaking if we find any alias 
-		elseif ALIASES[feature] then 
-			for _,alias in ipairs(ALIASES[feature]) do
-				if str:match(alias) and definition[format] then
-					result = result..definition[format]
-					break -- ensures no multiple copies
+	-- within this function, format is 'css' when css features are needed
+	if format:match('html') then
+		format = 'css'
+	end
+
+	-- ensure str is defined and a string
+	str = type(str) == 'string' and str ~= '' and str
+				or type(str) == 'Inlines' and #str > 0 and stringify(str)
+				or nil
+
+	if str then
+
+		local result = ''
+
+		for feature,definition in pairs(FEATURES) do
+			if str:match(feature) and definition[format] then
+				result = result..definition[format]
+			-- avoid multiple copies by only looking for aliases
+			-- if main feature key not found and breaking if we find any alias 
+			elseif ALIASES[feature] then 
+				for _,alias in ipairs(ALIASES[feature]) do
+					if str:match(alias) and definition[format] then
+						result = result..definition[format]
+						break -- ensures no multiple copies
+					end
 				end
 			end
 		end
+
+		return result
+
 	end
 
-	return result
+	return ''
+
+end
+
+--- Helpers.font_format_native: parse font features into 
+-- native pandoc elements: Emph, Strong, smallcaps Span.
+-- Note that the function won't work if you pass it a List
+-- that is not of type Blocks or Inlines. 
+--@TODO requires >=2.17 to recognize Blocks and Inlines types
+--@TODO provide Spans with classes for older Pandoc versions?
+--@TODO type(elem) in Pandoc <2.17 doesn't return 'Inline' but 'Para' etc.
+-- @param len Inlines or string to be interpreted
+-- @return function, Inline(s) -> Inline(s) or Block(s) -> Block(s)
+Helpers.font_format_native = function (str)
+	-- FEATURES and their conversion
+	local FEATURES = {
+		italics = 	function(inlines) 
+									return pandoc.Emph(inlines)
+								end,
+		smallcaps = function(inlines) 
+									return pandoc.SmallCaps(inlines)
+								end,
+		bold = 	function(inlines) 
+								return pandoc.Strong(inlines)
+							end,
+		underline = function(inlines) 
+									return pandoc.Underline(inlines)
+								end,
+		strikeout = function(inlines)
+									return pandoc.Strikeout(inlines)
+								end,
+		subscript = function(inlines)
+									return pandoc.Subscript(inlines)
+								end,
+		superscript = function(inlines) 
+									return pandoc.Superscript(inlines)
+								end,
+		code = function(inlines)
+									return pandoc.Code(stringify(inlines))
+								end,
+	}
+	-- provide some aliases
+	local ALIASES = {
+		italics = {'italic'},
+		normal = {'normalfont'},
+		smallcaps = {'small%-caps'}, -- used as a pattern, so `-` must be escaped
+	}
+
+	-- ensure str is defined and a string
+	str = type(str) == 'string' and str ~= '' and str
+				or type(str) == 'Inlines' and #str > 0 and stringify(str)
+				or nil
+
+	if str then
+
+		-- build a list of functions to be applied
+		local formatters = pandoc.List:new()
+
+		for feature,definition in pairs(FEATURES) do
+			if str:match(feature) then
+				formatters:insert( definition )
+			-- avoid multiple copies by only looking for aliases
+			-- if main feature key not found and breaking if we find any alias 
+			elseif ALIASES[feature] then 
+				for _,alias in ipairs(ALIASES[feature]) do
+					if str:match(alias) then
+						formatters:insert( definition )
+						break -- ensures no multiple copies
+					end
+				end
+			end
+		end
+
+		if #formatters > 0 then
+
+			-- Common Inlines formatting function
+			local inlines_format = 	function(inlines)
+													for _,formatter in ipairs(formatters) do
+														inlines = formatter(inlines)
+													end
+													return inlines
+												end
+
+			-- return a function that handles all types
+			-- 	- Inlines, Inline: wrap with inlines_format
+			-- 	- Blocks, Block: wrap the content of leaf blocks (those
+			--									whose content is inlines only)
+			return function (obj)
+				-- determine type
+				obj_type = (type(obj) == 'Inlines' or type(obj) == 'Inline'
+										or type(obj) == 'Blocks' or type(obj) == 'Block')
+										and type(obj)
+										or nil
+				if not obj_type and type(obj) == 'List' and obj[1] then
+					if type(obj[1]) == 'Inline' then
+						obj = pandoc.Inlines(obj)
+						obj_type = 'Inlines'
+					elseif type(obj[1] == 'Block') then
+						obj = pandoc.Blocks(obj)
+						obj_type = 'Blocks'
+					end
+				end
+				-- process object according to type and return it
+					if obj_type == 'Inlines' or obj_type == 'Inline' then
+						return inlines_format(obj)
+					elseif obj_type == 'Block' and type(obj.content) == 'Inlines' then
+						obj.content = inlines_format(obj.content)
+						return obj
+					elseif obj_type == 'Blocks' then
+						return obj:walk( { 
+								Block = function(elem)
+										if elem.content and type(elem.content) == 'Inlines' then
+											elem.content = inlines_format(elem.content)
+											return elem
+										end
+									end 
+							})
+					else
+						return obj
+					end
+				
+				end
+
+		end
+
+	end
+
+	return function(obj) return obj end
 
 end
 
@@ -358,48 +524,6 @@ Helpers.length_format = function (str, format)
 
 end
 
---- Helpers:stringify: Pandoc's stringify function
-Helpers.stringify = pandoc.utils.stringify
-
---- Helpers:message: send message to std_error
--- @param type string INFO, WARNING, ERROR
--- @param text string message text
-Helpers.message = function (type, text)
-    local level = {INFO = 0, WARNING = 1, ERROR = 2}
-    if level[type] == nil then type = 'ERROR' end
-    if level[PANDOC_STATE.verbosity] <= level[type] then
-        io.stderr:write('[' .. type .. '] Collection lua filter: ' 
-            .. text .. '\n')
-    end
-end
-
---- type: pandoc-friendly type function
--- pandoc.utils.type is only defined in Pandoc >= 2.17
--- if it isn't, we extend Lua's type function to give the same values
--- as pandoc.utils.type on Meta objects: Inlines, Inline, Blocks, Block,
--- string and booleans
--- Caution: not to be used on non-Meta Pandoc elements, the 
--- results will differ (only 'Block', 'Blocks', 'Inline', 'Inlines' in
--- >=2.17, the .t string in <2.17).
-Helpers.type = pandoc.utils.type or function (obj)
-        local tag = type(obj) == 'table' and obj.t and obj.t:gsub('^Meta', '')
-        return tag and tag ~= 'Map' and tag or type(obj)
-    end
-
---- ensure_list: turns an element into a list if needed
--- If elem is nil returns an empty list
--- @param elem a Pandoc element
--- @return a Pandoc List
-Helpers.ensure_list = function (elem)
-    return type(elem) == 'List' and elem or pandoc.List:new({elem})
-end
-
----Global names for some helper functions
-
-stringify = Helpers.stringify
-type = Helpers.type
-ensure_list = Helpers.ensure_list
-message = Helpers.message
 
 -- # Filter components
 --- Setup class: statement filter setup.
@@ -566,7 +690,7 @@ Setup.DEFAULTS.STYLES = {
 		 },
 		definition = { do_not_define_in_latex = true,
 			based_on = 'plain',
-			body_font = '', -- '' used to reset the basis' field to nil
+			body_font = '', -- '' used to reset the basis's field to nil
 		 },
 		remark = { do_not_define_in_latex = true,
 			based_on = 'plain',
@@ -2245,9 +2369,7 @@ function Setup:set_style(style,map,new_styles)
 															or styles[based_on][length_field]
 	end
 	for _,font_field in ipairs(font_fields) do
-		new_style[font_field] = (map[font_field] 
-														and font_format(map[font_field])
-														and map[font_field])
+		new_style[font_field] = map[font_field]
 														or styles[based_on][font_field]
 	end
 	for _,string_field in ipairs(string_fields) do
@@ -3090,6 +3212,7 @@ end
 ---Statement:parse_DefList parse a DefinitionList element into a statement
 -- Parses a DefinitionList element into a statement, setting its
 -- kind, identifier, label, info, acronym, content. 
+-- Turns its Plain blocks into Para, for uniformity with fenced Divs.
 -- Assumes the element contains only one DefinitionList item.
 -- Creates new kinds and styles as needed.
 -- Updates:
@@ -3140,6 +3263,15 @@ function Statement:parse_DefList(elem)
 	-- item[2]: list of Blocks, definitions
 	expression = item[1]
 	definitions = item[2]
+
+	-- Turn top-level Plain in definitions into Para
+	for _,definition in ipairs(definitions) do
+		for i = 1, #definition do
+			if definition[i].t and definition[i].t == 'Plain' then
+				definition[i] = pandoc.Para(definition[i].content)
+			end
+		end
+	end
 
 	-- Process expression: extract any label, info, acronym
 	-- extract id,
@@ -4169,6 +4301,17 @@ function Statement:write_kind(kind, format)
 		local label = self.setup.kinds[kind].label 
 						or pandoc.Inlines(pandoc.Str(''))
 
+		-- in LaTeX we need to add the acronym in the label's definition
+		if self.acronym then
+
+			local acro_inlines = pandoc.List:new()
+			acro_inlines:insert(pandoc.Str('('))
+			acro_inlines:extend(self.acronym)
+			acro_inlines:extend({pandoc.Str(')'), pandoc.Space()})
+			label = acro_inlines:__concat(label)
+
+		end
+
 		-- 'proof' statements are not defined
 		if kind == 'proof' then
 			-- nothing to be done
@@ -4257,14 +4400,17 @@ function Statement:write_label()
 			inlines:insert(pandoc.Str(eb))
 		end
 
-	elseif self.is_numbered then
+	else
 
 		-- add kind label
 		if kinds[self.kind] and kinds[self.kind].label then
 			inlines:extend(kinds[self.kind].label)
 		end
-		-- insert numbering from self.crossref_label
-		if self.crossref_label then
+
+		-- if numbered, add number from self.crossref_label
+		-- before or after depending on `swamp_numbers`
+		if self.is_numbered and self.crossref_label then
+
 			if self.setup.options.swap_numbers then
 				if #inlines > 0 then
 					inlines:insert(1, pandoc.Space())
@@ -4276,13 +4422,7 @@ function Statement:write_label()
 				end
 				inlines:extend(self.crossref_label)
 			end
-		end
 
-	else
-		
-		-- add kind label
-		if kinds[self.kind] and kinds[self.kind].label then
-			inlines:extend(kinds[self.kind].label)
 		end
 
 	end
@@ -4503,26 +4643,21 @@ end
 
 
 ---Statement.write_latex: write a statement in Pandoc native
--- We wrap the statement in a Blockquote
+-- We wrap the statement in a Div
 --@return Blocks
 function Statement:write_native()
+	local font_format_native = Helpers.font_format_native
 	-- pick the style definition for punctuation, linebreak after head...
 	local style_def = self.setup.styles[self.setup.kinds[self.kind].style]
-	--@TODO implement font format functions
-	local label_format = function(inlines) return inlines end
-	local body_format = function(inlines) return inlines end
-	local blocks = pandoc.List:new()
+	-- convert font definitions into formatting functions
+	local label_format = font_format_native(style_def.head_font)
+	local body_format = font_format_native(style_def.body_font)
+	local label_inlines, heading_inlines
 
+	-- local debug_inlines = label_format(pandoc.Para(pandoc.Str('test'))) 
+	-- local debug_blocks = pandoc.Blocks(debug_inlines)
 
-	-- if the element has an identifier, insert an empty identifier Span 
-	if self.identifier then
-		id_span = pandoc.Span({},pandoc.Attr(self.identifier))
-		if self.content[1] and self.content[1] == 'Para' then
-			self.content[1].content:insert(1, id_span)
-		else
-		self.content:insert(pandoc.Plain(id_span))
-		end
-	end
+	-- print(pandoc.write(pandoc.Pandoc(debug_blocks), 'html'))
 
 	-- create label span; could be custom-label or kind label
 	label_inlines = self:write_label() 
@@ -4531,28 +4666,37 @@ function Statement:write_native()
 											{class = 'statement-label'})
 	end
 
-	-- prepare the statement heading
+	-- prepare the statement heading inlines
 	local heading = pandoc.List:new()
-
 	-- label?
-	label_inlines = self:write_label() 
+	label_inlines = self:write_label()
 	if #label_inlines > 0 then
 		if style_def.punctuation then
-			label_inlines:insert(pandoc.Str(
-				style_def.punctuation
-				))
-		label_inlines = label_format(label_inlines)
+			label_inlines:insert(pandoc.Str(style_def.punctuation))
 		end
-		heading:insert(pandoc.Strong(label_inlines))
+--		print(pandoc.write(pandoc.Pandoc(pandoc.Plain(label_inlines))))
+		label_inlines = label_format(label_inlines)
+--		print(pandoc.write(pandoc.Pandoc(pandoc.Plain(label_inlines))))
+		label_inlines = pandoc.Span(label_inlines, {class = 'statement-label'})
+		heading:insert(label_inlines)
 	end
 
 	-- info?
-	if self.info then 
-		heading:insert(pandoc.Space())
+	if self.info then
+		if #heading > 0 then
+			heading:insert(pandoc.Space())
+		end
 		heading:insert(pandoc.Str('('))
 		heading:extend(self.info)
 		heading:insert(pandoc.Str(')'))
 	end
+
+	-- style body
+	-- must be done before we insert the heading to ensure
+	-- that body_format isn't applied to the heading.
+--	print(pandoc.write(pandoc.Pandoc(self.content)))
+	self.content = body_format(self.content)
+--	print(pandoc.write(pandoc.Pandoc(self.content)))
 
 	-- insert heading
 	-- combine statement heading with the first paragraph if any
@@ -4571,13 +4715,20 @@ function Statement:write_native()
 		end
 	end
 
-	-- style body
-	self.content = body_format(self.content)
+	-- if the element has an identifier, insert an empty identifier Span 
+	if self.identifier then
+		id_span = pandoc.Span({},pandoc.Attr(self.identifier))
+		if self.content[1] 
+				and (self.content[1].t == 'Para' 
+						or self.content[1].t == 'Plain') then
+			self.content[1].content:insert(1, id_span)
+		else
+			self.content:insert(pandoc.Plain(id_span))
+		end
+	end
 
-	-- place all the content blocks in blockquote
-	blocks:insert(pandoc.BlockQuote(self.content))
-
-	return blocks
+	-- place all the content blocks in Div
+	return pandoc.Blocks(pandoc.Div(self.content))
 
 end
 
@@ -5572,6 +5723,7 @@ end
 function main(doc) 
 
 	-- JATS writer requires pandoc.write
+	-- font formatting in generic output requires 2.17 to work well
 	-- not sure which is the lowest compatible version otherwise, 
 	-- 2.14 is definitely enough, 2.12 should be good
 	if FORMAT:match('jats') then

@@ -1,4 +1,3 @@
-# Test output files for development
-*output.pdf
-*output.tex
-*output.html
+# Temporary MS Word and Libreoffice files
+~$*.docx
+.*.odt#

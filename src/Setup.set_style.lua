@@ -93,9 +93,7 @@ function Setup:set_style(style,map,new_styles)
 															or styles[based_on][length_field]
 	end
 	for _,font_field in ipairs(font_fields) do
-		new_style[font_field] = (map[font_field] 
-														and font_format(map[font_field])
-														and map[font_field])
+		new_style[font_field] = map[font_field]
 														or styles[based_on][font_field]
 	end
 	for _,string_field in ipairs(string_fields) do

@@ -23,14 +23,17 @@ function Statement:write_label()
 			inlines:insert(pandoc.Str(eb))
 		end
 
-	elseif self.is_numbered then
+	else
 
 		-- add kind label
 		if kinds[self.kind] and kinds[self.kind].label then
 			inlines:extend(kinds[self.kind].label)
 		end
-		-- insert numbering from self.crossref_label
-		if self.crossref_label then
+
+		-- if numbered, add number from self.crossref_label
+		-- before or after depending on `swamp_numbers`
+		if self.is_numbered and self.crossref_label then
+
 			if self.setup.options.swap_numbers then
 				if #inlines > 0 then
 					inlines:insert(1, pandoc.Space())
@@ -42,13 +45,7 @@ function Statement:write_label()
 				end
 				inlines:extend(self.crossref_label)
 			end
-		end
 
-	else
-		
-		-- add kind label
-		if kinds[self.kind] and kinds[self.kind].label then
-			inlines:extend(kinds[self.kind].label)
 		end
 
 	end

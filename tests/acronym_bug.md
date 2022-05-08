@@ -24,7 +24,7 @@ Theorem **(PP) Named** (info)
 Test
 :::
 
-[](#NPP)
+[](#NP)
 
 <!--
 Crossreference bugs: [](#NP) and [test](#NPP) and [test <>](#NP).

@@ -1,6 +1,7 @@
 ---Statement:parse_DefList parse a DefinitionList element into a statement
 -- Parses a DefinitionList element into a statement, setting its
 -- kind, identifier, label, info, acronym, content. 
+-- Turns its Plain blocks into Para, for uniformity with fenced Divs.
 -- Assumes the element contains only one DefinitionList item.
 -- Creates new kinds and styles as needed.
 -- Updates:
@@ -51,6 +52,15 @@ function Statement:parse_DefList(elem)
 	-- item[2]: list of Blocks, definitions
 	expression = item[1]
 	definitions = item[2]
+
+	-- Turn top-level Plain in definitions into Para
+	for _,definition in ipairs(definitions) do
+		for i = 1, #definition do
+			if definition[i].t and definition[i].t == 'Plain' then
+				definition[i] = pandoc.Para(definition[i].content)
+			end
+		end
+	end
 
 	-- Process expression: extract any label, info, acronym
 	-- extract id,

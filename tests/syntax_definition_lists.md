@@ -11,9 +11,9 @@ lem
 : A simple theorem with a short prefix label `lem`.
 : This definition list has several definitions.
 
-  Some of them have multiple blocks.
+    Some of them have multiple blocks.
 
-: All are included in the theorem's content.
+:   All are included in the theorem's content.
 
 Theorem (some info).
 : This statement has only info.
@@ -44,7 +44,7 @@ Theorem (some info) \label{mytheorem}
 
 Theorem (some info) {#another}
 : This label receives an identifier with markdown
-    syntax {#another}.
+    syntax `{#another}``.
 
 Some crossreferences: @mytheorem refers to the one identified
 with `\label{...}` and @another to the one identified with

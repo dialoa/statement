@@ -48,6 +48,17 @@ function Statement:write_kind(kind, format)
 		local label = self.setup.kinds[kind].label 
 						or pandoc.Inlines(pandoc.Str(''))
 
+		-- in LaTeX we need to add the acronym in the label's definition
+		if self.acronym then
+
+			local acro_inlines = pandoc.List:new()
+			acro_inlines:insert(pandoc.Str('('))
+			acro_inlines:extend(self.acronym)
+			acro_inlines:extend({pandoc.Str(')'), pandoc.Space()})
+			label = acro_inlines:__concat(label)
+
+		end
+
 		-- 'proof' statements are not defined
 		if kind == 'proof' then
 			-- nothing to be done
