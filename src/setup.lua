@@ -22,6 +22,9 @@ Setup.options = {
 	LaTeX_in_list_rightskip = '2em', -- right margin for statement first item in list
 	acronym_delimiters = {'(',')'}, -- in output, in case we want to open this to the user
 	info_delimiters = {'(',')'}, -- in output, in case we want to open this to the user
+	aggregate_crossreferences = true, -- aggregate sequences of crossrefs of the same type
+	counter_delimiter = '.', -- separates section number and statement number
+													 --	when writing a statement label or crossreference
 }
 
 --- Setup.meta, pointer to the doc's meta
@@ -38,12 +41,14 @@ Setup.kinds = {
 	--								<kindname> string, kind for shared counter,
 	--								<level> number, heading level to count within
 	--			count = nil or number, this kind's counter value
+	--			is_written = nil or boolean, whether the kind def has been written
 }
 
 --- Setup.styles: styles of statement, e.g. 'plain', 'remark'
 Setup.styles = {
 	-- stylename = {
 	--		do_not_define_in_latex = bool, whether to define in LaTeX amsthm
+	--		is_written = nil or bool, whether the definition has been written
 	--		based_on = 'plain' -- base on another style
 	--		margin_top = '\\baselineskip', -- space before
 	--		margin_bottom = '\\baselineskip', -- space after
@@ -74,17 +79,9 @@ Setup.counters = {
 	--		}
 }
 
---- Setup.identifiers: document identifiers. Populated as we walk the doc
-Setup.identifiers = {
-	-- identifier = {
-	--									statement = bool, whether it's a statement
-	--									crossref_label =  inlines, label to use in crossreferences
-	--																		only set when is_statement = true
-	--									try_instead = string, when user set this ID but it was already
-	--																assigned to a statement, this points to a
-	--																statement id used instead
-	--							}
-}
+--- Setup.crossref: Crossref object, contains crossref.identifiers table
+-- and methods to handle it.
+Setup.crossref = nil
 
 -- Setup.includes: code to be included in header or before first statement
 Setup.includes = {
@@ -125,10 +122,6 @@ Setup.LATEX_NAMES = pandoc.List:new(
 !input Setup.increment_counter -- to incremeent a level counter
 
 !input Setup.update_meta -- to update a document's meta
-
--- !input Setup.length_format -- to convert length values
-
--- !input Setup.font_format -- to convert font features values
 
 --- Setup:new: construct a Setup object 
 --@param meta Pandoc Meta object

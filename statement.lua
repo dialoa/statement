@@ -426,6 +426,9 @@ Setup.options = {
 	LaTeX_in_list_rightskip = '2em', -- right margin for statement first item in list
 	acronym_delimiters = {'(',')'}, -- in output, in case we want to open this to the user
 	info_delimiters = {'(',')'}, -- in output, in case we want to open this to the user
+	aggregate_crossreferences = true, -- aggregate sequences of crossrefs of the same type
+	counter_delimiter = '.', -- separates section number and statement number
+													 --	when writing a statement label or crossreference
 }
 
 --- Setup.meta, pointer to the doc's meta
@@ -442,12 +445,14 @@ Setup.kinds = {
 	--								<kindname> string, kind for shared counter,
 	--								<level> number, heading level to count within
 	--			count = nil or number, this kind's counter value
+	--			is_written = nil or boolean, whether the kind def has been written
 }
 
 --- Setup.styles: styles of statement, e.g. 'plain', 'remark'
 Setup.styles = {
 	-- stylename = {
 	--		do_not_define_in_latex = bool, whether to define in LaTeX amsthm
+	--		is_written = nil or bool, whether the definition has been written
 	--		based_on = 'plain' -- base on another style
 	--		margin_top = '\\baselineskip', -- space before
 	--		margin_bottom = '\\baselineskip', -- space after
@@ -478,17 +483,9 @@ Setup.counters = {
 	--		}
 }
 
---- Setup.identifiers: document identifiers. Populated as we walk the doc
-Setup.identifiers = {
-	-- identifier = {
-	--									statement = bool, whether it's a statement
-	--									crossref_label =  inlines, label to use in crossreferences
-	--																		only set when is_statement = true
-	--									try_instead = string, when user set this ID but it was already
-	--																assigned to a statement, this points to a
-	--																statement id used instead
-	--							}
-}
+--- Setup.crossref: Crossref object, contains crossref.identifiers table
+-- and methods to handle it.
+Setup.crossref = nil
 
 -- Setup.includes: code to be included in header or before first statement
 Setup.includes = {
@@ -2559,10 +2556,6 @@ function Setup:update_meta(meta)
 end
 
 
--- !input Setup.length_format -- to convert length values
-
--- !input Setup.font_format -- to convert font features values
-
 --- Setup:new: construct a Setup object 
 --@param meta Pandoc Meta object
 --@return a Setup object
@@ -2711,12 +2704,7 @@ end
 -- # Statement class
 
 --- Statement: class for statement objects.
--- @field kind string the statement's kind (key of the `kinds` table)
--- @field id string the statement's id
--- @field cust_label Inlines the statement custom's label, if any
--- @field info Inlines the statement's info
 Statement = {
-	setup = nil, -- points to the Setup class object
 	element = nil, -- original element to be turned into statement
 	kind = nil, -- string, key of `kinds`
 	identifier = nil, -- string, Pandoc identifier
@@ -2728,38 +2716,6 @@ Statement = {
 	content = nil, -- Blocks, statement's content
 	is_numbered = true, -- whether a statement is numbered
 }
---- create a statement object from a pandoc element.
--- @param elem pandoc Div or DefinitionList
--- @param setup Setup class object, the document's statements setup
--- @return statement object or nil if elem isn't a statement
-function Statement:new(elem, setup)
-
-	-- create an object of Statement class
-	local o = {}
-	self.__index = self 
-	setmetatable(o, self)
-
-	o.setup = setup -- points to the setup, needed by the class's methods
-	o.element = elem -- points to the original element
-
-	if o.element.t then
-
-		if o.element.t == 'Div' and o:Div_is_statement() then
-			o:parse_Div()
-			o:set_values()
-			return o
-
-		elseif o.element.t == 'DefinitionList' 
-						and o.element.content[1]
-						and o:DefListitem_is_statement(o.element.content[1]) then
-			o:parse_DefList()
-			o:set_values()
-			return o
-
-		end
-	end
-
-end
 ---Statement:is_statement Whether an element is a statement.
 -- Simple wrapper for the Div_is_statement and 
 -- DefinitionList_is_statement functions.
@@ -2938,6 +2894,7 @@ end
 -- or {#...} identifier from Inlines
 function Statement:parse_identifier(inlines)
 	local id -- string, identifier
+	local result
 
 	--pick_id: a filter to pick ids in RawInlines or Str
 	local pick_id = {
@@ -2954,12 +2911,11 @@ function Statement:parse_identifier(inlines)
 	if inlines and type(inlines) == 'Inlines' and #inlines > 0 then
 
 		-- prevent modification of the source document by cloning
-		inlines = inlines:clone()
-		-- apply the filter
-		inlines = inlines:walk(pick_id)
+		-- and apply the filter
+		result = inlines:clone():walk(pick_id)
 		-- if something found, return the identifier and modified inlines
 		if id then
-			return id, inlines
+			return id, result
 		end
 
 	end
@@ -3185,36 +3141,44 @@ function Statement:parse_DefList(elem)
 	expression = item[1]
 	definitions = item[2]
 
+	-- Process expression: extract any label, info, acronym
+	-- extract id,
+	-- insert the remainder in the first paragraph of 
+	-- the definition.
+
 	-- extract any label, info, acronym from expression
 	local result = self:parse_heading_inlines(expression)
 	if result then
 		self.acronym = result.acronym
 		self.custom_label = result.custom_label
 		self.info = result.info
+		expression = result.remainder
+	end
 
-		-- look for an id in the remainder
-		if result.remainder then
-			local identifier, new_remainder = self:parse_identifier(result.remainder)
-			if identifier then
-				self.identifier = identifier
-				result.remainder = new_remainder
-			end
-		end
+	-- look for an id in the expression
+	local identifier, new_expression = self:parse_identifier(expression)
+	if identifier then
+		self.identifier = identifier
+		expression = new_expression
+	end
 
-		-- if any remainder, insert in the first Para of the first definition
-		-- or create a new Para if necessary
-		if result.remainder and #result.remainder > 0 then
-			definitions[1] = definitions[1] or pandoc.List:new()
-			if definitions[1][1] and definitions[1][1].t == 'Para' then
-				definitions[1][1].content = result.remainder:extend(
-																			definitions[1][1].content)
-			else 
-				definitions[1]:insert(1, pandoc.Para(result.remainder))
-			end
+	-- clean up
+	expression = Statement:trim_dot_space(expression)
+	expression = Statement:trim_dot_space(expression, 'reverse')
+
+	-- if any remainder, insert in the first Para of the first definition
+	-- or create a new Para if necessary
+	if expression and #expression > 0 then
+		definitions[1] = definitions[1] or pandoc.List:new()
+		if definitions[1][1] and definitions[1][1].t == 'Para' then
+			definitions[1][1].content = expression:extend(
+																		definitions[1][1].content)
+		else 
+			definitions[1]:insert(1, pandoc.Para(expression))
 		end
 	end
 
-	-- concatenate the (first item) definitions into the statement content
+	-- concatenate definitions as the statement's content
 	self.content = pandoc.List:new() -- Blocks
 	for _,definition in ipairs(definitions) do
 		if #definition > 0 then
@@ -3431,7 +3395,7 @@ function Statement:trim_dot_space(inlines, direction)
 	end
 
 	-- safety check
-	if #inlines == 0 then return inlines end
+	if not inlines or #inlines == 0 then return inlines end
 
 	-- remove sequences of spaces and dots
 	local keep_looking = true
@@ -3642,92 +3606,77 @@ function Statement:set_values()
 	end
 
 	-- set label and crossref labels
-	self:set_labels() -- set crossref label
+	self:set_labels()
+
+	-- set identifier
+	self:set_identifier()
 
 end
 
---- Statement:set_identifier: set an element's id
--- store it with the crossref label in setup.labels_by_id
+--- Statement:set_identifier: set a statement's id
+-- and register it with the crossref manager.
 -- Updates:
 --		self.identifier
---		self.setup.identifiers
---@param elem pandoc element for which we want to create an id
+--		self.elem.attr.identifier
 --@return nil
-function Statement:set_identifier(elem)
-	elem = elem or self.element
-	local identifiers = self.setup.identifiers -- pointer to identifiers table
-	local id
+function Statement:set_identifier()
+	local elem = self.element
+	local crossref = self.setup.crossref -- points to the crossref manager
 
-	-- safe_register: register id or id-1, id-2 avoiding duplicates
-	-- store id and crossref_label in the identifiers table
-	-- store kind label if this is a numbered statement
+	---register: register id using a given mode
+	-- store its kind and crossref_label as its label
+	-- store the new id in self.identifier and elem.attr.identifier 
 	--@param id string the identifier to be registered
+	--@param attr map, any attributes that were set by parsing the id
+	--@param mode string mode to be used, 'new', 'redirect', 'strict'
 	--@return id, the id generated
-	function safe_register(id)
-		local new_id = id
-		local n = 0
-		while identifiers[new_id] do
-			n = n + 1
-			new_id = id..'-'..tostring(n)
-		end
-		identifiers[new_id] = {
-			statement = true,
-			crossref_label = self.crossref_label,
-			kind_label = self.is_numbered and kinds[self.kind].label,
-		}
+	function register(id, attr, mode)
+		attr = attr or {}
+		local final_id
 
-		-- udpate the 'self.identifier' field
-		self.identifier = new_id
-		-- update the element's identifier in case writer functions 
-		-- return it to the document
-		if self.element.attr then
-			self.element.attr.identifier = new_id
+		-- add attributes
+		attr.type = 'Statement'
+		attr.label = self.crossref_label
+		attr.kind = self.kind
+
+		-- register
+		final_id = crossref:register_identifier(id, attr, mode)
+
+		-- udpate the statement's `self.identifier` field
+		self.identifier = final_id
+		-- update the element's identifier 
+		-- (in case writers return it to the document)
+		if elem.attr then
+			elem.attr.identifier = final_id
 		end
-		return new_id
+
+		return final_id
 	end
 
-	-- Function body
-
+	-- MAIN FUNCTION BODY
+	
 	--		user-specified id?
 	if self.identifier then
-		id = self.identifier
-		local new_id = safe_register(id)
-		if new_id ~= id then
-			-- if the original id wasn't a statement, make
-			-- this original id point to the statement instead.
-			-- This recovers from the common mistake of entering
-			-- [ref]{#target} instead of [ref](#target)
-			if not identifiers[id].statement then
-				identifiers[id].try_instead = new_id
-				message('WARNING', 	'The ID `'..id..'` you gave to a `'..self.kind..'` statement'
-														..' turns out to be a duplicate. Either you used it twice,'
-														..' or it matches an automatically-generated section ID,'
-														..' or you tried to refer to the statement with '
-														..' an empty Span `[]{#'..id..'}` rather than a Link' 
-														..' `[](#'..id..') somewhere.'
-														.." I've changed the ID to `"..new_id..' and made '
-														..' all crossreferences to `'..id..'` point to it'
-														..' instead. Some crossreferences may not be correct,'
-														..' you should give this statement another ID.')
-			else
-				message('WARNING', 	'The ID `'..id..'` you gave to a `'..self.kind..'` statement'
-														.." turns out to be a duplicate: it's already the ID of"
-														..'another statement: '
-														..stringify(identifiers[id].crossref_label)..'.'
-														..' Either you used it twice, or it happens to match'
-														..' the automatically-generated ID of that other statement.'
-														.." I've changed it to `"..new_id..' but all crossreferences'
-														..' to `'..id..'` will point to the point to the other statement.'
-														..' This is probably not what you want, you should '
-														..' give this statement another ID.')
-			end
-		end -- end of changed id warnings
+		local id, attr = crossref:parse_identifier(self.identifier)
+		local final_id = register(id, attr, 'redirect')
+		if final_id ~= id then
+			message('WARNING', 	'The ID `'..id..'` you gave to a `'..self.kind..'` statement'
+													..' turns out to be a duplicate. Either you used it twice,'
+													..' or it matches an automatically-generated section ID,'
+													..' or you tried to refer to the statement with '
+													..' an empty Span `[]{#'..id..'}` rather than a Link' 
+													..' `[](#'..id..') somewhere.'
+													.." I've changed the ID to `"..final_id..' and made '
+													..' all crossreferences to `'..id..'` point to it'
+													..' instead. Some crossreferences may not be correct,'
+													..' you should give this statement another ID.')
+	end
 
 	-- 		acronym?
 	elseif self.acronym then
-		id = stringify(self.acronym):gsub('[^%w]','-')
-		local new_id = safe_register(id)
-		if new_id ~= id then
+		local id = stringify(self.acronym):gsub('[^%w]','-')
+		local final_id = register(id, {}, 'new')
+		if final_id ~= id then
 			message('WARNING', 'The acronym `'..id..'` you gave to a `'..self.kind..'` statement'
 													..' could not be used as its ID because that ID already existed.'
 													.." If you're not planning to crossrefer to this statement, "
@@ -3736,15 +3685,15 @@ function Statement:set_identifier(elem)
 													.." Make sure you didn't try to refer to this statement with "
 													..' an empty Span `[]{#'..id..'}` rather than a Link' 
 													..' `[](#'..id..') somewhere, and otherwise give it a custom ID.'
-													.." In the meanwhile I've given it ID "..new_id.." instead."
+													.." In the meanwhile I've given it ID "..final_id.." instead."
 				)
 		end
 
 	--	custom label?
 	elseif self.custom_label then
-		id = stringify(self.custom_label):lower():gsub('[^%w]','-')
-		local new_id = safe_register(id)
-		if new_id ~= id then
+		local id = stringify(self.custom_label):lower():gsub('[^%w]','-')
+		local final_id = register(id, {}, 'new')
+		if final_id ~= id then
 			message('WARNING', 'The custom label `'..id..'` you gave to a `'..self.kind..'` statement'
 													..' could not be used as its ID because that ID already existed.'
 													.." If you're not planning to crossrefer to this statement, "
@@ -3753,7 +3702,7 @@ function Statement:set_identifier(elem)
 													.." Make sure you didn't try to refer to this statement with "
 													..' an empty Span `[]{#'..id..'}` rather than a Link' 
 													..' `[](#'..id..') somewhere, and otherwise give it a custom ID.'
-													.." In the meanwhile I've given it ID "..new_id.." instead."
+													.." In the meanwhile I've given it ID "..final_id.." instead."
 				)
 		end
 
@@ -3826,22 +3775,25 @@ end
 function Statement:set_labels()
 	local kinds = self.setup.kinds -- pointer to the kinds table
 	local kind = self.kind -- the statement's kind
-	local delimiter = '.' -- separates section counter and statement counter
+	local delimiter = self.setup.options.counter_delimiter
+										or '.' -- separates section counter and statement counter
 	local counters = self.setup.counters -- pointer to the counters table
 	local number -- string formatted number, if numbered statement
 
 	-- If numbered, create the `number` string
 	if self.is_numbered then
-		-- counter; if shared, use the source counter
+		-- counter; if shared, use the source's counter
 		local counter = kinds[kind].counter
+		local kind_to_count = kind
 		if kinds[counter] then
+			kind_to_count = counter
 			counter = kinds[counter].counter
 		end
 		-- format depending on counter == `self`, <level> or 'none'/unintelligible
 		local level = self.setup:get_level_by_LaTeX_name(counter)
-		local count = kinds[kind].count or 0
+		local count = kinds[kind_to_count].count or 0
 		if level then
-			number = self.setup:write_counter(counter)..delimiter..count
+			number = self.setup:write_counter(level)..delimiter..count
 		elseif counter == 'self' then
 			number = tostring(count)
 		else
@@ -3853,7 +3805,7 @@ function Statement:set_labels()
 	if self.custom_label then
 		self.label = self.custom_label
 	elseif kinds[kind].label then
-		self.label = kinds[kind].label
+		self.label = kinds[kind].label:clone()
 		if number then
 			self.label:extend({pandoc.Space(), pandoc.Str(number)})
 		end
@@ -3881,19 +3833,19 @@ end
 ---Statement:set_count: increment a statement kind's counter
 -- Increments the kind's count of this statement kind or
 -- its shared counter's kind.
+-- Note: set_is_numbered ensures that the kind's counter
+-- is a counting one.
+--@return nil
 function Statement:set_count()
 	local kinds = self.setup.kinds -- pointer to the kinds table
-	local counter = kinds[self.kind].counter or 'none'
-	local kind_to_count = self.kind
+	local counter = kinds[self.kind].counter
+	-- kind to count: shared counter's kind or self.kind
+	local kind_to_count = kinds[counter] and counter
+												or self.kind
 
-	--if shared counter, that kind is the count to increment
-	if kinds[counter] then
-		kind_to_count = counter
-	end
 	kinds[kind_to_count].count =	kinds[kind_to_count].count
 																and kinds[kind_to_count].count + 1
 																or 1
-
 end
 
 --- Statement:write: format the statement as an output string.
@@ -3957,12 +3909,12 @@ function Statement:write_style(style, format)
 	local style = style or self.setup.kinds[self.kind].style
 	local blocks = pandoc.List:new() -- blocks to be written
 
-	-- check if the style is already defined or not to be defined
-	if styles[style].is_defined 
+	-- check if the style is already written or not to be defined
+	if styles[style].is_written 
 			or styles[style]['do_not_define_in_'..format] then
 		return {}
 	else
-		styles[style].is_defined = true
+		styles[style].is_written = true
 	end
 
 	-- format
@@ -4182,11 +4134,11 @@ function Statement:write_kind(kind, format)
 	local shared_counter, counter_within
 	local blocks = pandoc.List:new() -- blocks to be written
 
-	-- check if the kind is already defined
-	if self.setup.kinds[kind].is_defined then
+	-- check if the kind is already written
+	if self.setup.kinds[kind].is_written then
 		return {}
 	else
-		self.setup.kinds[kind].is_defined = true
+		self.setup.kinds[kind].is_written = true
 	end
 
 	-- identify counter_within and shared_counter
@@ -4629,46 +4581,113 @@ function Statement:write_native()
 
 end
 
--- # Walker class
+--- create a statement object from a pandoc element.
+-- @param elem pandoc Div or DefinitionList
+-- @param setup Setup class object, the document's statements setup
+-- @return statement object or nil if elem isn't a statement
+function Statement:new(elem, setup)
 
---- Walker: class to hold methods that walk through the document
-Walker = {}
----Walker:collect_ids: Collect ids of non-statements in a document
--- Updates self.setup.identifiers
---@param blocks (optional) pandoc Blocks, a list of Block elements
---								defaults to self.blocks
+	-- create an object of Statement class
+	local o = {}
+	self.__index = self 
+	setmetatable(o, self)
+
+	o.setup = setup -- points to the setup, needed by the class's methods
+	o.element = elem -- points to the original element
+
+	if o.element.t then
+
+		if o.element.t == 'Div' and o:Div_is_statement() then
+			o:parse_Div()
+			o:set_values()
+			return o
+
+		elseif o.element.t == 'DefinitionList' 
+						and o.element.content[1]
+						and o:DefListitem_is_statement(o.element.content[1]) then
+			o:parse_DefList()
+			o:set_values()
+			return o
+
+		end
+	end
+
+end
+
+-- # Crossref class
+
+--- Crossref: class for the Crossref object.
+-- The class contains a table of identifiers, and 
+-- a constructor for References objects.
+Crossref = {}
+
+-- Identifiers map
+Crossref.identifiers = {
+	-- id = { 
+	--				type = string, 'Div', 'Header', ... or 'Statement',
+	--				label = inlines, index (1.1, 1.3.2) or crossref label (custom, acronym)
+	--				kind = string, key of the setup.kinds table
+	-- 			}
+}
+
+--- References lists
+-- the parse functions return a list of reference items.
+-- items in these list have the following structure:
+-- reference = {
+--			id = string, key of the identifiers table,
+--			flags = list of strings, flags added to the target,
+--			prefix = inlines,
+--			suffix =	inlines,
+--			mode = nil or string, `Normal` or `InText`
+--			text = inlines, user-specified text instead of label (Link references)
+-- 			title = string, user-specified title (Link references)
+--			agg_first_id = nil or string, id of the first item in a sequence
+--			agg_count = nil or number, how many merges happened in aggregating
+--	}
+---Crossref:collect_identifiers: Collect identifiers of 
+-- non-statements in the document.
+-- Updates:
+--		self.identifiers
+--@param blocks pandoc Blocks, a list of Block elements
 --@return nil
-function Walker:collect_ids(blocks)
-	local blocks = blocks or self.blocks
-	local identifiers = self.setup.identifiers -- identifiers table
+function Crossref:collect_identifiers()
+	local setup = self.setup
+	local blocks = self.doc.blocks
 	local types_with_identifier = { 'CodeBlock', 'Div', 'Header', 
 						'Table', 'Code', 'Image', 'Link', 'Span',	}
 	local filter = {} -- filter to be applied to blocks
 
-	-- register_or_warn: register element's id if any; warning if duplicate
-	local function register_or_warn(elem) 
-		if elem.identifier and elem.identifier ~= '' then
-			if identifiers[elem.identifier] then 
-				message('WARNING', 'Duplicate identifier: '
-													..elem.identifier..'.')
-			else
-				identifiers[elem.identifier] = {statement = false}
+	-- get_filter: generate a filter (elem -> elem) that registers
+	-- non-duplicate IDs with type `type`.
+	local function get_filter(type) 
+		return function(elem)
+			if elem.identifier and elem.identifier ~= '' then
+				-- parse the identifier
+				local id, attr = Crossref:parse_identifier(elem.identifier)
+				-- register the type
+				attr.type = type
+				-- register or warn
+				success = self:register_identifier(id, attr, 'strict')
+				if not success then 
+					message('WARNING', 'Duplicate identifier: '..id..'.')
+				end
 			end
-		end
+
+			end
 	end
 
 	-- Div: register only if not a statement
 	filter.Div = function (elem)
 		if elem.identifier and elem.identifier ~= ''
-				and not Statement:Div_is_statement(elem,self.setup) then
-					register_or_warn(elem)
+				and not Statement:Div_is_statement(elem, setup) then
+					get_filter('Div')(elem)
 			end
 	end
 
 	-- Generic function for remaining types
 	for _,type in ipairs(types_with_identifier) do
 		-- make sure we don't erase a filter already defined
-		filter[type] = filter[type] or register_or_warn
+		filter[type] = filter[type] or get_filter(type)
 	end
 
 	-- run the filter through blocks
@@ -4679,267 +4698,571 @@ end
 
 
 
----Walker:crossreferences: creates a Blocks filter to 
--- handle crossreferences.
--- Links with empty content get crossref_label as their content
--- Uses:
---	self.setup.options.citations: whether to use citation syntax
--- Uses and updates:
--- 	self.blocks, the document's blocks
---@param blocks blocks to be processed
---@return nil
-function Walker:crossreferences()
-	local identifiers = self.setup.identifiers -- pointer to identifiers table
-	local filter = {}
+---Crossref:parse_identifier: Parse an element's
+-- identifier and return a map for the identifiers table.
+-- @TODO in the future we'll process any flags included
+-- in the identifier like `g:` for global identifiers.
+--@param str string the Pandoc element identifier
+--@return id string the identifier proper
+--@return attr map of identifier attributes or nil 
+function Crossref:parse_identifier(str)
+	local id = str
+	local attr = {}
 
-	-- format_link_content: replace `<>` strings with crossref_label
-	-- if no text, just put the crossref_label
-	--@param content, inlines
-	--@paramcrossref_label, inlines
-	--@return inlines
-	function format_link_content(content,label)
-		if #content == 0 then
-			return label
-		end
-		-- walk the content with a Str filter
-		content = content:walk({
-						Str = function(elem)
-							if elem.text == '<>' then return label end
-						end
-					})
-		return content
+	--@TODO: extract any flags in str, set attributes
+
+	return id, attr
+end
+
+
+
+
+---Crossref:register_identifier: register a new identifier.
+-- Different modes are provided
+-- 		- 'strict': register only if not already existing
+--		- 'redirect': if already present, register under a new
+--							id and redirect the original to the new
+--		- 'new': register, using a new name if needed
+-- The 'redirect' and 'new' modes are always successful.
+--@param id string the desired identifier
+--@param attr table map of attributes
+--@param mode (optional) string, mode (defaults to 'new')
+--@return id string the identifier registered or nil
+function Crossref:register_identifier(id, attr, mode)
+	local identifiers = self.identifiers -- points to the identifiers table
+	local id = id or '' -- in non-strict mode, empty id is ok
+	local attr = attr or {}
+	local mode = mode or 'new'
+
+	-- all identifiers must have a type
+	if not attr.type then
+		attr.type = 'Unknown'
 	end
 
-	-- format_link_title: replace `<>` strings with crossref_label
-	-- of provide a default link title.
-	--@param title string, 
-	--@param crossref_label inlines
-	--@param kind_label string (optional), the kind's label
-	--@return string
-	function format_link_title(title,crossref_label, kind_label)
-		crossref_label = stringify(crossref_label)
-		if title ~= '' then
-			title:gsub('<>',crossref_label)
-			return title
+	if mode == 'strict' and id ~= '' then
+		if not identifiers[id] then
+			identifiers[id] = attr
+			return id
+		end
+	elseif mode == 'new' or mode == 'redirect' then
+		-- ensure we have a new id
+		local final_id = id
+		local n = 0
+		while final_id == '' or identifiers[final_id] do
+			n = n + 1
+			final_id = id..'-'..tostring(n)
+		end
+		-- register
+		identifiers[final_id] = attr
+		-- in redirect mode, redirect old id to new one
+		if mode == 'redirect' then
+			if identifiers[id] then
+				identifiers[id].redirect = final_id
+			end
+		end
+		-- return the final id
+		return final_id
+	end
+end
+
+
+
+
+---Crossref:process: processes crossreferences in
+-- a Pandoc Link or Cite, if present.
+-- See `Crossref.lua` for the definition `references` lists.
+function Crossref:process(elem)
+	if elem and elem.t then
+		
+		local references
+
+		if elem.t == 'Link' then
+			references = self:parse_Link(elem)
+		elseif elem.t == 'Cite' then
+			references = self:parse_Cite(elem)
+		end
+
+		if references then
+			return self:write(references)
+		end
+		
+	end
+end
+
+---Crossref:parse_target: Parse a crossreference
+-- target into flags (if any) and identifier.
+--@param str string the crossreference target
+--@return id string the identifier proper
+--@return flags pandoc List of flags, might be empty
+function Crossref:parse_target(str)
+	local flag_patterns = {'pre', 'Pre', 'pres', 'Pres', 'g'} -- Lua patterns
+	local separator = ':' -- could open to customization in the future
+	local flags = pandoc.List:new()
+	local id
+
+	---extract_flag: extract one flag from the identifier
+	--@param: str, string from which the flag is to be extracted
+	--@param: flag, string, flag found
+	--@param: remainder, string remainder of the string
+	local function extract_flag(str)
+		local i,j = str:find('^%w+'..separator)
+		-- proceed only if non-empty remainder found
+		if j and j < #str then
+			local flag = str:sub(i,j - #separator)
+			local remainder = str:sub(j+1, #str)
+			-- return only if it's an official flag
+			for _,pattern in ipairs(flag_patterns) do
+				if flag:match(pattern) then
+					return flag, remainder
+				end
+			end
+		end
+	end
+
+	-- Main function body
+	while str do
+		local flag, remainder = extract_flag(str)
+		if flag then
+			flags:insert(flag)
+			str = remainder
 		else
-			if kind_label then
-				title = stringify(kind_label) .. ' '
-			end
-			title = title..crossref_label
-			return title
+			id = str
+			str = nil
 		end
 	end
 
-	filter.Link = function (link)
-
-		if link.target:sub(1,1) == '#' then
-			local target_id = link.target:sub(2,-1)
-			if identifiers[target_id] then
-				-- check that target is a statement
-				-- note that if it was a duplicate id the statement's 
-				-- new id has been stored in 'try_instead'
-				local id = 	(identifiers[target_id].statement and target_id)
-						or identifiers[target_id].try_instead
-				if id then 
-					link.target = '#'..id
-					link.content = format_link_content(link.content,
-										identifiers[target_id].crossref_label
-										)
-					link.title = format_link_title(link.title,
-										identifiers[id].crossref_label,
-										identifiers[id].kind_label
-										)
-					return link
-				end
-			end
-		end
-	end
-
-	-- if citation syntax is enabled, add a Cite filter
-	if self.setup.options.citations then
-		filter.Cite = function(cite)
-
-		local has_statement_ref, has_biblio_ref
-
-			-- warn if the citations mix cross-label refs with standard ones
-	    for _,citation in ipairs(cite.citations) do
-	        if identifiers[citation.id] 
-	           and (identifiers[citation.id].statement
-	           		or identifiers[citation.id].try_instead) then
-	            has_statement_ref = true
-	        else
-	            has_biblio_ref = true
-	        end
-	    end
-	    if has_statement_ref and has_biblio_ref then
-        message('WARNING', 'A citation mixes bibliographic references \
-            with custom label references '
-            .. pandoc.utils.stringify(cite.content) )
-        return
-   		end
-
-   		-- if statement crossreferences, turn Cite into
-   		-- prefix Inlines Link suffix Inlines; ...
-	    if has_statement_ref then
-
-	        -- get style from the first citation
-	        local bracketed = true 
-	        if cite.citations[1].mode == 'AuthorInText' then
-	            bracketed = false
-	        end
-
-	        local inlines = pandoc.List:new()
-
-	        -- create (list of) citation(s)
-
-	        for i = 1, #cite.citations do
-	        	citation = cite.citations[i]
-				-- was it a duplicated id with another id to try instead?
-				local id = 	(identifiers[citation.id].statement and citation.id)
-							or identifiers[citation.id].try_instead
-				-- values to create link
-				local target = '#'..id
-				local content = identifiers[id].crossref_label 
-								or pandoc.Inlines(pandoc.Str('??'))
-				local title = format_link_title('', content,
-						identifiers[id].kind_label)
-
-				-- prefix first
-				if #citation.prefix > 0 then
-					inlines:extend(citation.prefix)
-					inlines:insert(pandoc.Space())
-				end
-				-- then link
-	          	inlines:insert(pandoc.Link(content, target, title))
-	          	-- then suffix
-				if #citation.suffix > 0 then
-					inlines:insert(pandoc.Space())
-					inlines:extend(citation.suffix)
-				end
-
-	            -- add separator if needed
-	            if #cite.citations > 1 and i < #cite.citations then
-	                inlines:extend({pandoc.Str(';'),pandoc.Space()})
-	            end
-	        end
-
-	        -- adds brackets if needed
-	        if bracketed then
-	            inlines:insert(1, pandoc.Str('('))
-	            inlines:insert(pandoc.Str(')'))
-	        end
-
-	        return inlines
-
-	    end -- end of `if has_statement_ref...`
-		end -- end of filter.Cite function
-	end -- end of `if self.setup.options.citations ...`
-
-	return filter
+	return id, flags
 
 end
 
----Walker.statements_in_lists: filter to handle statements within
--- lists in LaTeX.
--- In LaTeX a statement at the first line of a list item creates an
--- unwanted empty line. We wrap it in a LaTeX minipage to avoid this.
--- Uses
---		self.setup (passed to Statement:Div_is_statement)
---		self.setup.options.LaTeX_in_list_afterskip
--- @TODO This is hack, probably prevents page breaks within the statement
--- @TODO The skip below the statement is rigid, it should pick the
--- skip that statement kind
-function Walker:statements_in_lists()
-	filter = {}
+---Crossref:parse_Link: tries to parse a Link element  
+-- as a crossreference. 
+-- See `Crossref.lua` for a definition of reference items.
+-- Uses:
+--	self.identifiers
+--@param: elem, pandoc Link element
+--@return: table, list of (one) reference item or nil
+function Crossref:parse_Link(link)
+	local identifiers = self.identifiers
+	local id, flags
 
-	-- wrap: wraps the first element of a list of blocks
-  -- store the parindent value before, as minipage resets it to zero
-  -- \docparindent will contain it, but needs to be picked before
-  -- the list!
-  -- with minipage commands
-  local function wrap(blocks)
-    blocks:insert(1, pandoc.RawBlock('latex',
-      '\\begin{minipage}[t]{\\textwidth}\\parindent \\docparindent'
-      ))
-    blocks:insert(3, pandoc.RawBlock('latex',
-      '\\end{minipage}'
-      .. '\\vskip ' .. self.setup.options.LaTeX_in_list_afterskip
-      ))
-    -- add a right skip declaration within the statement Div
-    blocks[2].content:insert(1, pandoc.RawBlock('latex',
-      '\\addtolength{\\rightskip}{'
-      .. self.setup.options.LaTeX_in_list_rightskip .. '}'
-      )
-    )
+	---parse_link_content: parses link content into
+	-- prefix and suffix or custom text.
+	-- The first <>, if any, says where the automatic text
+	-- goes. Non-empty text without <> is a custom text.
+	-- Examples:
+	-- '' -> prefix = nil, suffix = nil, text = nil
+	-- 'this statement' ->  text = 'this statement', prefix,suffix = nil,nil
+	-- 'as in <>' -> prefix 'as in ', suffix,text = nil,nil
+	-- 'as in (<>)' -> prefix 'as in (', suffix = ')', text = nil
+	-- 'see (<>) above' -> prefix 'see (', suffix = ') above', text = nil
+	-- Uses:
+	--	self.identifires
+	--@param: inlines, text of the link
+	--@return: table, list of (one) reference item
+	local function parse_link_content(inlines)
+		local text, prefix, suffix
 
-    return blocks
+		if #inlines > 0 then
+			text = pandoc.List:new()
+			-- by default, insert elements in the custom text
+			-- but if we find <>, put what we have in prefix
+			-- and the rest in suffix.
+			for i = 1, #inlines do
+				if inlines[i].t == 'Str'
+						and inlines[i].text:match('<>') then
+					-- put what we have so far in prefix, 
+					-- the rest in suffix
+					prefix = text
+					text = nil
+					suffix = pandoc.List:new()
+					for j = i+1, #inlines do
+						suffix:insert(inlines[j])
+					end
+					-- split the string if needed
+					s,e = inlines[i].text:find('<>')
+					if s > 1 then 
+						prefix:insert(pandoc.Str(inlines[i].text:sub(1,s-1)))
+					end
+					if e < #inlines[i].text then
+						suffix:insert(1, pandoc.Str(inlines[i].text:sub(e+1,-1)))
+					end
+					break
+
+				else
+
+					text:insert(inlines[i])
+
+				end
+			end
+		end
+
+		return text, prefix, suffix
+	end
+
+	-- MAIN FUNCTION BODY
+
+	-- Check whether the link is crossref and set id
+	local is_crossref = false
+	if link.target:sub(1,1) == '#' then
+		id, flags = self:parse_target(link.target:sub(2,-1))
+		if identifiers[id] then
+			-- redirect if needed
+			id = identifiers[id].redirect or id
+			-- check whether the target is a statement
+			if identifiers[id].type == 'Statement' then
+				is_crossref = true
+			end
+		end
+	end
+
+	-- parse a crossreference if found
+	if is_crossref then
+		local ref = {}
+		ref.id = id
+		ref.flags = flags
+		ref.mode = 'InText'
+		ref.text, ref.prefix, ref.suffix =	parse_link_content(link.content)
+		ref.title = link.title ~= '' and link.title or nil
+
+		return { ref }
+	end
+end
+
+---Crossref:parse_Cite: tries to parse a Cite element
+-- as a list of crossreferences.
+-- Mixes of crossreferences and biblio (or others) aren't allowed.
+-- See `Crossref.lua` for a definition of reference items.
+-- Uses:
+-- 	self.identifiers
+--@param: elem, pandoc Cite element
+--@return: table, list of reference items, or nil
+function Crossref:parse_Cite(cite)
+	local identifiers = self.identifiers
+
+	-- Check whether citations include crossref and/or biblio refs
+	local has_crossref, has_biblio_ref
+
+  for _,citation in ipairs(cite.citations) do
+  	local id, flags = self:parse_target(citation.id)
+  	if identifiers[id] then 
+  		-- apply redirect if needed
+  		id = identifiers[id].redirect or id
+  		-- record if we found a crossreference citation or another type
+  		if identifiers[id].type == 'Statement' then
+          has_crossref = true
+      else
+          has_biblio_ref = true
+      end  		
+  	else
+  		has_biblio_ref = true
+  	end
   end
 
-  -- process: processes a BulletList or OrderedList element
-  -- return nil if nothing done
-  function process(elem)
-  	if FORMAT:match('latex') or FORMAT:match('native')
-    		or FORMAT:match('json') then
- 				
-			local list_updated = false
-	    -- go through list items, check if they start with a statement
-      for i = 1, #elem.content do
-        if elem.content[i][1] then
-          if elem.content[i][1].t and elem.content[i][1].t == 'Div'
-                and Statement:Div_is_statement(elem.content[i][1],self.setup) then
-            elem.content[i] = wrap(elem.content[i])
-            list_updated = true
-          elseif elem.content[i][1].t and elem.content[i][1].t == 'DefinitionList' then
-            --@TODO handle DefinitionLists here 
-          end
-        end
-      end
+  -- Return if it has biblio refs, with a warning if there was a mix.
+  if has_biblio_ref then
+  	if has_crossref then
+	    message('WARNING', 'A citation mixes bibliographic references'
+	        ..' with custom label references: '..stringify(cite.content))
+	  end
+    return
+	end
 
-      -- if list has been updated, we need to add a line at the beginning
-      -- to store the document's `\parindent` value
-      if list_updated == true then
-      	return pandoc.Blocks({
-          pandoc.RawBlock('latex',
-            '\\edef\\docparindent{\\the\\parindent}\n'),
-          elem      		
-      	})
-      end
+	-- Otherwise build the references list
+	references = pandoc.List:new()
 
+	for _,citation in ipairs(cite.citations) do
+		local ref = {}
+  	ref.id, ref.flags = self:parse_target(citation.id)
+  	-- apply redirect if needed
+  	ref.id = identifiers[ref.id].redirect or ref.id
+  	-- mode: `Normal` or `InText`
+  	ref.mode = 	citation.mode == 'AuthorInText' and 'InText'
+  							or citation.mode == 'NormalCitation' and 'Normal'
+  							or nil
+  	-- prefix and suffix
+  	-- for uniformity with Links, space added
+  	if #citation.prefix > 0 then
+  		ref.prefix = citation.prefix:clone()
+  		ref.prefix:insert(pandoc.Space())
+  	end
+  	if #citation.suffix > 0 then
+  		ref.suffix = citation.suffix:clone()
+  		ref.suffix:insert(1, pandoc.Space())
+  	end
+
+  	references:insert(ref)
+
+	end
+
+	return references
+
+end
+
+---Crossref:write: write a crossreferences list for output
+-- The basic output for an item is
+-- 		[prefix][core][suffix]
+-- whre [core] is:
+--		[automatic_prefix ]number
+-- Example: [see ][theorem ]1.2[ and following].
+-- Uses:
+--@param: elem, pandoc Link element
+function Crossref:write(references)
+	local identifiers = self.identifiers
+	local kinds = self.setup.kinds
+	local delimiters = self.setup.options.crossref_delimiters
+											or {'(',')'}
+	local mode = references[1].mode or 'Normal' -- mode from first ref
+	local inlines = pandoc.List:new()
+
+	--write_core: create a reference's core text
+	local function write_core(reference)
+		local inlines = pandoc.List:new()
+
+		-- does it have an automatic prefix?
+		local mode = reference.agg_pre_mode 
+									or self:get_pre_mode(reference)
+		--@TODO: handle lower/upper case, plural
+		if mode ~= 'none' then
+			local label = kinds[identifiers[reference.id].kind].label
+			if label then
+				--@TODO formatting here
+				inlines:extend(label)
+				inlines:insert(pandoc.Space())
+			end
+		end
+
+		-- is it an aggregate reference?
+		if reference.agg_first_id then
+			local id1 = reference.agg_first_id
+			local id2 = reference.id
+			local separator = reference.agg_count == 1
+											and { pandoc.Str(','), pandoc.Space() }
+											or { pandoc.Str(utf8.char(8211)) } -- en-dash
+			inlines:extend(identifiers[id1].label)
+			inlines:extend(separator)
+			inlines:extend(identifiers[id2].label)
+		else
+			local label = identifiers[reference.id].label
+			if label and #label > 0 then
+				inlines:extend(label)
+			else
+				inlines:insert(pandoc.Str('??'))
+			end
+		end
+
+		return inlines
+
+	end
+
+	-- MAIN FUNCTION BODY
+
+	-- aggregate sequences of consecutive references
+	if self.setup.options.aggregate_crossreferences then
+		references = self:aggregate_references(references)
+	end
+
+	for i = 1, #references do
+		reference = references[i]
+
+		-- create core
+		local core = write_core(reference)
+
+		-- values for the link element
+		local target = '#'..reference.id
+		local title = reference.title and reference.title ~= '' 
+									and reference.title:gsub('<>',stringify(core))
+									or stringify(core)
+
+		-- build inlines
+		if reference.prefix then
+			inlines:extend(reference.prefix)
+		end
+		inlines:insert( pandoc.Link(core, target, title) )
+		if reference.suffix then
+			inlines:extend(reference.suffix)
+		end
+
+		-- add separator if needed
+		if #references > 1 and i < #references then
+      inlines:extend({pandoc.Str(';'),pandoc.Space()})
     end
-  end
 
-  -- return the filter
-  return {BulletList = process,
-  	OrderedList = process}
+	end
+
+	-- adds brackets if needed
+	if mode == 'Normal' then
+	    inlines:insert(1, pandoc.Str(delimiters[1]))
+	    inlines:insert(pandoc.Str(delimiters[2]))
+	end
+
+  return inlines
 
 end
 
--- Walker:new: create a Walker class object based on document's setup
---@param setup a Setup class object
---@param doc Pandoc document
---@return Walker class object
-function Walker:new(setup, doc)
+---Crossref.aggregate_references: turn successive 
+-- numbered references of the same kind into a list.
+-- E.g. "Theorem 1;Theorem 1.2" -> "Theorem 1.1, 1.2"
+-- "1.1; 1.2; 1.3" -> "1.2--1.3"
+-- Whenever we find such a sequence we replace it by
+-- the last item with:
+--		- the first item's prefix
+--		- some additional fields to specify the sequence
+--@param references a list of reference items
+function Crossref:aggregate_references(references)
+	local identifiers = self.identifiers -- points to the identifier table
+	local kinds = self.setup.kinds -- points to the kinds table
+	local new_references = pandoc.List:new()
 
-	-- create an object of the Walker class
+	---counters_are_shared: checks whether two items
+	-- are counted together.
+	local function counters_are_shared(item1,item2)
+		local kind1 = identifiers[item1.id].kind
+		local kind2 = identifiers[item2.id].kind
+		if kind1 == kind2
+				or kinds[kind1].counter == kind2
+				or kinds[kind2].counter == kind1 then
+			return true
+		else
+			return false
+		end
+	end
+
+	---labels_are_consecutive: checks that one item's number
+	-- precedes another. 
+	-- We require the last number to be consecutive, e.g.:
+	-- 2.9, 2.10 : ok
+	-- 2.9, 3.1 : not ok
+	--@param item1 the earlier reference list item
+	--@param item2 the later reference list item
+	local function labels_are_consecutive(item1,item2)
+		local label1 = stringify(identifiers[item1.id].label)
+		local label2 = stringify(identifiers[item2.id].label)
+		local count1 = tonumber(label1:match('%d+$'))
+		local count2 = tonumber(label2:match('%d+$'))
+		return count1 and count2 and count2 == count1 + 1 
+	end
+
+	---auto_prefixes_are_compatible: if citations have
+	-- auto prefixes, check that they are compatible.
+	-- if the two items have auto prefix flag, they 
+	-- need to be of the same kind.
+	--@param item1, item2, reference list items
+	local function auto_prefixes_are_compatible(item1, item2)
+		local mode1 = item1.agg_pre_mode or self:get_pre_mode(item)
+		local mode2 = item2.agg_pre_mode or self:get_pre_mode(item)
+		return mode1 == 'none' and mode2 == 'none'
+					 or identifiers[item1.id].kind == identifiers[item2.id].kind
+	end
+
+	-- Aggregate multiple references. Requirements:
+	-- same counter
+	-- not if the second has a prefix, unless it's the same
+	-- not if either has custom text to replace its label
+	-- consecutive numbers
+	-- compatible auto prefixes
+	-- 
+	-- Strategy. When we concatenate an item, we give it the previous
+	-- item's id (carried ofer since the first) and add two fields:
+	-- `agg_last_id`: id of current item of the sequence
+	-- `agg_first_id`: id of first item in the sequence
+	-- `agg_count`: how many merges have occurred
+	-- `agg_pre_mode`: string auto prefix flag or 'none'
+	-- When the loop is over, we use these to create new labels for the
+	-- aggregated items.
+	local prev_item
+	for i = 1, #references do
+		item = references[i]
+		-- do we aggregate this with the previous one?
+		if prev_item
+				and counters_are_shared(prev_item,item)
+				and (not prev_item.suffix or #prev_item.suffix == 0)
+				and not (item.text or prev_item.text)
+				and (not item.prefix 
+							or stringify(item.prefix) == stringify(prev_item.prefix))
+				and labels_are_consecutive(prev_item,item)
+				and auto_prefixes_are_compatible(prev_item, item) then
+
+			-- first item's id: use the previous item's id,
+			-- unless it's already carrying a first item's id
+			item.agg_first_id = prev_item.agg_first_id 
+													or prev_item.id
+			-- auto prefix activated: use the previous item's
+			-- auto prefix flag, unless it's already carrying that
+			-- flag from another status
+			item.agg_pre_mode = prev_item.agg_pre_mode 
+													or self:get_pre_mode(prev_item)
+
+			-- add one merge to the count
+			item.agg_count = prev_item.agg_count and prev_item.agg_count + 1
+												or 1
+
+			-- carry over from the first item:
+			-- prefix
+			-- flags
+			item.prefix = prev_item.prefix
+			item.flags = prev_item.flags
+
+		-- not aggregating: if we had a previous item in waiting we store it 
+		elseif prev_item then
+				
+			new_references:insert(prev_item)
+		
+		end
+
+		-- if that was the last item, we store it, otherwise we pass it to
+		-- the next loop iteration.
+		if i == #references then 
+			new_references:insert(item)
+		else
+			prev_item = item
+		end
+
+	end
+
+	return new_references
+end
+
+
+---Crossref.get_pre_mode: what auto prefix an item uses
+	--@return string auto prefix flag or 'none'
+function Crossref:get_pre_mode(item)
+	local flag_pattern = '^[pP]res?$'
+
+	for _,flag in ipairs(item.flags) do
+		if flag:match(flag_pattern) then
+			return flag
+		end
+	end
+	return 'none'
+end
+
+--- create a crossref object from a pandoc document and setup.
+-- @param doc pandoc Document
+-- @param setup Setup class object, the document's statements setup
+-- @return Crossref object
+function Crossref:new(doc, setup)
+
+	-- create an object of Crossref class
 	local o = {}
 	self.__index = self 
 	setmetatable(o, self)
 
-	-- pointer to the setup table
-	o.setup = setup
+	-- pointers 
+	o.setup = setup -- points to the setup, needed by the class's methods
+	o.doc = doc -- points to the document
 
-	-- pointer to the blocks table
-	o.blocks = doc.blocks
-
-	-- collect ids of non-statement elements
-	-- this is to ensure that automatic statement id creation doesn't
-	-- create duplicates
-	o:collect_ids()
+	-- collect ids of non-statement in the Pandoc document
+	o:collect_identifiers()
 
 	return o
 
 end
 
+-- # Walker class
+
+--- Walker: class to hold methods that walk through the document
+Walker = {}
 --- Walker:walk: walk through a list of blocks, processing statements
 --@param blocks (optional) pandoc Blocks to be processed
 --								defaults to self.blocks
@@ -5116,7 +5439,131 @@ function Walker:walk(blocks)
 
 	end
 
-	return is_modified and result or nil
+	return is_modified and pandoc.Blocks(result) or nil
+
+end
+
+---Walker:crossreferences: creates a Blocks filter to 
+-- handle crossreferences.
+-- Links with empty content get crossref_label as their content
+-- Uses:
+--	self.setup.options.citations: whether to use citation syntax
+--@return filter, table of functions (pandoc Filter)
+function Walker:crossreferences()
+	local options = self.setup.options
+	local crossref = self.setup.crossref
+	local filter = {}
+
+	filter.Link = function (link)
+					return crossref:process(link)
+				end
+
+	if options.citations then
+		filter.Cite = function (cite)
+						return crossref:process(cite)
+					end
+	end
+
+	return filter
+
+end
+
+---Walker.statements_in_lists: filter to handle statements within
+-- lists in LaTeX.
+-- In LaTeX a statement at the first line of a list item creates an
+-- unwanted empty line. We wrap it in a LaTeX minipage to avoid this.
+-- Uses
+--		self.setup (passed to Statement:Div_is_statement)
+--		self.setup.options.LaTeX_in_list_afterskip
+-- @TODO This is hack, probably prevents page breaks within the statement
+-- @TODO The skip below the statement is rigid, it should pick the
+-- skip that statement kind
+function Walker:statements_in_lists()
+	filter = {}
+
+	-- wrap: wraps the first element of a list of blocks
+  -- store the parindent value before, as minipage resets it to zero
+  -- \docparindent will contain it, but needs to be picked before
+  -- the list!
+  -- with minipage commands
+  local function wrap(blocks)
+    blocks:insert(1, pandoc.RawBlock('latex',
+      '\\begin{minipage}[t]{\\textwidth}\\parindent \\docparindent'
+      ))
+    blocks:insert(3, pandoc.RawBlock('latex',
+      '\\end{minipage}'
+      .. '\\vskip ' .. self.setup.options.LaTeX_in_list_afterskip
+      ))
+    -- add a right skip declaration within the statement Div
+    blocks[2].content:insert(1, pandoc.RawBlock('latex',
+      '\\addtolength{\\rightskip}{'
+      .. self.setup.options.LaTeX_in_list_rightskip .. '}'
+      )
+    )
+
+    return blocks
+  end
+
+  -- process: processes a BulletList or OrderedList element
+  -- return nil if nothing done
+  function process(elem)
+  	if FORMAT:match('latex') or FORMAT:match('native')
+    		or FORMAT:match('json') then
+ 				
+			local list_updated = false
+	    -- go through list items, check if they start with a statement
+      for i = 1, #elem.content do
+        if elem.content[i][1] then
+          if elem.content[i][1].t and elem.content[i][1].t == 'Div'
+                and Statement:Div_is_statement(elem.content[i][1],self.setup) then
+            elem.content[i] = wrap(elem.content[i])
+            list_updated = true
+          elseif elem.content[i][1].t and elem.content[i][1].t == 'DefinitionList' then
+            --@TODO handle DefinitionLists here 
+          end
+        end
+      end
+
+      -- if list has been updated, we need to add a line at the beginning
+      -- to store the document's `\parindent` value
+      if list_updated == true then
+      	return pandoc.Blocks({
+          pandoc.RawBlock('latex',
+            '\\edef\\docparindent{\\the\\parindent}\n'),
+          elem      		
+      	})
+      end
+
+    end
+  end
+
+  -- return the filter
+  return {BulletList = process,
+  	OrderedList = process}
+
+end
+
+-- Walker:new: create a Walker class object based on document's setup
+--@param setup a Setup class object
+--@param doc Pandoc document
+--@return Walker class object
+function Walker:new(setup, doc)
+
+	-- create an object of the Walker class
+	local o = {}
+	self.__index = self 
+	setmetatable(o, self)
+
+	-- pointer to the setup table
+	o.setup = setup
+
+	-- pointer to the blocks list
+	o.blocks = doc.blocks
+
+	-- add crossreference manager to the setup
+	o.setup.crossref = Crossref:new(doc, setup)
+
+	return o
 
 end
 
@@ -5146,9 +5593,10 @@ function main(doc)
 
 	-- walk the document; returns nil if no modification
 	local blocks = walker:walk()
+
 	-- process crossreferences if statements were created
 	if blocks then
-		blocks = pandoc.Blocks(blocks):walk(walker:crossreferences())
+		blocks = blocks:walk(walker:crossreferences())
 	end
 
 	-- if the doc has been modified, update its meta and return it

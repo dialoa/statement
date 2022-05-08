@@ -52,36 +52,44 @@ function Statement:parse_DefList(elem)
 	expression = item[1]
 	definitions = item[2]
 
+	-- Process expression: extract any label, info, acronym
+	-- extract id,
+	-- insert the remainder in the first paragraph of 
+	-- the definition.
+
 	-- extract any label, info, acronym from expression
 	local result = self:parse_heading_inlines(expression)
 	if result then
 		self.acronym = result.acronym
 		self.custom_label = result.custom_label
 		self.info = result.info
+		expression = result.remainder
+	end
 
-		-- look for an id in the remainder
-		if result.remainder then
-			local identifier, new_remainder = self:parse_identifier(result.remainder)
-			if identifier then
-				self.identifier = identifier
-				result.remainder = new_remainder
-			end
-		end
+	-- look for an id in the expression
+	local identifier, new_expression = self:parse_identifier(expression)
+	if identifier then
+		self.identifier = identifier
+		expression = new_expression
+	end
 
-		-- if any remainder, insert in the first Para of the first definition
-		-- or create a new Para if necessary
-		if result.remainder and #result.remainder > 0 then
-			definitions[1] = definitions[1] or pandoc.List:new()
-			if definitions[1][1] and definitions[1][1].t == 'Para' then
-				definitions[1][1].content = result.remainder:extend(
-																			definitions[1][1].content)
-			else 
-				definitions[1]:insert(1, pandoc.Para(result.remainder))
-			end
+	-- clean up
+	expression = Statement:trim_dot_space(expression)
+	expression = Statement:trim_dot_space(expression, 'reverse')
+
+	-- if any remainder, insert in the first Para of the first definition
+	-- or create a new Para if necessary
+	if expression and #expression > 0 then
+		definitions[1] = definitions[1] or pandoc.List:new()
+		if definitions[1][1] and definitions[1][1].t == 'Para' then
+			definitions[1][1].content = expression:extend(
+																		definitions[1][1].content)
+		else 
+			definitions[1]:insert(1, pandoc.Para(expression))
 		end
 	end
 
-	-- concatenate the (first item) definitions into the statement content
+	-- concatenate definitions as the statement's content
 	self.content = pandoc.List:new() -- Blocks
 	for _,definition in ipairs(definitions) do
 		if #definition > 0 then

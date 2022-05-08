@@ -7,7 +7,7 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @author Thomas Hodgson <hello@twshodgson.net>
 @copyright 2021-2022 Julien Dutant, Thomas Hodgson
 @license MIT - see LICENSE file for details.
-@release 0.4.1
+@release 0.5
 
 ]]
 
@@ -27,6 +27,8 @@ message = Helpers.message
 !input Setup -- the Setup class
 
 !input Statement -- the Statement class
+
+!input Crossref -- the Crossref class
 
 !input Walker -- the Walker class
 
@@ -56,9 +58,10 @@ function main(doc)
 
 	-- walk the document; returns nil if no modification
 	local blocks = walker:walk()
+
 	-- process crossreferences if statements were created
 	if blocks then
-		blocks = pandoc.Blocks(blocks):walk(walker:crossreferences())
+		blocks = blocks:walk(walker:crossreferences())
 	end
 
 	-- if the doc has been modified, update its meta and return it

@@ -39,10 +39,10 @@ Recursion test. he two following statements are within list items within a Div e
    $X \subseteq Y$ if and only if every element of $X$ is an element of $Y$. 
    ::::::
 2. :::::: statement
-   __Named principle (NP)__. This is a named principle with an acronym.
+   __(NP) Named principle__. This is a named principle with an acronym.
    ::::::
 
 :::
 
 Crossreference test. See ([](#NP)) or ([](#named-principle))! And citation
-syntax [@named-principle].
+syntax [@NP] or [@named-principle].

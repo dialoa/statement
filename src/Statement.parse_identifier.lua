@@ -2,6 +2,7 @@
 -- or {#...} identifier from Inlines
 function Statement:parse_identifier(inlines)
 	local id -- string, identifier
+	local result
 
 	--pick_id: a filter to pick ids in RawInlines or Str
 	local pick_id = {
@@ -18,12 +19,11 @@ function Statement:parse_identifier(inlines)
 	if inlines and type(inlines) == 'Inlines' and #inlines > 0 then
 
 		-- prevent modification of the source document by cloning
-		inlines = inlines:clone()
-		-- apply the filter
-		inlines = inlines:walk(pick_id)
+		-- and apply the filter
+		result = inlines:clone():walk(pick_id)
 		-- if something found, return the identifier and modified inlines
 		if id then
-			return id, inlines
+			return id, result
 		end
 
 	end

@@ -1,12 +1,7 @@
 -- # Statement class
 
 --- Statement: class for statement objects.
--- @field kind string the statement's kind (key of the `kinds` table)
--- @field id string the statement's id
--- @field cust_label Inlines the statement custom's label, if any
--- @field info Inlines the statement's info
 Statement = {
-	setup = nil, -- points to the Setup class object
 	element = nil, -- original element to be turned into statement
 	kind = nil, -- string, key of `kinds`
 	identifier = nil, -- string, Pandoc identifier
@@ -18,38 +13,7 @@ Statement = {
 	content = nil, -- Blocks, statement's content
 	is_numbered = true, -- whether a statement is numbered
 }
---- create a statement object from a pandoc element.
--- @param elem pandoc Div or DefinitionList
--- @param setup Setup class object, the document's statements setup
--- @return statement object or nil if elem isn't a statement
-function Statement:new(elem, setup)
 
-	-- create an object of Statement class
-	local o = {}
-	self.__index = self 
-	setmetatable(o, self)
-
-	o.setup = setup -- points to the setup, needed by the class's methods
-	o.element = elem -- points to the original element
-
-	if o.element.t then
-
-		if o.element.t == 'Div' and o:Div_is_statement() then
-			o:parse_Div()
-			o:set_values()
-			return o
-
-		elseif o.element.t == 'DefinitionList' 
-						and o.element.content[1]
-						and o:DefListitem_is_statement(o.element.content[1]) then
-			o:parse_DefList()
-			o:set_values()
-			return o
-
-		end
-	end
-
-end
 
 !input Statement.is_statement -- to tell whether an element is a statement, and what kind it matches
 
@@ -104,3 +68,36 @@ end
 !input Statement.write_jats -- to write a statement in JATS
 
 !input Statement.write_native -- to write a statement in other formats
+
+--- create a statement object from a pandoc element.
+-- @param elem pandoc Div or DefinitionList
+-- @param setup Setup class object, the document's statements setup
+-- @return statement object or nil if elem isn't a statement
+function Statement:new(elem, setup)
+
+	-- create an object of Statement class
+	local o = {}
+	self.__index = self 
+	setmetatable(o, self)
+
+	o.setup = setup -- points to the setup, needed by the class's methods
+	o.element = elem -- points to the original element
+
+	if o.element.t then
+
+		if o.element.t == 'Div' and o:Div_is_statement() then
+			o:parse_Div()
+			o:set_values()
+			return o
+
+		elseif o.element.t == 'DefinitionList' 
+						and o.element.content[1]
+						and o:DefListitem_is_statement(o.element.content[1]) then
+			o:parse_DefList()
+			o:set_values()
+			return o
+
+		end
+	end
+
+end

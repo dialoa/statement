@@ -15,22 +15,25 @@
 function Statement:set_labels()
 	local kinds = self.setup.kinds -- pointer to the kinds table
 	local kind = self.kind -- the statement's kind
-	local delimiter = '.' -- separates section counter and statement counter
+	local delimiter = self.setup.options.counter_delimiter
+										or '.' -- separates section counter and statement counter
 	local counters = self.setup.counters -- pointer to the counters table
 	local number -- string formatted number, if numbered statement
 
 	-- If numbered, create the `number` string
 	if self.is_numbered then
-		-- counter; if shared, use the source counter
+		-- counter; if shared, use the source's counter
 		local counter = kinds[kind].counter
+		local kind_to_count = kind
 		if kinds[counter] then
+			kind_to_count = counter
 			counter = kinds[counter].counter
 		end
 		-- format depending on counter == `self`, <level> or 'none'/unintelligible
 		local level = self.setup:get_level_by_LaTeX_name(counter)
-		local count = kinds[kind].count or 0
+		local count = kinds[kind_to_count].count or 0
 		if level then
-			number = self.setup:write_counter(counter)..delimiter..count
+			number = self.setup:write_counter(level)..delimiter..count
 		elseif counter == 'self' then
 			number = tostring(count)
 		else
@@ -42,7 +45,7 @@ function Statement:set_labels()
 	if self.custom_label then
 		self.label = self.custom_label
 	elseif kinds[kind].label then
-		self.label = kinds[kind].label
+		self.label = kinds[kind].label:clone()
 		if number then
 			self.label:extend({pandoc.Space(), pandoc.Str(number)})
 		end

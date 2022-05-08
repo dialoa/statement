@@ -12,7 +12,7 @@ function Statement:trim_dot_space(inlines, direction)
 	end
 
 	-- safety check
-	if #inlines == 0 then return inlines end
+	if not inlines or #inlines == 0 then return inlines end
 
 	-- remove sequences of spaces and dots
 	local keep_looking = true

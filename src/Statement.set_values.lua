@@ -35,6 +35,9 @@ function Statement:set_values()
 	end
 
 	-- set label and crossref labels
-	self:set_labels() -- set crossref label
+	self:set_labels()
+
+	-- set identifier
+	self:set_identifier()
 
 end

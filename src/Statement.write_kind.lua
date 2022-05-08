@@ -13,11 +13,11 @@ function Statement:write_kind(kind, format)
 	local shared_counter, counter_within
 	local blocks = pandoc.List:new() -- blocks to be written
 
-	-- check if the kind is already defined
-	if self.setup.kinds[kind].is_defined then
+	-- check if the kind is already written
+	if self.setup.kinds[kind].is_written then
 		return {}
 	else
-		self.setup.kinds[kind].is_defined = true
+		self.setup.kinds[kind].is_written = true
 	end
 
 	-- identify counter_within and shared_counter

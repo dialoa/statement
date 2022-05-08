@@ -14,12 +14,12 @@ function Statement:write_style(style, format)
 	local style = style or self.setup.kinds[self.kind].style
 	local blocks = pandoc.List:new() -- blocks to be written
 
-	-- check if the style is already defined or not to be defined
-	if styles[style].is_defined 
+	-- check if the style is already written or not to be defined
+	if styles[style].is_written 
 			or styles[style]['do_not_define_in_'..format] then
 		return {}
 	else
-		styles[style].is_defined = true
+		styles[style].is_written = true
 	end
 
 	-- format
