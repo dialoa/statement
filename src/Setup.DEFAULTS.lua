@@ -8,7 +8,9 @@ Setup.DEFAULTS.KINDS = {
 		statement = {prefix = 'sta', style = 'empty', counter='none',
 									custom_label_style = {
 											punctuation = '.',
-									}},
+											crossref_font = 'smallcaps',
+									},
+								},
 	},
 	basic = {
 		theorem = { prefix = 'thm', style = 'plain', counter = 'self' },
@@ -48,7 +50,7 @@ Setup.DEFAULTS.STYLES = {
 			head_font = 'smallcaps',
 			punctuation = '',
 			space_after_head = ' ', -- use '\n' or '\\n' or '\newline' for linebreak
-			heading_pattern = nil,			
+			heading_pattern = nil,
 		},
 	},
 	basic = {

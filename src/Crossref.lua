@@ -10,6 +10,7 @@ Crossref.identifiers = {
 	-- id = { 
 	--				type = string, 'Div', 'Header', ... or 'Statement',
 	--				label = inlines, index (1.1, 1.3.2) or crossref label (custom, acronym)
+	--				font = string, font specification for the crossref label
 	--				kind = string, key of the setup.kinds table
 	-- 			}
 }

@@ -68,6 +68,11 @@ It can be referenced by its label.
 :::
 
 ::: statement
+**A Familiar Principle.** This statement has a custom label, it can
+be referred to by its label. 
+:::
+
+::: statement
 **(NP) The New Principle.** This statement has a custom label and 
 acronym, it can be crossreferenced by its acronym. 
 :::
@@ -98,13 +103,15 @@ plus automatic ones.
 
 Citing automatically generated identifiers:
 
-- `[@the-old-theorem; @NP]`: [@the-old-theorem; @NP]. Note that acronyms 
-  are case-sensitive: @np fails.
+- `[@@the-old-theorem; @NP; @the-familiar-principle]`:
+  [@the-old-theorem; @NP; @a-familiar-principle]. Note that
+  acronyms are case-sensitive: @np fails.
 - `[@pre:the-old-theorem; @pre:NP]`:
   [@pre:the-old-theorem; @pre:NP]. Automatic prefixes with custom
   labelled theorems is not recommended!
 - With user prefixes and automatic prefix: [see @pre:the-old-theorem],
-  [see @pre:NP above]. BUG: automatic prefixes erases the user's.
+  [see @pre:a-familiar-principle above]. 
+  BUG: automatic prefixes erases the user's.
 
 Adding prefixes and suffixes, possibly with automatic prefixes:
 

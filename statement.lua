@@ -589,6 +589,7 @@ Setup.styles = {
 	--		space_after_head = '1em', -- horizontal space after heading 
 	-- 		linebreak_after_head = bool, -- linebreak after heading
 	--		heading_pattern = nil, -- heading pattern (not used yet)
+	--		crossref_font = 'smallcaps' -- font for crossref labels
 	--	}
 }
 
@@ -632,7 +633,9 @@ Setup.DEFAULTS.KINDS = {
 		statement = {prefix = 'sta', style = 'empty', counter='none',
 									custom_label_style = {
 											punctuation = '.',
-									}},
+											crossref_font = 'smallcaps',
+									},
+								},
 	},
 	basic = {
 		theorem = { prefix = 'thm', style = 'plain', counter = 'self' },
@@ -672,7 +675,7 @@ Setup.DEFAULTS.STYLES = {
 			head_font = 'smallcaps',
 			punctuation = '',
 			space_after_head = ' ', -- use '\n' or '\\n' or '\newline' for linebreak
-			heading_pattern = nil,			
+			heading_pattern = nil,
 		},
 	},
 	basic = {
@@ -2333,14 +2336,16 @@ function Setup:set_style(style,map,new_styles)
 		'margin_top', 'margin_bottom', 'margin_left', 'margin_right',
 		'indent'
 	})
+	-- Note: keeping font fields separate in case we wanted to validate them.
+	-- Presently no validation, they are treated like string fields.
 	local font_fields = {
-		'body_font', 'head_font'
+		'body_font', 'head_font', 'crossref_font',
 	}
 	local string_fields = { 
 		'punctuation', 'heading_pattern'
 	}
 	-- handles linebreak_after_head style
-	-- (a) linebreak_after_head already set: ignore space_after_head
+	-- (a) linebreak_after_head already is set: ignore space_after_head
 	-- (b) space_after_head is \n or \newline: set linebreak_after_head
 	-- (c) otherwise, read space_after_head as a length
 	-- special case: space_after_head can be `\n` or `\\n` or `\\newline`
@@ -2370,6 +2375,7 @@ function Setup:set_style(style,map,new_styles)
 	end
 	for _,font_field in ipairs(font_fields) do
 		new_style[font_field] = map[font_field]
+														and stringify(map[font_field])
 														or styles[based_on][font_field]
 	end
 	for _,string_field in ipairs(string_fields) do
@@ -3754,9 +3760,11 @@ end
 function Statement:set_identifier()
 	local elem = self.element
 	local crossref = self.setup.crossref -- points to the crossref manager
+	local style = self.setup.kinds[self.kind].style
+	local crossref_font = self.setup.styles[style].crossref_font
 
 	---register: register id using a given mode
-	-- store its kind and crossref_label as its label
+	-- store its kind, crossref_label, crossref_font
 	-- store the new id in self.identifier and elem.attr.identifier 
 	--@param id string the identifier to be registered
 	--@param attr map, any attributes that were set by parsing the id
@@ -3770,6 +3778,7 @@ function Statement:set_identifier()
 		attr.type = 'Statement'
 		attr.label = self.crossref_label
 		attr.kind = self.kind
+		attr.crossref_font = crossref_font
 
 		-- register
 		final_id = crossref:register_identifier(id, attr, mode)
@@ -4777,6 +4786,7 @@ Crossref.identifiers = {
 	-- id = { 
 	--				type = string, 'Div', 'Header', ... or 'Statement',
 	--				label = inlines, index (1.1, 1.3.2) or crossref label (custom, acronym)
+	--				font = string, font specification for the crossref label
 	--				kind = string, key of the setup.kinds table
 	-- 			}
 }
@@ -5175,10 +5185,10 @@ function Crossref:write(references)
 									or self:get_pre_mode(reference)
 		--@TODO: handle lower/upper case, plural
 		if mode ~= 'none' then
-			local label = kinds[identifiers[reference.id].kind].label
-			if label then
+			local auto_pre = kinds[identifiers[reference.id].kind].label
+			if auto_pre then
 				--@TODO formatting here
-				inlines:extend(label)
+				inlines:extend(auto_pre)
 				inlines:insert(pandoc.Space())
 			end
 		end
@@ -5200,6 +5210,12 @@ function Crossref:write(references)
 			else
 				inlines:insert(pandoc.Str('??'))
 			end
+		end
+
+		-- apply crossref_font if we have one
+		local crossref_font = identifiers[reference.id].crossref_font
+		if crossref_font then
+			inlines = Helpers.font_format_native(crossref_font)(inlines)
 		end
 
 		return inlines
@@ -5632,10 +5648,9 @@ end
 function Walker:statements_in_lists()
 	filter = {}
 
-	-- wrap: wraps the first element of a list of blocks
-  -- store the parindent value before, as minipage resets it to zero
-  -- \docparindent will contain it, but needs to be picked before
-  -- the list!
+	-- wrap: wraps the first element of a list of blocks in a minipage.
+  -- store the `\parindent` value before, as minipage resets it to zero.
+  -- We will set \docparindent before the list to pick it up.
   -- with minipage commands
   local function wrap(blocks)
     blocks:insert(1, pandoc.RawBlock('latex',

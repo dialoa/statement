@@ -23,10 +23,10 @@ function Crossref:write(references)
 									or self:get_pre_mode(reference)
 		--@TODO: handle lower/upper case, plural
 		if mode ~= 'none' then
-			local label = kinds[identifiers[reference.id].kind].label
-			if label then
+			local auto_pre = kinds[identifiers[reference.id].kind].label
+			if auto_pre then
 				--@TODO formatting here
-				inlines:extend(label)
+				inlines:extend(auto_pre)
 				inlines:insert(pandoc.Space())
 			end
 		end
@@ -48,6 +48,12 @@ function Crossref:write(references)
 			else
 				inlines:insert(pandoc.Str('??'))
 			end
+		end
+
+		-- apply crossref_font if we have one
+		local crossref_font = identifiers[reference.id].crossref_font
+		if crossref_font then
+			inlines = Helpers.font_format_native(crossref_font)(inlines)
 		end
 
 		return inlines

@@ -7,9 +7,11 @@
 function Statement:set_identifier()
 	local elem = self.element
 	local crossref = self.setup.crossref -- points to the crossref manager
+	local style = self.setup.kinds[self.kind].style
+	local crossref_font = self.setup.styles[style].crossref_font
 
 	---register: register id using a given mode
-	-- store its kind and crossref_label as its label
+	-- store its kind, crossref_label, crossref_font
 	-- store the new id in self.identifier and elem.attr.identifier 
 	--@param id string the identifier to be registered
 	--@param attr map, any attributes that were set by parsing the id
@@ -23,6 +25,7 @@ function Statement:set_identifier()
 		attr.type = 'Statement'
 		attr.label = self.crossref_label
 		attr.kind = self.kind
+		attr.crossref_font = crossref_font
 
 		-- register
 		final_id = crossref:register_identifier(id, attr, mode)

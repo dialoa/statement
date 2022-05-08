@@ -61,6 +61,7 @@ Setup.styles = {
 	--		space_after_head = '1em', -- horizontal space after heading 
 	-- 		linebreak_after_head = bool, -- linebreak after heading
 	--		heading_pattern = nil, -- heading pattern (not used yet)
+	--		crossref_font = 'smallcaps' -- font for crossref labels
 	--	}
 }
 

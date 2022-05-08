@@ -57,14 +57,16 @@ function Setup:set_style(style,map,new_styles)
 		'margin_top', 'margin_bottom', 'margin_left', 'margin_right',
 		'indent'
 	})
+	-- Note: keeping font fields separate in case we wanted to validate them.
+	-- Presently no validation, they are treated like string fields.
 	local font_fields = {
-		'body_font', 'head_font'
+		'body_font', 'head_font', 'crossref_font',
 	}
 	local string_fields = { 
 		'punctuation', 'heading_pattern'
 	}
 	-- handles linebreak_after_head style
-	-- (a) linebreak_after_head already set: ignore space_after_head
+	-- (a) linebreak_after_head already is set: ignore space_after_head
 	-- (b) space_after_head is \n or \newline: set linebreak_after_head
 	-- (c) otherwise, read space_after_head as a length
 	-- special case: space_after_head can be `\n` or `\\n` or `\\newline`
@@ -94,6 +96,7 @@ function Setup:set_style(style,map,new_styles)
 	end
 	for _,font_field in ipairs(font_fields) do
 		new_style[font_field] = map[font_field]
+														and stringify(map[font_field])
 														or styles[based_on][font_field]
 	end
 	for _,string_field in ipairs(string_fields) do
