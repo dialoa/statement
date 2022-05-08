@@ -11,10 +11,9 @@
 function Walker:statements_in_lists()
 	filter = {}
 
-	-- wrap: wraps the first element of a list of blocks
-  -- store the parindent value before, as minipage resets it to zero
-  -- \docparindent will contain it, but needs to be picked before
-  -- the list!
+	-- wrap: wraps the first element of a list of blocks in a minipage.
+  -- store the `\parindent` value before, as minipage resets it to zero.
+  -- We will set \docparindent before the list to pick it up.
   -- with minipage commands
   local function wrap(blocks)
     blocks:insert(1, pandoc.RawBlock('latex',
