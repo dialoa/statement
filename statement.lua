@@ -260,26 +260,9 @@ end
 --- Helpers.length_format: parse a length in the desired format
 -- @param len Inlines or string to be interpreted
 -- @param format (optional) desired format if other than FORMAT
--- @return string specifying the length in the desired format or ''
+-- @return string specifying the length in the desired format or nil
 Helpers.length_format = function (str, format)
 	local format = format or FORMAT
-	-- ensure str is defined and a string
-	if not str then
-		return nil
-	end
-	if type(str) ~= 'string' then
-		if type(str) == 'Inlines' then
-			str = stringify(str)
-		else
-			return nil
-		end
-	end
-
-	-- within this function, format is 'css' when css lengths are needed
-	if format:match('html') then
-		format = 'css'
-	end
-
 	-- UNITS and their conversions
 	local UNITS = {
 		pc = {},	-- pica, 12pt
@@ -380,12 +363,12 @@ Helpers.length_format = function (str, format)
 
 	--- parse_length: parse a '<number><unit>' string.
 	-- checks the unit against UNITS and LATEX_LENGTHS
-	--@param str string to be parsed
+	--@param str string to be parsed or nil
 	--@return number amount parsed
-	--@return table with `amount` and `unit` fields 
+	--@return table with `amount` and `unit` fields or nil
 	local function parse_length(str)
-		if type(str) ~= 'string' then
-			return nil
+		if not str then 
+			return nil 
 		end
 
 		local amount, unit
@@ -477,48 +460,54 @@ Helpers.length_format = function (str, format)
 
 	-- MAIN BODY of the function
 
-	-- parse `str` into a length table
-	-- length = {
-	--		main = { amount = number, unit = string} or nil
-	--		plus = { amount = number, unit = string} or nil
-	--		minus = { amount = number, unit = string} or nil
-	-- }
-	local length = parse_plus_minus(str)
-	
-	-- issue a warning if nothing found
-	if not length or not length.main then
-		message('WARNING', 
-			'Could not parse the length specification: `'..str..'`.')
-		return nil
+	-- within this function, format is 'css' when css features are needed
+	if format:match('html') then
+		format = 'css'
 	end
 
-	-- return a string appropriate to the output format
-	-- LaTeX: <number><unit> plus <number><unit> minus <number><unit>
-	-- css: <number><unit>
-	if format == 'latex' then
+	-- ensure str is defined and a string
+	str = type(str) == 'string' and str ~= '' and str
+				or type(str) == 'Inlines' and #str > 0 and stringify(str)
 
-		local result = string.format('%.10g', length.main.amount)
-						.. length.main.unit
-		for _,key in ipairs({'plus','minus'}) do
-			if length[key] then
-				result = result..' '..key..' '
-					.. string.format('%10.g', length[key].amount)
-					.. length[key].unit
-			end
+	if str then
+
+		-- parse `str` into a length table
+		-- length = {
+		--		main = { amount = number, unit = string} or nil
+		--		plus = { amount = number, unit = string} or nil
+		--		minus = { amount = number, unit = string} or nil
+		-- }
+		local length = parse_plus_minus(str)
+
+		if length then
+
+			local result
+		
+			-- prepare a string appropriate to the output format
+			-- LaTeX: <number><unit> plus <number><unit> minus <number><unit>
+			-- css: <number><unit>
+			if format == 'latex' then
+
+				result = string.format('%.10g', length.main.amount)
+								.. length.main.unit
+				for _,key in ipairs({'plus','minus'}) do
+					if length[key] then
+						result = result..' '..key..' '
+							.. string.format('%10.g', length[key].amount)
+							.. length[key].unit
+					end
+				end
+
+			elseif format == 'css' then
+
+				result = string.format('%.10g', length.main.amount)
+												.. length.main.unit
+
+			end -- nothing in other formats
+
+			return result
+
 		end
-
-		return result
-
-	elseif format == 'css' then
-
-		local result = string.format('%.10g', length.main.amount)
-						.. length.main.unit
-
-		return result
-
-	else -- other formats: return nothing
-
-		return nil
 
 	end
 
@@ -634,6 +623,7 @@ Setup.DEFAULTS.KINDS = {
 									custom_label_style = {
 											punctuation = '.',
 											crossref_font = 'smallcaps',
+											space_after_head = ' ',
 									},
 								},
 	},
@@ -674,7 +664,7 @@ Setup.DEFAULTS.STYLES = {
 			indent = '0pt',
 			head_font = 'smallcaps',
 			punctuation = '',
-			space_after_head = ' ', -- use '\n' or '\\n' or '\newline' for linebreak
+			space_after_head = '0pt', -- use '\n' or '\\n' or '\newline' for linebreak 
 			heading_pattern = nil,
 		},
 	},
@@ -2332,9 +2322,10 @@ function Setup:set_style(style,map,new_styles)
 	end
 
 	-- validate and insert options, or copy from the style it's based on
+	-- note: `space_after_head` is inserted after being checked for linebreaks
 	local length_fields = pandoc.List:new({
 		'margin_top', 'margin_bottom', 'margin_left', 'margin_right',
-		'indent'
+		'indent',
 	})
 	-- Note: keeping font fields separate in case we wanted to validate them.
 	-- Presently no validation, they are treated like string fields.
@@ -2369,7 +2360,7 @@ function Setup:set_style(style,map,new_styles)
 
 	for _,length_field in ipairs(length_fields) do
 		new_style[length_field] = (map[length_field] 
-															and length_format(map[length_field])
+															and length_format(map[length_field]) ~= ''
 															and stringify(map[length_field]))
 															or styles[based_on][length_field]
 	end
@@ -2382,6 +2373,12 @@ function Setup:set_style(style,map,new_styles)
 		new_style[string_field] = map[string_field] 
 															and stringify(map[string_field])
 															or styles[based_on][string_field]
+	end
+
+	-- Special checks to avoid LaTeX crashes
+	if not new_style.space_after_head 
+		or new_style.space_after_head == '' then
+			new_style.space_after_head = '0pt'
 	end
 
 	-- store the result
@@ -2884,10 +2881,13 @@ function Statement:is_kind_key(str, setup)
 
 	if kinds[str] then
 		return str
-	elseif options.aliases then
-		-- alias matches are case-insensitive
+	else
+		-- try lowercase match, 
+		-- and aliases that are all lowercase
 		str = str:lower()
-		if aliases[str] then
+		if kinds[str] then
+			return str
+		elseif aliases[str] then
 			return aliases[str]
 		end
 	end

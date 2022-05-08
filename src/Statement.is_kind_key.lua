@@ -19,10 +19,13 @@ function Statement:is_kind_key(str, setup)
 
 	if kinds[str] then
 		return str
-	elseif options.aliases then
-		-- alias matches are case-insensitive
+	else
+		-- try lowercase match, 
+		-- and aliases that are all lowercase
 		str = str:lower()
-		if aliases[str] then
+		if kinds[str] then
+			return str
+		elseif aliases[str] then
 			return aliases[str]
 		end
 	end

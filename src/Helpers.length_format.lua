@@ -1,26 +1,9 @@
 --- Helpers.length_format: parse a length in the desired format
 -- @param len Inlines or string to be interpreted
 -- @param format (optional) desired format if other than FORMAT
--- @return string specifying the length in the desired format or ''
+-- @return string specifying the length in the desired format or nil
 Helpers.length_format = function (str, format)
 	local format = format or FORMAT
-	-- ensure str is defined and a string
-	if not str then
-		return nil
-	end
-	if type(str) ~= 'string' then
-		if type(str) == 'Inlines' then
-			str = stringify(str)
-		else
-			return nil
-		end
-	end
-
-	-- within this function, format is 'css' when css lengths are needed
-	if format:match('html') then
-		format = 'css'
-	end
-
 	-- UNITS and their conversions
 	local UNITS = {
 		pc = {},	-- pica, 12pt
@@ -121,12 +104,12 @@ Helpers.length_format = function (str, format)
 
 	--- parse_length: parse a '<number><unit>' string.
 	-- checks the unit against UNITS and LATEX_LENGTHS
-	--@param str string to be parsed
+	--@param str string to be parsed or nil
 	--@return number amount parsed
-	--@return table with `amount` and `unit` fields 
+	--@return table with `amount` and `unit` fields or nil
 	local function parse_length(str)
-		if type(str) ~= 'string' then
-			return nil
+		if not str then 
+			return nil 
 		end
 
 		local amount, unit
@@ -218,48 +201,54 @@ Helpers.length_format = function (str, format)
 
 	-- MAIN BODY of the function
 
-	-- parse `str` into a length table
-	-- length = {
-	--		main = { amount = number, unit = string} or nil
-	--		plus = { amount = number, unit = string} or nil
-	--		minus = { amount = number, unit = string} or nil
-	-- }
-	local length = parse_plus_minus(str)
-	
-	-- issue a warning if nothing found
-	if not length or not length.main then
-		message('WARNING', 
-			'Could not parse the length specification: `'..str..'`.')
-		return nil
+	-- within this function, format is 'css' when css features are needed
+	if format:match('html') then
+		format = 'css'
 	end
 
-	-- return a string appropriate to the output format
-	-- LaTeX: <number><unit> plus <number><unit> minus <number><unit>
-	-- css: <number><unit>
-	if format == 'latex' then
+	-- ensure str is defined and a string
+	str = type(str) == 'string' and str ~= '' and str
+				or type(str) == 'Inlines' and #str > 0 and stringify(str)
 
-		local result = string.format('%.10g', length.main.amount)
-						.. length.main.unit
-		for _,key in ipairs({'plus','minus'}) do
-			if length[key] then
-				result = result..' '..key..' '
-					.. string.format('%10.g', length[key].amount)
-					.. length[key].unit
-			end
+	if str then
+
+		-- parse `str` into a length table
+		-- length = {
+		--		main = { amount = number, unit = string} or nil
+		--		plus = { amount = number, unit = string} or nil
+		--		minus = { amount = number, unit = string} or nil
+		-- }
+		local length = parse_plus_minus(str)
+
+		if length then
+
+			local result
+		
+			-- prepare a string appropriate to the output format
+			-- LaTeX: <number><unit> plus <number><unit> minus <number><unit>
+			-- css: <number><unit>
+			if format == 'latex' then
+
+				result = string.format('%.10g', length.main.amount)
+								.. length.main.unit
+				for _,key in ipairs({'plus','minus'}) do
+					if length[key] then
+						result = result..' '..key..' '
+							.. string.format('%10.g', length[key].amount)
+							.. length[key].unit
+					end
+				end
+
+			elseif format == 'css' then
+
+				result = string.format('%.10g', length.main.amount)
+												.. length.main.unit
+
+			end -- nothing in other formats
+
+			return result
+
 		end
-
-		return result
-
-	elseif format == 'css' then
-
-		local result = string.format('%.10g', length.main.amount)
-						.. length.main.unit
-
-		return result
-
-	else -- other formats: return nothing
-
-		return nil
 
 	end
 

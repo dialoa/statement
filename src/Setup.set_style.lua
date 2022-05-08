@@ -53,9 +53,10 @@ function Setup:set_style(style,map,new_styles)
 	end
 
 	-- validate and insert options, or copy from the style it's based on
+	-- note: `space_after_head` is inserted after being checked for linebreaks
 	local length_fields = pandoc.List:new({
 		'margin_top', 'margin_bottom', 'margin_left', 'margin_right',
-		'indent'
+		'indent',
 	})
 	-- Note: keeping font fields separate in case we wanted to validate them.
 	-- Presently no validation, they are treated like string fields.
@@ -103,6 +104,12 @@ function Setup:set_style(style,map,new_styles)
 		new_style[string_field] = map[string_field] 
 															and stringify(map[string_field])
 															or styles[based_on][string_field]
+	end
+
+	-- Special checks to avoid LaTeX crashes
+	if not new_style.space_after_head 
+		or new_style.space_after_head == '' then
+			new_style.space_after_head = '0pt'
 	end
 
 	-- store the result

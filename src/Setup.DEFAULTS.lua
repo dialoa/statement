@@ -9,6 +9,7 @@ Setup.DEFAULTS.KINDS = {
 									custom_label_style = {
 											punctuation = '.',
 											crossref_font = 'smallcaps',
+											space_after_head = ' ',
 									},
 								},
 	},
@@ -49,7 +50,7 @@ Setup.DEFAULTS.STYLES = {
 			indent = '0pt',
 			head_font = 'smallcaps',
 			punctuation = '',
-			space_after_head = ' ', -- use '\n' or '\\n' or '\newline' for linebreak
+			space_after_head = '0pt', -- use '\n' or '\\n' or '\newline' for linebreak 
 			heading_pattern = nil,
 		},
 	},
