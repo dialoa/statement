@@ -225,23 +225,27 @@ Helpers.length_format = function (str, format)
 			local result
 		
 			-- prepare a string appropriate to the output format
+			-- note: string.format uses C's sprintf patterns
+			-- '%.5g' for four digits after the dot.
+			-- warning: '%.5g' may output exponent notation,
+			--	'%.5f' would force floating point but leaves trailing 0s.
 			-- LaTeX: <number><unit> plus <number><unit> minus <number><unit>
 			-- css: <number><unit>
 			if format == 'latex' then
 
-				result = string.format('%.10g', length.main.amount)
+				result = string.format('%.5g', length.main.amount)
 								.. length.main.unit
 				for _,key in ipairs({'plus','minus'}) do
 					if length[key] then
 						result = result..' '..key..' '
-							.. string.format('%10.g', length[key].amount)
+							.. string.format('%.5g', length[key].amount)
 							.. length[key].unit
 					end
 				end
 
 			elseif format == 'css' then
 
-				result = string.format('%.10g', length.main.amount)
+				result = string.format('%.5g', length.main.amount)
 												.. length.main.unit
 
 			end -- nothing in other formats

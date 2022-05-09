@@ -7,7 +7,18 @@ date: April 2022
 * TOC
 {:toc}
 
-Statement is a versatile [Pandoc](https://pandoc.org/) filter to 
+Statement is a versatile [Pandoc](https://pandoc.org/) filter 
+to handle theorems and other numbered and labelled statements.
+
+It provides a flexible markdown syntax, outputs in all text 
+formats (with special attention to LaTeX/PDF, html and JATS),
+30+ languages, extensive customization. 
+
+
+* Flexible markdown syntax
+* 
+
+to 
 write theorems and other numbered or labelled statements 
 in markdown and output them in a range of output formats, 
 notably LaTeX, HTML and JATS XML.

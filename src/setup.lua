@@ -49,7 +49,7 @@ Setup.styles = {
 	-- stylename = {
 	--		do_not_define_in_latex = bool, whether to define in LaTeX amsthm
 	--		is_written = nil or bool, whether the definition has been written
-	--		based_on = 'plain' -- base on another style
+	--		based_on = 'plain' -- based on another style
 	--		margin_top = '\\baselineskip', -- space before
 	--		margin_bottom = '\\baselineskip', -- space after
 	--		margin_left = nil, -- left skip
@@ -62,6 +62,9 @@ Setup.styles = {
 	-- 		linebreak_after_head = bool, -- linebreak after heading
 	--		heading_pattern = nil, -- heading pattern (not used yet)
 	--		crossref_font = 'smallcaps' -- font for crossref labels
+	--		custom_label_changes = { -- changes when using a custom label
+	--					... (style map fields)
+	-- 		}
 	--	}
 }
 

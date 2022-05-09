@@ -484,23 +484,27 @@ Helpers.length_format = function (str, format)
 			local result
 		
 			-- prepare a string appropriate to the output format
+			-- note: string.format uses C's sprintf patterns
+			-- '%.5g' for four digits after the dot.
+			-- warning: '%.5g' may output exponent notation,
+			--	'%.5f' would force floating point but leaves trailing 0s.
 			-- LaTeX: <number><unit> plus <number><unit> minus <number><unit>
 			-- css: <number><unit>
 			if format == 'latex' then
 
-				result = string.format('%.10g', length.main.amount)
+				result = string.format('%.5g', length.main.amount)
 								.. length.main.unit
 				for _,key in ipairs({'plus','minus'}) do
 					if length[key] then
 						result = result..' '..key..' '
-							.. string.format('%10.g', length[key].amount)
+							.. string.format('%.5g', length[key].amount)
 							.. length[key].unit
 					end
 				end
 
 			elseif format == 'css' then
 
-				result = string.format('%.10g', length.main.amount)
+				result = string.format('%.5g', length.main.amount)
 												.. length.main.unit
 
 			end -- nothing in other formats
@@ -566,7 +570,7 @@ Setup.styles = {
 	-- stylename = {
 	--		do_not_define_in_latex = bool, whether to define in LaTeX amsthm
 	--		is_written = nil or bool, whether the definition has been written
-	--		based_on = 'plain' -- base on another style
+	--		based_on = 'plain' -- based on another style
 	--		margin_top = '\\baselineskip', -- space before
 	--		margin_bottom = '\\baselineskip', -- space after
 	--		margin_left = nil, -- left skip
@@ -579,6 +583,9 @@ Setup.styles = {
 	-- 		linebreak_after_head = bool, -- linebreak after heading
 	--		heading_pattern = nil, -- heading pattern (not used yet)
 	--		crossref_font = 'smallcaps' -- font for crossref labels
+	--		custom_label_changes = { -- changes when using a custom label
+	--					... (style map fields)
+	-- 		}
 	--	}
 }
 
@@ -619,13 +626,7 @@ Setup.LATEX_NAMES = pandoc.List:new(
 Setup.DEFAULTS = {}
 Setup.DEFAULTS.KINDS = {
 	none = {
-		statement = {prefix = 'sta', style = 'empty', counter='none',
-									custom_label_style = {
-											punctuation = '.',
-											crossref_font = 'smallcaps',
-											space_after_head = ' ',
-									},
-								},
+		statement = {prefix = 'sta', style = 'empty', counter='none'},
 	},
 	basic = {
 		theorem = { prefix = 'thm', style = 'plain', counter = 'self' },
@@ -666,6 +667,11 @@ Setup.DEFAULTS.STYLES = {
 			punctuation = '',
 			space_after_head = '0pt', -- use '\n' or '\\n' or '\newline' for linebreak 
 			heading_pattern = nil,
+			custom_label_changes = {
+											punctuation = '.',
+											crossref_font = 'smallcaps',
+											space_after_head = ' ',
+			},
 		},
 	},
 	basic = {
@@ -2030,6 +2036,133 @@ function Setup:create_kinds_and_styles_user(meta)
 		return new_map
 	end
 
+	-- insert_new_style: set a style in `new_styles`
+	-- Insert a style in `new_styles`, erasing any previous value for it.
+	-- If the definition isn't a map, assume an alias: 'style1: style2'
+	--@param style string style key
+	--@param definition definition map
+	local function insert_new_style(style,definition)
+		if type(definition) == 'table' then
+			new_styles[style] = definition
+		elseif definition then
+			new_styles[style] = { based_on = stringify(definition) }
+		end
+	end
+
+	--- insert_new_kind: function to insert a kind in `new_kinds`
+	local function insert_new_kind(kind,definition)
+		if type(definition) == 'table' then
+			new_kinds[kind] = definition
+		else
+			message('ERROR', 'Could not understand the definition of'
+												..'statement kind '..kind..'.'
+												.." I've ignored it.")
+		end
+	end
+
+	-- recursive function to define a style
+	--@param style string the style name
+	--@param definition map the style definition in user's metadata
+	--@recursion trail pandoc List, list of styles defined in a recursion
+	local function try_define_style(style, definition, recursion_trail)
+		-- if already defined, we're good
+		if definition.is_defined then return end
+		-- replace dashes with underscores
+		definition = dash_keys_to_underscore(definition)
+		-- if `based_on` is set, possible cases:
+		--		- basis not in defaults or new_styles: ignore
+		--		- current style among those to be defined: circularity, ignore
+		--		- bases is in new_styles and not defined: recursion step
+		--		- basis is in new_styles but already defined: go ahead
+		--		- basis is in styles and not in new_styles: go ahead
+		if definition.based_on then
+			local parent_style = stringify(definition.based_on)
+
+			if not styles[parent_style] 
+					and not new_styles[parent_style] then
+				message('ERROR', 'Style `'..style..'` is supposed to be based'
+													..' on style `'..parent_style..'`'
+													..' but I cannot find the latter.'
+													..' The `based-on` parameter will be ignored.')
+				definition.based_on = nil
+
+			elseif recursion_trail and recursion_trail:find(style) then
+				local m_str = recursion_trail[1]
+				for i = 2, #recursion_trail do
+					m_str = m_str..' -> '..recursion_trail[i]
+				end
+				m_str = m_str..' -> '..style
+				message('ERROR', 'Circularity in style definitions: '
+													..m_str..'. The `based-on parameter'
+													..' of style '..style..' is ignored.')
+				definition.based_on = nil
+
+			elseif new_styles[parent_style]
+						and not new_styles[parent_style].is_defined then
+				recursion_trail = recursion_trail or pandoc.List:new()
+				recursion_trail:insert(style)
+				try_define_style(parent_style, new_styles[parent_style], 
+													recursion_trail)
+				self:set_style(style, definition, new_styles)
+				definition.is_defined = true
+				recursion_trail:remove()
+				return -- recursion complete, we exit
+
+			end
+		end
+		-- any case other than the recursive one above,
+		-- we're clear to define the style:
+		self:set_style(style, definition, new_styles)
+		definition.is_defined = true
+
+	end
+
+	--- parse_by_style: parse a list of kinds for a given style
+	-- in the style of pandoc-amsthm kind definitions.
+	-- remark: Case
+	-- plain: [Theorem, Lemma, Corollary, Conjecture, Proposition]
+	-- definition:
+	-- - Definition
+	-- remark-unnumbered: ...
+	--@param style_key string key of the styles table
+	--@param list List, string or Inlines, kinds
+	local function parse_by_style(style_key, list, counter)
+		if type(list) == 'string' or type(list) == 'Inlines' then
+			list = pandoc.List:new( {list} )
+		end
+		if type(list) == 'List' then
+			for _,item in ipairs(list) do
+				-- each item is a kind's label, or a map (kind = list_subkinds)
+				if type(item) == 'string' or type(item) == 'Inlines' then
+					local kind = stringify(item):gsub('[^%w]','_')
+					insert_new_kind(kind, {
+							label = item,
+							counter = counter, -- may be nil, set_kind takes care of it
+							style = style_key,
+					})
+				end
+			end
+		end
+	end
+	--- parse_by_styles: parse a Meta map looking for 
+	-- keys that correspond to a style, and parse each of these
+	-- as a list of kinds.
+	local function parse_by_styles(map)
+		for style,list in pairs(styles) do
+			if map[style] then 
+				parse_by_style(style, map[style])
+			end
+			-- is there a <style>-unnumbered list to process as well?
+			-- only process if it's not already a style
+			if map[style..'-unnumbered'] 
+					and not styles[style..'-unnumbered'] then 
+				parse_by_style(style, map[style..'-unnumbered'], 'none')
+			end
+		end
+	end
+
+	-- MAIN FUNCTION BODY
+
 	-- User-defined styles
 	-- The ones in 'statement' prevail over those in 'statement-styles'
 	-- @note using type(X) == 'table' to test both existence and type
@@ -2040,19 +2173,6 @@ function Setup:create_kinds_and_styles_user(meta)
 		-- the ones in 'statement' normally prevail over those in 'statement-styles'
 		new_styles = {}
 
-		-- insert_new_style: set a style in new_styles
-		-- Insert a style in `new_styles`, erasing any previous value for it.
-		-- If the definition isn't a map, assume an alias: 'style1: style2'
-		--@param style string style key
-		--@param definition definition map
-		local function insert_new_style(style,definition)
-			if type(definition) == 'table' then
-				new_styles[style] = definition
-			elseif definition then
-				new_styles[style] = { based_on = stringify(definition) }
-			end
-		end
-
 		if type(meta['statement-styles']) == 'table' then
 			for style,definition in pairs(meta['statement-styles']) do
 				insert_new_style(style, definition)
@@ -2062,63 +2182,6 @@ function Setup:create_kinds_and_styles_user(meta)
 			for style,definition in pairs(meta.statement.styles) do
 				insert_new_style(style, definition)
 			end
-		end
-
-		-- recursive function to define a style
-		--@param style string the style name
-		--@param definition map the style definition in user's metadata
-		--@recursion trail pandoc List, list of styles defined in a recursion
-		local function try_define_style(style, definition, recursion_trail)
-			-- if already defined, we're good
-			if definition.is_defined then return end
-			-- replace dashes with underscores
-			definition = dash_keys_to_underscore(definition)
-			-- if `based_on` is set, possible cases:
-			--		- basis not in defaults or new_styles: ignore
-			--		- current style among those to be defined: circularity, ignore
-			--		- bases is in new_styles and not defined: recursion step
-			--		- basis is in new_styles but already defined: go ahead
-			--		- basis is in styles and not in new_styles: go ahead
-			if definition.based_on then
-				local parent_style = stringify(definition.based_on)
-
-				if not styles[parent_style] 
-						and not new_styles[parent_style] then
-					message('ERROR', 'Style `'..style..'` is supposed to be based'
-														..' on style `'..parent_style..'`'
-														..' but I cannot find the latter.'
-														..' The `based-on` parameter will be ignored.')
-					definition.based_on = nil
-
-				elseif recursion_trail and recursion_trail:find(style) then
-					local m_str = recursion_trail[1]
-					for i = 2, #recursion_trail do
-						m_str = m_str..' -> '..recursion_trail[i]
-					end
-					m_str = m_str..' -> '..style
-					message('ERROR', 'Circularity in style definitions: '
-														..m_str..'. The `based-on parameter'
-														..' of style '..style..' is ignored.')
-					definition.based_on = nil
-
-				elseif new_styles[parent_style]
-							and not new_styles[parent_style].is_defined then
-					recursion_trail = recursion_trail or pandoc.List:new()
-					recursion_trail:insert(style)
-					try_define_style(parent_style, new_styles[parent_style], 
-														recursion_trail)
-					self:set_style(style, definition, new_styles)
-					definition.is_defined = true
-					recursion_trail:remove()
-					return
-
-				end -- any other case than recursion, go ahead
-			end
-			-- if still not defined, not based on another style
-			-- or based_on was ignored
-			self:set_style(style, definition, new_styles)
-			definition.is_defined = true
-
 		end
 
 		-- main loop to define styles
@@ -2140,61 +2203,9 @@ function Setup:create_kinds_and_styles_user(meta)
 
 		-- Gather kinds to be defined
 		new_kinds = {} -- map
-		--- insert_new_kind: function to insert a kind `in new_kinds`
-		local function insert_new_kind(kind,definition)
-			if type(definition) == 'table' then
-				new_kinds[kind] = definition
-			else
-				message('ERROR', 'Could not understand the definition of'
-													..'statement kind '..kind..'.'
-													.." I've ignored it.")
-			end
-		end
-		--- parse_by_style: parse a list of kinds for a given style
-		-- in the style of pandoc-amsthm kind definitions.
-		-- remark: Case
-		-- plain: [Theorem, Lemma, Corollary, Conjecture, Proposition]
-		-- definition:
-		-- - Definition
-		-- remark-unnumbered: ...
-		--@param style_key string key of the styles table
-		--@param list List, string or Inlines, kinds
-		local function parse_by_style(style_key, list, counter)
-			if type(list) == 'string' or type(list) == 'Inlines' then
-				list = pandoc.List:new( {list} )
-			end
-			if type(list) == 'List' then
-				for _,item in ipairs(list) do
-					-- each item is a kind's label, or a map (kind = list_subkinds)
-					if type(item) == 'string' or type(item) == 'Inlines' then
-						local kind = stringify(item):gsub('[^%w]','_')
-						insert_new_kind(kind, {
-								label = item,
-								counter = counter, -- may be nil, set_kind takes care of it
-								style = style_key,
-						})
-					end
-				end
-			end
-		end
-		--- parse_by_styles: parse a Meta map looking for 
-		-- keys that correspond to a style, and parse each of these
-		-- as a list of kinds.
-		local function parse_by_styles(map)
-			for style,list in pairs(styles) do
-				if map[style] then 
-					parse_by_style(style, map[style])
-				end
-				-- is there a <style>-unnumbered list to process as well?
-				-- only process if it's not already a style
-				if map[style..'-unnumbered'] 
-						and not styles[style..'-unnumbered'] then 
-					parse_by_style(style, map[style..'-unnumbered'], 'none')
-				end
-			end
-		end
+
 		-- Gather definitions from four locations
-		-- lowest priority first: the latter erase the former
+		-- latter ones erase former ones
 		-- (1) pandoc-amsthm's `amsthm` field, kinds given by style
 		if options.pandoc_amsthm and type(meta.amsthm) == 'table' then
 			parse_by_styles(meta.amsthm)
@@ -2280,10 +2291,81 @@ function Setup:set_style(style,map,new_styles)
 	local new_style = {}
 	local based_on = map.based_on and stringify(map.based_on) or nil
 
-	-- basis: user-defined basis, or default version of this style if any,
-	-- 				otherwise 'plain', otherwise 'empty'
-	-- user-defined can be a pre-existing (=default) style 
-	--									or a new style other than itself
+	---merge_valid_options: build a map of valid options
+	-- from a main map and basis map.
+	-- we'll apply this to the main map but also
+	-- to the `custom_label_changes` submap.
+	--@param map, table or nil the values explicitly specified
+	--@param basis, table or nil the based_on backup values
+	local function merge_valid_options(map,basis)
+		local new_map = {}
+		-- length fields: not that `space_after_head` is added below if needed
+		local length_fields = pandoc.List:new({
+			'margin_top', 'margin_bottom', 'margin_left', 'margin_right',
+			'indent',
+		})
+		-- Note: keeping font fields separate in case we wanted to validate them.
+		-- Presently no validation, they are treated like string fields.
+		local font_fields = {
+			'body_font', 'head_font', 'crossref_font',
+		}
+		local string_fields = { 
+			'punctuation', 'heading_pattern'
+		}
+
+		-- handles linebreak_after_head style
+		-- (a) linebreak_after_head already is set: ignore space_after_head
+		-- (b) space_after_head is \n or \newline: set linebreak_after_head
+		-- (c) otherwise, read space_after_head as a length
+		-- special case: space_after_head can be `\n` or `\\n` or `\\newline`
+		-- if not, assume it's a length
+		if map and map.linebreak_after_head 
+				or basis and basis.linebreak_after_head then
+			new_map.linebreak_after_head = true		
+		elseif map and map.space_after_head and
+				(map.space_after_head == 
+								pandoc.MetaInlines(pandoc.RawInline('tex', '\\n'))
+					or map.space_after_head == 
+								pandoc.MetaInlines(pandoc.RawInline('tex', '\\newline'))
+					or map.space_after_head == 
+								pandoc.MetaInlines(pandoc.RawInline('latex', '\\n'))
+					or map.space_after_head == 
+								pandoc.MetaInlines(pandoc.RawInline('latex', '\\newline'))
+				) then
+			new_map.linebreak_after_head = true
+		else
+			length_fields:insert('space_after_head')
+		end
+
+		-- insert fields
+		for _,length_field in ipairs(length_fields) do
+			new_map[length_field] = (map and map[length_field] 
+																and length_format(map[length_field])
+																and stringify(map[length_field]))
+																or basis and basis[length_field]
+		end
+		for _,font_field in ipairs(font_fields) do
+			new_map[font_field] = map and map[font_field]
+															and stringify(map[font_field])
+															or basis and basis[font_field]
+		end
+		for _,string_field in ipairs(string_fields) do
+			new_map[string_field] = map and map[string_field] 
+																and stringify(map[string_field])
+																or basis and basis[string_field]
+		end
+
+		return new_map
+
+	end
+
+	-- MAIN FUNCTION BODY
+
+	-- determine the style's basis: 
+	--	(1) user-defined basis, or 
+	--	(2) default version of this style if any,
+	--	(3) otherwise 'plain', otherwise 'empty'
+	-- user-defined basis may be one of the new styles to be defined
 	if based_on then
 		if styles[based_on] or 	new_styles and new_styles[based_on]
 														and based_on ~= style then
@@ -2314,66 +2396,26 @@ function Setup:set_style(style,map,new_styles)
 		end
 	end
 
-	-- do_not_define_in_FORMAT fields
+	-- read do_not_define_in_FORMAT fields 
 	for key,value in pairs(map) do
 		if key:match('^do_not_define_in_') then
 			new_style[key] = stringify(value)
 		end
 	end
 
-	-- validate and insert options, or copy from the style it's based on
-	-- note: `space_after_head` is inserted after being checked for linebreaks
-	local length_fields = pandoc.List:new({
-		'margin_top', 'margin_bottom', 'margin_left', 'margin_right',
-		'indent',
-	})
-	-- Note: keeping font fields separate in case we wanted to validate them.
-	-- Presently no validation, they are treated like string fields.
-	local font_fields = {
-		'body_font', 'head_font', 'crossref_font',
-	}
-	local string_fields = { 
-		'punctuation', 'heading_pattern'
-	}
-	-- handles linebreak_after_head style
-	-- (a) linebreak_after_head already is set: ignore space_after_head
-	-- (b) space_after_head is \n or \newline: set linebreak_after_head
-	-- (c) otherwise, read space_after_head as a length
-	-- special case: space_after_head can be `\n` or `\\n` or `\\newline`
-	-- if not, assume it's a length
-	if map.linebreak_after_head or styles[based_on].linebreak_after_head then
-		new_style.linebreak_after_head = true		
-	elseif map.space_after_head and
-			(map.space_after_head == 
-							pandoc.MetaInlines(pandoc.RawInline('tex', '\\n'))
-				or map.space_after_head == 
-							pandoc.MetaInlines(pandoc.RawInline('tex', '\\newline'))
-				or map.space_after_head == 
-							pandoc.MetaInlines(pandoc.RawInline('latex', '\\n'))
-				or map.space_after_head == 
-							pandoc.MetaInlines(pandoc.RawInline('latex', '\\newline'))
-			) then
-		new_style.linebreak_after_head = true
-	else
-		length_fields:insert('space_after_head')
+	-- create the custom_label_changes map
+	if map.custom_label_changes 
+			or styles[based_on].custom_label_changes then
+		new_style.custom_label_changes = 
+					merge_valid_options(map.custom_label_changes, 
+															styles[based_on].custom_label_changes)
 	end
 
-	for _,length_field in ipairs(length_fields) do
-		new_style[length_field] = (map[length_field] 
-															and length_format(map[length_field]) ~= ''
-															and stringify(map[length_field]))
-															or styles[based_on][length_field]
-	end
-	for _,font_field in ipairs(font_fields) do
-		new_style[font_field] = map[font_field]
-														and stringify(map[font_field])
-														or styles[based_on][font_field]
-	end
-	for _,string_field in ipairs(string_fields) do
-		new_style[string_field] = map[string_field] 
-															and stringify(map[string_field])
-															or styles[based_on][string_field]
-	end
+	-- merge remaining options
+	local merge = merge_valid_options(map, styles[based_on])
+	for k,v in pairs(merge) do
+		new_style[k] = v
+	end 
 
 	-- Special checks to avoid LaTeX crashes
 	if not new_style.space_after_head 
@@ -3587,7 +3629,7 @@ function Statement:new_kind_from_label()
 	-- we go through utf8 chars and only keep ASCII alphanum ones
 	-- we add 'statement_' in case the label matches a LaTeX command
 	local function create_key_from_label(inlines)
-		local result = 'statement_'
+		local result = 'sta_'
 		for _,code in utf8.codes(stringify(inlines)) do
 			if (code >= 48 and code <= 57) -- digits 
 					or (code >= 65 and code <= 90) -- A-Z 
@@ -3617,36 +3659,35 @@ function Statement:new_kind_from_label()
 	end
 
 	-- do we need a new style too?
-	-- custom_label_style of the original kind holds user-defined changes
-	-- for the rest set the basis style as the original style
-	if kinds[kind].custom_label_style then
+	-- the style's custom_label_changes field holds
+	-- changes needed when a custom label is used.
+	-- we create a <style>_custom if not already done.
+	if styles[style].custom_label_changes then
 
-		local style_changes_map = kinds[kind].custom_label_style
-		style_changes_map.based_on = style
+		if not styles[style..'_custom'] then
 
-		-- get a new style key
-		local str = new_kind -- use the new kind's name
-		-- ensure it's a new key
-		local n = 0
-		new_style = str
-		while styles[new_style] do
-			n = n + 1
-			new_style = str..'-'..tostring(n)
+			-- create a modified map of the style
+			local custom_style_map = {}
+			for k,v in pairs(styles[style].custom_label_changes) do
+				custom_style_map[k] = v
+			end
+			for k,v in pairs(styles[style]) do
+				if not custom_style_map[k] then
+					custom_style_map[k] = v
+				end
+			end
+			setup:set_style(style..'_custom', custom_style_map)
+
 		end
 
-		-- set the new style
-		setup:set_style(new_style, style_changes_map)
-
-	else
-
-		new_style = style
+		style = style..'_custom'
 
 	end
 
 	-- set the new kind
 	setup:set_kind(new_kind, {
 			prefix = kinds[kind].prefix,
-			style = new_style,
+			style = style,
 			label = custom_label,
 			counter = 'none'
 	})
@@ -4316,8 +4357,9 @@ function Statement:write_kind(kind, format)
 			local acro_inlines = pandoc.List:new()
 			acro_inlines:insert(pandoc.Str('('))
 			acro_inlines:extend(self.acronym)
-			acro_inlines:extend({pandoc.Str(')'), pandoc.Space()})
-			label = acro_inlines:__concat(label)
+			acro_inlines:insert(pandoc.Str(')'))
+			acro_inlines:insert(1, pandoc.Space())
+			label = label:__concat(acro_inlines)
 
 		end
 
@@ -5178,11 +5220,16 @@ function Crossref:write(references)
 
 	--write_core: create a reference's core text
 	local function write_core(reference)
+		local mode = reference.agg_pre_mode 
+									or self:get_pre_mode(reference) -- auto prefix setting
+		-- if it has a custom text, we return that
+		if reference.text then
+			return reference.text
+		end
+		-- otherwise we build inlines
 		local inlines = pandoc.List:new()
 
-		-- does it have an automatic prefix?
-		local mode = reference.agg_pre_mode 
-									or self:get_pre_mode(reference)
+		-- write auto prefix
 		--@TODO: handle lower/upper case, plural
 		if mode ~= 'none' then
 			local auto_pre = kinds[identifiers[reference.id].kind].label
@@ -5193,7 +5240,7 @@ function Crossref:write(references)
 			end
 		end
 
-		-- is it an aggregate reference?
+		-- write aggregate reference or simple reference
 		if reference.agg_first_id then
 			local id1 = reference.agg_first_id
 			local id2 = reference.id
@@ -5203,7 +5250,7 @@ function Crossref:write(references)
 			inlines:extend(identifiers[id1].label)
 			inlines:extend(separator)
 			inlines:extend(identifiers[id2].label)
-		else
+		else -- simple reference
 			local label = identifiers[reference.id].label
 			if label and #label > 0 then
 				inlines:extend(label)

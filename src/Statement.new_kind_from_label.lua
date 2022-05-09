@@ -24,7 +24,7 @@ function Statement:new_kind_from_label()
 	-- we go through utf8 chars and only keep ASCII alphanum ones
 	-- we add 'statement_' in case the label matches a LaTeX command
 	local function create_key_from_label(inlines)
-		local result = 'statement_'
+		local result = 'sta_'
 		for _,code in utf8.codes(stringify(inlines)) do
 			if (code >= 48 and code <= 57) -- digits 
 					or (code >= 65 and code <= 90) -- A-Z 
@@ -54,36 +54,35 @@ function Statement:new_kind_from_label()
 	end
 
 	-- do we need a new style too?
-	-- custom_label_style of the original kind holds user-defined changes
-	-- for the rest set the basis style as the original style
-	if kinds[kind].custom_label_style then
+	-- the style's custom_label_changes field holds
+	-- changes needed when a custom label is used.
+	-- we create a <style>_custom if not already done.
+	if styles[style].custom_label_changes then
 
-		local style_changes_map = kinds[kind].custom_label_style
-		style_changes_map.based_on = style
+		if not styles[style..'_custom'] then
 
-		-- get a new style key
-		local str = new_kind -- use the new kind's name
-		-- ensure it's a new key
-		local n = 0
-		new_style = str
-		while styles[new_style] do
-			n = n + 1
-			new_style = str..'-'..tostring(n)
+			-- create a modified map of the style
+			local custom_style_map = {}
+			for k,v in pairs(styles[style].custom_label_changes) do
+				custom_style_map[k] = v
+			end
+			for k,v in pairs(styles[style]) do
+				if not custom_style_map[k] then
+					custom_style_map[k] = v
+				end
+			end
+			setup:set_style(style..'_custom', custom_style_map)
+
 		end
 
-		-- set the new style
-		setup:set_style(new_style, style_changes_map)
-
-	else
-
-		new_style = style
+		style = style..'_custom'
 
 	end
 
 	-- set the new kind
 	setup:set_kind(new_kind, {
 			prefix = kinds[kind].prefix,
-			style = new_style,
+			style = style,
 			label = custom_label,
 			counter = 'none'
 	})

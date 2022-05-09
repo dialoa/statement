@@ -5,13 +5,7 @@
 Setup.DEFAULTS = {}
 Setup.DEFAULTS.KINDS = {
 	none = {
-		statement = {prefix = 'sta', style = 'empty', counter='none',
-									custom_label_style = {
-											punctuation = '.',
-											crossref_font = 'smallcaps',
-											space_after_head = ' ',
-									},
-								},
+		statement = {prefix = 'sta', style = 'empty', counter='none'},
 	},
 	basic = {
 		theorem = { prefix = 'thm', style = 'plain', counter = 'self' },
@@ -52,6 +46,11 @@ Setup.DEFAULTS.STYLES = {
 			punctuation = '',
 			space_after_head = '0pt', -- use '\n' or '\\n' or '\newline' for linebreak 
 			heading_pattern = nil,
+			custom_label_changes = {
+											punctuation = '.',
+											crossref_font = 'smallcaps',
+											space_after_head = ' ',
+			},
 		},
 	},
 	basic = {

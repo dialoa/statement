@@ -16,11 +16,16 @@ function Crossref:write(references)
 
 	--write_core: create a reference's core text
 	local function write_core(reference)
+		local mode = reference.agg_pre_mode 
+									or self:get_pre_mode(reference) -- auto prefix setting
+		-- if it has a custom text, we return that
+		if reference.text then
+			return reference.text
+		end
+		-- otherwise we build inlines
 		local inlines = pandoc.List:new()
 
-		-- does it have an automatic prefix?
-		local mode = reference.agg_pre_mode 
-									or self:get_pre_mode(reference)
+		-- write auto prefix
 		--@TODO: handle lower/upper case, plural
 		if mode ~= 'none' then
 			local auto_pre = kinds[identifiers[reference.id].kind].label
@@ -31,7 +36,7 @@ function Crossref:write(references)
 			end
 		end
 
-		-- is it an aggregate reference?
+		-- write aggregate reference or simple reference
 		if reference.agg_first_id then
 			local id1 = reference.agg_first_id
 			local id2 = reference.id
@@ -41,7 +46,7 @@ function Crossref:write(references)
 			inlines:extend(identifiers[id1].label)
 			inlines:extend(separator)
 			inlines:extend(identifiers[id2].label)
-		else
+		else -- simple reference
 			local label = identifiers[reference.id].label
 			if label and #label > 0 then
 				inlines:extend(label)

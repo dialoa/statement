@@ -54,8 +54,9 @@ function Statement:write_kind(kind, format)
 			local acro_inlines = pandoc.List:new()
 			acro_inlines:insert(pandoc.Str('('))
 			acro_inlines:extend(self.acronym)
-			acro_inlines:extend({pandoc.Str(')'), pandoc.Space()})
-			label = acro_inlines:__concat(label)
+			acro_inlines:insert(pandoc.Str(')'))
+			acro_inlines:insert(1, pandoc.Space())
+			label = label:__concat(acro_inlines)
 
 		end
 

@@ -1,3 +1,4 @@
 # Temporary MS Word and Libreoffice files
 ~$*.docx
 .*.odt#
+*.pdf
