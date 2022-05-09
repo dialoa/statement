@@ -9,5 +9,227 @@ amsthm:
     remark: [Remark]
 ---
 
-::: Theorem
+Example result (use `pandoc --verbose`):
 
+* `pandoc-amsthm` 19ms
+* `statement`: 40ms
+
+::: Theorem
+All work and no play make Jack a dull boy
+:::
+
+::: Lemma
+All work and no play make Jack a dull boy
+:::
+
+::: Definition
+All work and no play make Jack a dull boy
+:::
+
+::: Remark
+All work and no play make Jack a dull boy
+:::
+
+::: proof
+All work and no play make Jack a dull boy
+:::
+
+::: Theorem
+All work and no play make Jack a dull boy
+:::
+
+::: Lemma
+All work and no play make Jack a dull boy
+:::
+
+::: Definition
+All work and no play make Jack a dull boy
+:::
+
+::: Remark
+All work and no play make Jack a dull boy
+:::
+
+::: proof
+All work and no play make Jack a dull boy
+:::
+
+::: Theorem
+All work and no play make Jack a dull boy
+:::
+
+::: Lemma
+All work and no play make Jack a dull boy
+:::
+
+::: Definition
+All work and no play make Jack a dull boy
+:::
+
+::: Remark
+All work and no play make Jack a dull boy
+:::
+
+::: proof
+All work and no play make Jack a dull boy
+:::
+
+::: Theorem
+All work and no play make Jack a dull boy
+:::
+
+::: Lemma
+All work and no play make Jack a dull boy
+:::
+
+::: Definition
+All work and no play make Jack a dull boy
+:::
+
+::: Remark
+All work and no play make Jack a dull boy
+:::
+
+::: proof
+All work and no play make Jack a dull boy
+:::
+
+::: Theorem
+All work and no play make Jack a dull boy
+:::
+
+::: Lemma
+All work and no play make Jack a dull boy
+:::
+
+::: Definition
+All work and no play make Jack a dull boy
+:::
+
+::: Remark
+All work and no play make Jack a dull boy
+:::
+
+::: proof
+All work and no play make Jack a dull boy
+:::
+
+::: Theorem
+All work and no play make Jack a dull boy
+:::
+
+::: Lemma
+All work and no play make Jack a dull boy
+:::
+
+::: Definition
+All work and no play make Jack a dull boy
+:::
+
+::: Remark
+All work and no play make Jack a dull boy
+:::
+
+::: proof
+All work and no play make Jack a dull boy
+:::
+
+::: Theorem
+All work and no play make Jack a dull boy
+:::
+
+::: Lemma
+All work and no play make Jack a dull boy
+:::
+
+::: Definition
+All work and no play make Jack a dull boy
+:::
+
+::: Remark
+All work and no play make Jack a dull boy
+:::
+
+::: proof
+All work and no play make Jack a dull boy
+:::
+
+::: Theorem
+All work and no play make Jack a dull boy
+:::
+
+::: Lemma
+All work and no play make Jack a dull boy
+:::
+
+::: Definition
+All work and no play make Jack a dull boy
+:::
+
+::: Remark
+All work and no play make Jack a dull boy
+:::
+
+::: proof
+All work and no play make Jack a dull boy
+:::
+
+::: Theorem
+All work and no play make Jack a dull boy
+:::
+
+::: Lemma
+All work and no play make Jack a dull boy
+:::
+
+::: Definition
+All work and no play make Jack a dull boy
+:::
+
+::: Remark
+All work and no play make Jack a dull boy
+:::
+
+::: proof
+All work and no play make Jack a dull boy
+:::
+
+::: Theorem
+All work and no play make Jack a dull boy
+:::
+
+::: Lemma
+All work and no play make Jack a dull boy
+:::
+
+::: Definition
+All work and no play make Jack a dull boy
+:::
+
+::: Remark
+All work and no play make Jack a dull boy
+:::
+
+::: proof
+All work and no play make Jack a dull boy
+:::
+
+::: Theorem
+All work and no play make Jack a dull boy
+:::
+
+::: Lemma
+All work and no play make Jack a dull boy
+:::
+
+::: Definition
+All work and no play make Jack a dull boy
+:::
+
+::: Remark
+All work and no play make Jack a dull boy
+:::
+
+::: proof
+All work and no play make Jack a dull boy
+:::
