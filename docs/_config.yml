@@ -1,0 +1,41 @@
+# Welcome to Jekyll!
+#
+# For technical reasons, this file is *NOT* reloaded automatically
+# when you use 'bundle exec jekyll serve'. If you change this file,
+# please restart the server process.
+#
+# Site variables
+#
+title: Statement
+author: Julien Dutant, Thomas Hodgson
+description: >- 
+  Statement is a versatile Pandoc lua filter to write theorems and
+  other statements in Markdown and convert them to multiple output
+  formats.
+baseurl: /docs/
+url: https://jdutant.github.io/
+github_username:  jdutant
+github_repository: jdutant/statement
+
+# Build settings
+theme: minima
+#plugins:
+#  - jekyll-feed
+
+# Exclude from processing.
+#
+# Excluded items can be processed by explicitly listing the
+# directories or their entries' file path in the `include:` list.
+#
+exclude:
+- resources/
+#   - .sass-cache/
+#   - .jekyll-cache/
+#   - gemfiles/
+#   - Gemfile
+#   - Gemfile.lock
+#   - node_modules/
+#   - vendor/bundle/
+#   - vendor/cache/
+#   - vendor/gems/
+#   - vendor/ruby/

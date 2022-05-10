@@ -8,33 +8,23 @@ function Statement:write_native()
 	-- convert font definitions into formatting functions
 	local label_format = font_format_native(style_def.head_font)
 	local body_format = font_format_native(style_def.body_font)
-	local label_inlines, heading_inlines
-
-	-- local debug_inlines = label_format(pandoc.Para(pandoc.Str('test'))) 
-	-- local debug_blocks = pandoc.Blocks(debug_inlines)
-
-	-- print(pandoc.write(pandoc.Pandoc(debug_blocks), 'html'))
+	local label, heading
 
 	-- create label span; could be custom-label or kind label
-	label_inlines = self:write_label() 
-	if #label_inlines > 0 then
-		label_span = pandoc.Span(label_inlines, 
+	label = self:write_label() 
+	if #label > 0 then
+		label_span = pandoc.Span(label, 
 											{class = 'statement-label'})
 	end
 
 	-- prepare the statement heading inlines
 	local heading = pandoc.List:new()
 	-- label?
-	label_inlines = self:write_label()
-	if #label_inlines > 0 then
-		if style_def.punctuation then
-			label_inlines:insert(pandoc.Str(style_def.punctuation))
-		end
---		print(pandoc.write(pandoc.Pandoc(pandoc.Plain(label_inlines))))
-		label_inlines = label_format(label_inlines)
---		print(pandoc.write(pandoc.Pandoc(pandoc.Plain(label_inlines))))
-		label_inlines = pandoc.Span(label_inlines, {class = 'statement-label'})
-		heading:insert(label_inlines)
+	label = self:write_label()
+	if #label > 0 then
+		label = label_format(label)
+		label = pandoc.Span(label, {class = 'statement-label'})
+		heading:insert(label)
 	end
 
 	-- info?
@@ -46,6 +36,11 @@ function Statement:write_native()
 		heading:extend(self.info)
 		heading:insert(pandoc.Str(')'))
 	end
+
+	-- punctuation
+		if #heading > 0 and style_def.punctuation then
+			heading:insert(pandoc.Str(style_def.punctuation))
+		end
 
 	-- style body
 	-- must be done before we insert the heading to ensure

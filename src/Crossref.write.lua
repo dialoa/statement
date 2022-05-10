@@ -7,6 +7,7 @@
 -- Uses:
 --@param: elem, pandoc Link element
 function Crossref:write(references)
+	local text = pandoc.text -- Pandoc's text module for utf8 strings
 	local identifiers = self.identifiers
 	local kinds = self.setup.kinds
 	local delimiters = self.setup.options.crossref_delimiters
@@ -17,7 +18,7 @@ function Crossref:write(references)
 	--write_core: create a reference's core text
 	local function write_core(reference)
 		local mode = reference.agg_pre_mode 
-									or self:get_pre_mode(reference) -- auto prefix setting
+								or self:get_pre_mode(reference) -- auto prefix setting
 		-- if it has a custom text, we return that
 		if reference.text then
 			return reference.text
@@ -25,12 +26,23 @@ function Crossref:write(references)
 		-- otherwise we build inlines
 		local inlines = pandoc.List:new()
 
-		-- write auto prefix
-		--@TODO: handle lower/upper case, plural
+		-- write auto prefix 
+		-- capitalize: label is Inlines and its text might contain utf8
+		-- chars, we make the first char of the first Str element upper or
+		-- lower case.
 		if mode ~= 'none' then
 			local auto_pre = kinds[identifiers[reference.id].kind].label
-			if auto_pre then
-				--@TODO formatting here
+			if auto_pre and auto_pre[1] then
+				if auto_pre[1].t == 'Str' then
+					local str
+					if mode == 'pre' or mode == 'pres' then
+						str = text.lower(text.sub(auto_pre[1].text, 1, 1))
+					elseif mode == 'Pre' or mode == 'Pres' then
+						str = text.upper(text.sub(auto_pre[1].text, 1, 1))
+					end
+					str = str..text.sub(auto_pre[1].text, 2, -1)
+					auto_pre[1].text = str
+				end
 				inlines:extend(auto_pre)
 				inlines:insert(pandoc.Space())
 			end

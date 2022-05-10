@@ -103,16 +103,22 @@ plus automatic ones.
 
 Citing automatically generated identifiers:
 
-- `[@@the-old-theorem; @NP; @the-familiar-principle]`:
-  [@the-old-theorem; @NP; @a-familiar-principle]. Note that
-  acronyms are case-sensitive: @np fails.
+- `[@the-old-theorem; @NP; @the-familiar-principle]`:
+  [@the-old-theorem; @NP; @a-familiar-principle]. The former is in 
+  normal font because its base kind (theorem) doesn't specify a 
+  crossref font. The second is in small caps because its kind 
+  (statement) does.
+- `[@NP]`: statement with acronyms, the acronym is used as 
+  crossreference label. Note that acronym keys are case-sensitive: @np
+  fails.
+- `[@the-old-theorem]`: [@the-old-theorem] normal font, because its
+  base 
 - `[@pre:the-old-theorem; @pre:NP]`:
   [@pre:the-old-theorem; @pre:NP]. Automatic prefixes with custom
   labelled theorems is not recommended!
 - With user prefixes and automatic prefix: [see @pre:the-old-theorem],
-  [see @pre:a-familiar-principle above]. 
-  BUG: automatic prefixes erases the user's.
-
+  [see @pre:a-familiar-principle above].
+ 
 Adding prefixes and suffixes, possibly with automatic prefixes:
 
 - `see @thm1 [@thm2 too]`: see @thm1 [@thm2 too].
