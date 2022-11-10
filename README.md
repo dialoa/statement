@@ -494,7 +494,7 @@ As said in (@sta:totality), ...
 ```
 
 The reference `@sta:totality` (or whatever reference style we adopt) should
-then be replaced with `**T**`.`
+then be replaced with `**T**`.
 
 ### Theorem, axioms and other mathematical statements
 
@@ -939,6 +939,17 @@ Proposals:
 ```
 
 Or something with "label" and "title" matching the XML?
+
+Troubleshooting
+===============
+
+LaTeX issues
+------------
+
+* The `calc` package is needed to handle statements placed
+  within list (`itemize`/`enumerate` environements). The default Pandoc
+  template for LaTeX loads it, but if you use a custom template instead
+  its preamble should contain `\usepackage{calc}`.
 
 Contributing
 ============

@@ -17,7 +17,8 @@ function Walker:statements_in_lists()
   -- with minipage commands
   local function wrap(blocks)
     blocks:insert(1, pandoc.RawBlock('latex',
-      '\\begin{minipage}[t]{\\textwidth}\\parindent \\docparindent'
+      '\\begin{minipage}[t]{\\textwidth-\\itemindent-\\labelwidth}'
+      ..'\\parindent\\docparindent'
       ))
     blocks:insert(3, pandoc.RawBlock('latex',
       '\\end{minipage}'
