@@ -7,7 +7,7 @@ arguments, vignettes, theorems, exercises etc.) in Pandoc's markdown.
 @author Thomas Hodgson <hello@twshodgson.net>
 @copyright 2021-2022 Julien Dutant, Thomas Hodgson
 @license MIT - see LICENSE file for details.
-@release 0.5
+@release 0.5.1
 
 ]]
 
