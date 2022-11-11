@@ -4302,7 +4302,7 @@ function Statement:write_style(style, format)
 end
 
 --- Statement:write_kind: write the statement's kind definition as output string.
--- If the statement's kind is not yet define, create blocks to define it
+-- If the statement's kind is not yet defined, create blocks to define it
 -- in the desired output format. These blocks are added to
 -- `self.setup.includes.header` or returned to be added locally, 
 -- depending on the `setup.options.define_in_header` setting.
