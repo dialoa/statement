@@ -29,7 +29,7 @@ domain: jdutant.github.io
 url: https://jdutant.github.io/statement/
 baseurl: /docs/
 github_username: jdutant
-github_repository: jdutant/statement
+github_repository: statement
 
 # Build settings
 theme: minima
