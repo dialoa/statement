@@ -2,6 +2,7 @@
 layout: page
 title: Manual
 permalink: /manual/
+nav_order: 3 # for just-the-docs
 ---
 
 **DOCUMENTATION IN PROGRESS**
@@ -19,6 +20,13 @@ permalink: /manual/
 `fr`, `gl`, `he`, `hr`, `hu`, `ia`, `id`, `it`, `ja`, `ko`, `nb`,
 `nl`, `nn`, `pl`, `pt_br`, `pt_pt`, `ro`, `ru`, `sk`, `sl`, `sr`,
 `sv`, `tr`, `uk`, `zh_cn`, `zh_tw`. 
+
+## Troubleshooting
+
+* The `calc` package is needed to handle statements placed
+  within list (`itemize`/`enumerate` environements). The default Pandoc
+  template for LaTeX loads it, but if you use a custom template instead
+  its preamble should contain `\usepackage{calc}`.
 
 
 [Pandoc]: https://pandoc.org

@@ -2,9 +2,10 @@
 layout: page
 title: Quick tour
 permalink: /quick-tour/
+nav_order: 2 # for just-the-docs
 ---
 
-* toc
+* TOC
 {:toc}
 
 ## Markdown + Pandoc + Statement

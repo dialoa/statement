@@ -1,6 +1,6 @@
 ---
 layout: home
-title: "Statement: theorems and statements in markdown"
+nav_order: 1 # for just-the-docs
 ---
 
 __Statement__ is a Pandoc lua filter to handle theorems and other kinds
