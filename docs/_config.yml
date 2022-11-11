@@ -8,7 +8,7 @@
 #
 title: Statement
 author: Julien Dutant, Thomas Hodgson
-description: >- 
+description: |
   Statement is a versatile Pandoc lua filter to write theorems and
   other statements in Markdown and convert them to multiple output
   formats.
