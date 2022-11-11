@@ -27,7 +27,7 @@ description: >- #this means to ignore newlines until "baseurl:"
 markdown: kramdown # for automatic toc
 domain: jdutant.github.io
 url: https://jdutant.github.io/statement/
-baseurl: /statement/docs/
+baseurl: /statement/
 github_username: jdutant
 github_repository: statement
 
