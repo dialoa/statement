@@ -24,8 +24,9 @@ description: >- #this means to ignore newlines until "baseurl:"
   Statement is a versatile Pandoc lua filter to write theorems and
   other statements in Markdown and convert them to multiple output
   formats.
+domain: jdutant.github.io
+url: https://jdutant.github.io
 baseurl: /docs/
-url: https://jdutant.github.io/
 github_username:  jdutant
 github_repository: jdutant/statement
 
