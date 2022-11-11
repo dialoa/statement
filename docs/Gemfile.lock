@@ -258,7 +258,7 @@ PLATFORMS
 DEPENDENCIES
   github-pages (~> 227)
   http_parser.rb (~> 0.6.0)
-  minima (~> 2.5)
+  minima (= 2.5.1)
   tzinfo (>= 1, < 3)
   tzinfo-data
   wdm (~> 0.1.1)
