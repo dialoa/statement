@@ -28,16 +28,11 @@ markdown: kramdown # for automatic toc
 domain: jdutant.github.io
 url: https://jdutant.github.io/statement/
 baseurl: /docs/
-github_username:  jdutant
+github_username: jdutant
 github_repository: jdutant/statement
 
 # Build settings
 theme: minima
-#theme: just-the-docs
-aux_links: # remove if you don't want this link to appear on your pages
-  Template Repository: https://github.com/jdutant/statement
-plugins:
-  - jekyll-default-layout
 #plugins:
 #  - jekyll-feed
 
@@ -49,8 +44,6 @@ plugins:
 # Excluded items can be processed by explicitly listing the directories or
 # their entries' file path in the `include:` list.
 #
-exclude:
-- resources/
 #   - .jekyll-cache/
 #   - gemfiles/
 #   - Gemfile
