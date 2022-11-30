@@ -676,8 +676,8 @@ Setup.DEFAULTS.STYLES = {
 	},
 	basic = {
 		plain = { do_not_define_in_latex = true,
-			margin_top = nil,
-			margin_bottom = nil,
+			margin_top = '1em',
+			margin_bottom = '1em',
 			margin_left = nil,
 			margin_right = nil,
 			body_font = 'italics',
