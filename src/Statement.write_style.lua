@@ -138,7 +138,7 @@ function Statement:write_style(style, format)
 			head_font = 'font-style: normal; font-weight: normal;'
 									..' font-variant: normal; '..head_font
 		end
-		-- local indent = length_format(style_def.indent)
+		local indent = length_format(style_def.indent) or ''
 		-- local punctuation = style_def.punctuation HANDLED BY WRITE
 		local linebreak_after_head, space_after_head
 		if style_def.linebreak_after_head then
@@ -174,6 +174,11 @@ function Statement:write_style(style, format)
 		if head_font then
 			css_spec = css_spec..'.statement.'..style..' .statement-label {\n'
 			css_spec = css_spec..'\t'..head_font..'\n'
+			css_spec = css_spec..'}\n'
+		end
+		if indent ~= '' then
+			css_spec = css_spec..'.statement.'..style..' p:first-child {\n'
+			css_spec = css_spec..'\t text-indent: '..indent..';\n'
 			css_spec = css_spec..'}\n'
 		end
 		-- linebreak after heading or space after heading
