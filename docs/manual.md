@@ -39,8 +39,17 @@ __L-a__. This statement might generate an error!
 :::
 ```
 
-__Fix__. Surround the dash with spaces
+__Fix 1__. Put the dash in a `\textrm{...}` command:
 
+ ```
+::: statement
+__L\textrm{-}a__. This will not generate an error.
+:::
+```
+
+This still comes out as a simple dash in formats other than LaTeX.
+
+__Fix 2__. Surround the dash with spaces
 
 ```
 ::: statement
