@@ -169,15 +169,7 @@ Here is a test of the proof environment.
 
 ::: proof
 (Proof of *sufficiency*)  And another, ending with
-a display: 
-
-::::: {.content-visible when-format='latex'}
-$$1+1=2\,. \qedhere$$
-:::::
-
-::::: {.content-visible unless-format='latex'}
-$$1+1=2\,.$$
-:::::
+a display: $$1+1=2\,. \qedhere$$
 
 :::
 

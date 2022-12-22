@@ -20,6 +20,9 @@ function Statement:write_html()
 	local attributes
 	local blocks = pandoc.List:new()
 
+	-- remove `\qedhere` LaTeX commands
+	self.content = self:write_remove_qedhere(self.content)
+
 	-- create label span; could be custom-label or kind label
 	label_inlines = self:write_label() 
 	if #label_inlines > 0 then

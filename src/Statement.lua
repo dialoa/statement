@@ -61,6 +61,8 @@ Statement = {
 
 !input Statement.write_label -- to write a statement's label
 
+!input Statement.write_remove_qedhere -- to remve AMS Theorem's '\qedhere'
+
 !input Statement.write_latex -- to write a statement in LaTeX
 
 !input Statement.write_html -- to write a statement in HTML

@@ -13,6 +13,9 @@ function Statement:write_jats()
 														 -- needed by pandoc.write
 	local blocks = pandoc.List:new()
 
+	-- remove `\qedhere` LaTeX commands
+	self.content = self:write_remove_qedhere(self.content)
+
 	--write_to_jats: use pandoc to convert inlines to jats output
 	--passing writer options that affect inlines formatting in JATS
 	--@BUG even with the doc's meta, citeproc doesn't convert citations

@@ -4507,6 +4507,34 @@ function Statement:write_label()
 
 end
 
+--- Statement:write_remove_qedhere remove the `\qedhere`
+-- LaTeX command within a statement's content.
+-- 
+-- @param blocks Pandoc blocks list
+-- @return blocks the modified blocks
+function Statement:write_remove_qedhere(blocks)
+
+	-- remove QED here for an element's `text` field
+	-- if the element has a `format` attribute, check if it's `tex`
+	local function rm_qedhere(el)
+		if el.format and el.format ~= 'tex' then
+			return 
+		end 
+    el.text = el.text:gsub('\\mbox{\\qedhere}', '')
+    el.text = el.text:gsub('\\qedhere','')
+    return el
+  end
+	
+	local filter = {
+		Math = rm_qedhere,
+		RawInline = rm_qedhere,
+		RawBlock = rm_qedhere,
+	}
+
+	return pandoc.walk_block(pandoc.Div(blocks), filter).content
+
+end
+
 ---Statement.write_latex: write a statement in LaTeX
 -- \begin{kind}[info inlines] 
 --		[Link(identifier)] content blocks
@@ -4579,6 +4607,9 @@ function Statement:write_html()
 	local heading_inlines, heading_span
 	local attributes
 	local blocks = pandoc.List:new()
+
+	-- remove `\qedhere` LaTeX commands
+	self.content = self:write_remove_qedhere(self.content)
 
 	-- create label span; could be custom-label or kind label
 	label_inlines = self:write_label() 
@@ -4682,6 +4713,9 @@ function Statement:write_jats()
 	doc_meta = self.setup.meta -- pointer to the doc's Meta
 														 -- needed by pandoc.write
 	local blocks = pandoc.List:new()
+
+	-- remove `\qedhere` LaTeX commands
+	self.content = self:write_remove_qedhere(self.content)
 
 	--write_to_jats: use pandoc to convert inlines to jats output
 	--passing writer options that affect inlines formatting in JATS
@@ -4798,6 +4832,21 @@ function Statement:write_native()
 			self.content[1] = pandoc.Para(heading)
 		else
 			self.content:insert(1, pandoc.Para(heading))
+		end
+	end
+
+	-- special case: proof style needs a qed sign
+	-- inserted as a Span in the last paragrah or as a Div
+	if style == 'proof' then
+		local qed_symbol = pandoc.Str(utf8.char(8718))
+		local last = #self.content
+		if self.content[last] and self.content[last].t
+				and self.content[last].t == 'Para' then
+			self.content[last].content:insert(
+				pandoc.Span(qed_symbol,{class='qed-span'})
+			)
+		else
+			self.content:insert(pandoc.Div(qed_symbol,{class='qed-div'}))
 		end
 	end
 

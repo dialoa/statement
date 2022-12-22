@@ -66,6 +66,21 @@ function Statement:write_native()
 		end
 	end
 
+	-- special case: proof style needs a qed sign
+	-- inserted as a Span in the last paragrah or as a Div
+	if style == 'proof' then
+		local qed_symbol = pandoc.Str(utf8.char(8718))
+		local last = #self.content
+		if self.content[last] and self.content[last].t
+				and self.content[last].t == 'Para' then
+			self.content[last].content:insert(
+				pandoc.Span(qed_symbol,{class='qed-span'})
+			)
+		else
+			self.content:insert(pandoc.Div(qed_symbol,{class='qed-div'}))
+		end
+	end
+
 	-- prepare Div attributes
 	-- keep the original element's attributes if any
 	attributes = self.element.attr or pandoc.Attr()
