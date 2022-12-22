@@ -1,4 +1,9 @@
-# Temporary MS Word and Libreoffice files
+# Temporary artefacts
+*.html
+*.pdf
 ~$*.docx
 .*.odt#
-*.pdf
+*_files/
+.Rproj.user
+
+/.luarc.json

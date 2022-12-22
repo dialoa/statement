@@ -619,6 +619,12 @@ Setup.LATEX_NAMES = pandoc.List:new(
 											{'book', 'part', 'section', 'subsection', 
 											'subsubsection', 'paragraph', 'subparagraph'}
 										)
+
+-- Setup.QUARTO_PREFIXES: id prefixes Quarto uses to pick up statements
+Setup.QUARTO_PREFIXES = pandoc.List:new({'thm-','lem-','cor-','prp-',
+											'cnj-','def-','exm-','exr-'})
+-- Setup.QUARTO_CLASSES: classes Quarto uses to pick up statements
+Setup.QUARTO_CLASSES = pandoc.List:new({'proof','solution','remark'})
 --- Setup.DEFAULTS: default sets of kinds and styles
 -- See amsthm documentation <https://www.ctan.org/pkg/amsthm>
 -- the 'none' definitions are always included but they can be 
@@ -640,7 +646,7 @@ Setup.DEFAULTS.KINDS = {
 		example = {prefix = 'exa', style = 'definition', counter = 'theorem'},
 		exercise = {prefix = 'xca', style = 'definition', counter = 'theorem'},
 		axiom = {prefix = 'ax', style = 'definition', counter = 'theorem'},
-		solution = {prefix = 'sol', style = 'definition', counter = 'theorem'},
+		solution = {prefix = 'sol', style = 'definition', counter = 'none'},
 		remark = {prefix = 'rem', style = 'remark', counter = 'theorem'},
 		claim = {prefix = 'claim', style = 'remark', counter = 'theorem'},
 		proof = {prefix = 'proof', style = 'proof', counter = 'none'},
@@ -2939,6 +2945,7 @@ end
 --- Statement:parse_heading_inlines: parse statement heading inlines
 -- into custom label, acronym, info if present, and extract
 -- them from those inlines. Return them in a table.
+-- @TODO: handle acronym-only statements
 -- Expected format, where [...] means optional:
 --		[**[[Acronym] Custom Label] [Info1].**] [Info2[.]] Content
 --		[**[[Acronym] Custom Label] [Info1]**.] [Info2[.]] Content
@@ -2950,7 +2957,8 @@ end
 --			as part of the content otherwise.
 --		- single spaces before the heading or surrounding the dot
 --			are tolerated.
---		- a single bracketed content is assumed to be acronym rather than info.
+--		- to give an acronym alone, use `**(ACRO)**`. To give info alone,
+--			use Info2: `(info).`
 -- Updates:
 --		self.custom_label Inlines or nil, content of the label if found
 --		self.acronym Inlines or nil, acronym
@@ -4187,22 +4195,20 @@ function Statement:write_style(style, format)
 	elseif format:match('html') then
 
 		-- CSS specification 
-		-- @TODO: handle linebreak_after_head
-		-- .statement.<style> {
+		-- .statement-style-<style> {
 		--			margin-top:
 		--			margin-bottom:
 		--			margin-left:
 		--			margin-right:
 		--			[font-style,-weight,-variant]: body font
 		--			}	
-		-- .statement.<style> .statement-label {
+		-- .statement-style-<style> .statement-label {
 		--			[font-style,-weight,-variant]: head font
 		-- 		}
-		-- .statement.<style> .statement-info {
+		-- .statement-style-<style> .statement-info {
 		--			[font-style,-weight,-variant]: normal
 		--	}
-		--@TODO: handle indent, 'text-ident' on the first paragraph only, before heading
-		--@TODO: handle space after theorem head. Need to use space chars???
+		-- proof style adds QED symbol
 		local style_def = styles[style]
 		local margin_top = length_format(style_def.margin_top)
 		local margin_bottom = length_format(style_def.margin_bottom)
@@ -4231,7 +4237,7 @@ function Statement:write_style(style, format)
 
 		if margin_top or margin_bottom or margin_left or margin_right
 				or body_font then
-			css_spec = css_spec..'.statement.'..style..' {\n'
+			css_spec = css_spec..'.statement-style-'..style..' {\n'
 			if margin_top then
 				css_spec = css_spec..'\tmargin-top: '..margin_top..';\n'
 			end
@@ -4250,37 +4256,50 @@ function Statement:write_style(style, format)
 			css_spec = css_spec..'}\n'
 		end
 		if head_font then
-			css_spec = css_spec..'.statement.'..style..' .statement-label {\n'
-			css_spec = css_spec..'\t'..head_font..'\n'
-			css_spec = css_spec..'}\n'
+			css_spec = css_spec..'.statement-style-'..style..' .statement-label {\n'
+					..'\t'..head_font..'\n'
+					..'}\n'
 		end
 		if indent ~= '' then
-			css_spec = css_spec..'.statement.'..style..' p:first-child {\n'
-			css_spec = css_spec..'\t text-indent: '..indent..';\n'
-			css_spec = css_spec..'}\n'
+			css_spec = css_spec..'.statement-style-'..style..' p:first-child {\n'
+					..'\t text-indent: '..indent..';\n'
+					..'}\n'
 		end
 		-- linebreak after heading or space after heading
 		-- linebreak after heading: use '\a' and white-space: pre
 		-- space after heading: use word-spacing
 		if linebreak_after_head then
-			css_spec = css_spec..'.statement.'..style..' .statement-spah:after {\n'
-			css_spec = css_spec.."\tcontent: '\\a';\n"
-			css_spec = css_spec..'\twhite-space: pre;\n'
-			css_spec = css_spec..'}\n'
+			css_spec = css_spec..'.statement-style-'..style..' .statement-spah:after {\n'
+					.."\tcontent: '\\a';\n"
+					..'\twhite-space: pre;\n'
+					..'}\n'
 		elseif space_after_head then
-			css_spec = css_spec..'.statement.'..style..' .statement-spah {\n'
-			css_spec = css_spec..'\tword-spacing: '..space_after_head..';\n'
-			css_spec = css_spec..'}\n'
+			css_spec = css_spec..'.statement-style-'..style..' .statement-spah {\n'
+					..'\tword-spacing: '..space_after_head..';\n'
+					..'}\n'
 		end
 
 		-- info style: always clean (as in AMS theorems)
-		css_spec = css_spec..'.statement.'..style..' .statement-info {\n'
-		css_spec = css_spec..'\t'..'font-style: normal; font-weight: normal;'
-									..' font-variant: normal;\n'
-		css_spec = css_spec..'}\n'
+		css_spec = css_spec..'.statement-style-'..style..' .statement-info {\n'
+					..'\t'..'font-style: normal; font-weight: normal;'
+					..' font-variant: normal;\n'
+					..'}\n'
 
-
-
+		-- special case: proof has a qed-symbol span or div
+		if style == 'proof' then
+			css_spec = css_spec..'.statement-style-proof .qed-span {'
+					..' float: right; '
+					..'}\n'
+			css_spec = css_spec..'[dir="rtl"] .statement-style-proof .qed-span {'
+					..' float: left; '
+					..'}\n'
+			css_spec = css_spec..'.statement-style-proof .qed-div {'
+					..' text-align: right; '
+					..'}\n'
+			css_spec = css_spec..'[dir="rtl"] .statement-style-proof .qed-div {'
+					..' text-align: left; '
+					..'}\n'
+		end
 
 		-- wrap all in <style> tags
 		css_spec = '<style>\n'..css_spec..'</style>\n'
@@ -4611,6 +4630,21 @@ function Statement:write_html()
 		end
 	end
 
+	-- special case: proof style needs a qed sign
+	-- inserted as a Span in the last paragrah or as a Div
+	if style == 'proof' then
+		local qed_symbol = pandoc.Str(utf8.char(8718))
+		local last = #self.content
+		if self.content[last] and self.content[last].t
+				and self.content[last].t == 'Para' then
+			self.content[last].content:insert(
+				pandoc.Span(qed_symbol,{class='qed-span'})
+			)
+		else
+			self.content:insert(pandoc.Div(qed_symbol,{class='qed-div'}))
+		end
+	end
+
 	-- prepare Div attributes
 	-- keep the original element's attributes if any
 	attributes = self.element.attr or pandoc.Attr()
@@ -4620,11 +4654,11 @@ function Statement:write_html()
 	-- add the `statement`, kind, style and unnumbered classes
 	-- same name for kind and style shouldn't be a problem
 	attributes.classes:insert('statement')
-	attributes.classes:insert(self.kind)
-	attributes.classes:insert(style)
+	attributes.classes:insert('statement-'..self.kind)
+	attributes.classes:insert('statement-style-'..style)
 	if not self.is_numbered 
 			and not attributes.classes:includes('unnumbered') then
-		attributes.classes:insert('unnumbered')
+		--attributes.classes:insert('unnumbered')
 	end
 
 	-- create the statement Div and insert it
@@ -4767,16 +4801,20 @@ function Statement:write_native()
 		end
 	end
 
-	-- if the element has an identifier, insert an empty identifier Span 
+	-- prepare Div attributes
+	-- keep the original element's attributes if any
+	attributes = self.element.attr or pandoc.Attr()
 	if self.identifier then
-		id_span = pandoc.Span({},pandoc.Attr(self.identifier))
-		if self.content[1] 
-				and (self.content[1].t == 'Para' 
-						or self.content[1].t == 'Plain') then
-			self.content[1].content:insert(1, id_span)
-		else
-			self.content:insert(pandoc.Plain(id_span))
-		end
+			attributes.identifier = self.identifier
+	end
+	-- add the `statement`, kind, style and unnumbered classes
+	-- same name for kind and style shouldn't be a problem
+	attributes.classes:insert('statement')
+	attributes.classes:insert('statement-'..self.kind)
+	attributes.classes:insert('statement-style-'..style)
+	if not self.is_numbered 
+			and not attributes.classes:includes('unnumbered') then
+		--attributes.classes:insert('unnumbered')
 	end
 
 	-- place all the content blocks in Div

@@ -19,7 +19,7 @@ Setup.DEFAULTS.KINDS = {
 		example = {prefix = 'exa', style = 'definition', counter = 'theorem'},
 		exercise = {prefix = 'xca', style = 'definition', counter = 'theorem'},
 		axiom = {prefix = 'ax', style = 'definition', counter = 'theorem'},
-		solution = {prefix = 'sol', style = 'definition', counter = 'theorem'},
+		solution = {prefix = 'sol', style = 'definition', counter = 'none'},
 		remark = {prefix = 'rem', style = 'remark', counter = 'theorem'},
 		claim = {prefix = 'claim', style = 'remark', counter = 'theorem'},
 		proof = {prefix = 'proof', style = 'proof', counter = 'none'},

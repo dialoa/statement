@@ -1,7 +1,30 @@
----
-title: "Statement: a Lua filter for statement support in Pandoc's markdown"
-author: "Julien Dutant, Thomas Hodgson"
----
+# Statement Extension For Quarto
+
+Quarto extension and Pandoc filter to handle advanced theorems and statements. 
+
+Copyright 2021-22 Julien Dutant, Thomas Hodgson. Freely distributed under the MIT License. See LICENSE.md for details. 
+
+## Overview
+
+## Installation
+
+### Quarto
+
+```bash
+quarto add dialoa/statement
+```
+
+This will install the extension under the `_extensions` subdirectory.
+
+_TODO_: If you're using version control, ...
+
+## Using
+
+_TODO_: Describe how to use your extension.
+
+## Example
+
+Here is the source code for a minimal example: [example.qmd](example.qmd).
 
 
 **WARNING: WORK IN PROGRESS**. The filter works with minimal

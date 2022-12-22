@@ -13,7 +13,8 @@
 --			as part of the content otherwise.
 --		- single spaces before the heading or surrounding the dot
 --			are tolerated.
---		- a single bracketed content is assumed to be acronym rather than info.
+--		- to give an acronym alone, use `**(ACRO)**`. To give info alone,
+--			use Info2: `(info).`
 -- Updates:
 --		self.custom_label Inlines or nil, content of the label if found
 --		self.acronym Inlines or nil, acronym

@@ -99,6 +99,12 @@ Setup.LATEX_NAMES = pandoc.List:new(
 											'subsubsection', 'paragraph', 'subparagraph'}
 										)
 
+-- Setup.QUARTO_PREFIXES: id prefixes Quarto uses to pick up statements
+Setup.QUARTO_PREFIXES = pandoc.List:new({'thm-','lem-','cor-','prp-',
+											'cnj-','def-','exm-','exr-'})
+-- Setup.QUARTO_CLASSES: classes Quarto uses to pick up statements
+Setup.QUARTO_CLASSES = pandoc.List:new({'proof','solution','remark'})
+
 !input Setup.DEFAULTS -- default kinds and styles
 
 !input Setup.LOCALE -- Label translations

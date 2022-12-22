@@ -1,0 +1,185 @@
+---
+title: "Statement Examples"
+abstract: |
+  This example document recreates in markdown the AMS LaTeX package's
+   "Newtheorem andtheoremstyle test" file (`thmtest.pdf`) by Michael Downes
+   and Barbara Beeton. 
+filters: 
+  - statement # must come before quarto
+  - quarto
+format:
+  html:
+    number-sections: true
+  pdf:
+    number-sections: true
+    colorlinks: true
+    linkcolor: blue
+  docx:
+    number-sections: true
+# if using Pandoc only: 
+# numbersections: true # LaTeX only, in HTML use -N or --number-sections
+# linkcolor: blue
+# link-citations: true
+statement:
+    count-within: section
+statement-kinds:
+    remark:
+        counter: none
+    proposition:
+        counter: self
+    note:
+        style: note
+        counter: self
+        label: Note
+    varthm:
+        style: citing
+        counter: none
+    bthm:
+        style: break
+        label: B-Theorem
+        counter: self
+    exercise:
+        style: exercise
+        label: Exercise
+        counter: self
+statement-styles:
+    exercise:
+        based-on: plain
+        punctuation: ':'
+    note:
+        margin-top: 3pt
+        margin-bottom: 3pt
+        body-font: normal
+        head-font: italics
+        punctuation: ':'
+        space-after-head: .5em
+    citing:
+        margin-top: 3pt
+        margin-bottom: 3pt
+        body-font: italics
+        head-font: bold
+        punctuation: '.'
+        space-after-head: .5em
+        head_spec_latex: '\thmnote{#3}'
+    break:
+        margin-top: 9pt
+        margin-bottom: 9pt
+        body-font: italics
+        head-font: bold
+        punctuation: '.'
+        space-after-head: \n 
+references:
+- type: article-journal
+  id: thatone
+  author:
+  - family: Dummy
+    given: D.
+  issued:
+    date-parts:
+    - - 1900
+      - 1
+      - 1
+  title: 'Dummy reference'
+  container-title: Journal
+  volume: 1
+  issue: 1
+  page: 1-10
+  DOI: 10.1038/171737a0
+---
+
+# Test of standard theorem styles
+
+Ahlfors' Lemma gives the principal criterion for obtaining lower bounds
+on the Kobayashi metric.
+
+::: lemma
+**Ahlfors's Lemma**. Let $ds^2 = h(z)|dz|^2$ be a Hermitian
+pseudo-metric on $\mathbf{D}_r$, $h\in C^2(\mathbf{D}_r)$, with $\omega$
+the associated $(1,1)$-form. If
+$\mathop{\mathrm{Ric}}\nolimits\omega\geq\omega$ on $\mathbf{D}_r$, then
+$\omega\leq\omega_r$ on all of $\mathbf{D}_r$ (or equivalently,
+$ds^2\leq ds_r^2$).
+:::
+
+::: lem
+(negatively curved families) Let $\{ds_1^2,\dots,ds_k^2\}$
+be a negatively curved family of metrics on $\mathbf{D}_r$, with
+associated forms $\omega^1$, ..., $\omega^k$. Then
+$\omega^i \leq\omega_r$ for all $i$.
+:::
+
+Then our main theorem:
+
+::: {.theorem #pigspan}
+Let $d_{\max}$ and $d_{\min}$ be the maximum,
+resp.\ minimum distance between any two adjacent vertices of a
+quadrilateral $Q$. Let $\sigma$ be the diagonal pigspan of a pig $P$
+with four legs. Then $P$ is capable of standing on the corners of $Q$
+iff 
+$$\sigma\geq \sqrt{d_{\max}^2+d_{\min}^2}.$$ {#eq-sdq}
+:::
+
+::: corollary
+Admitting reflection and rotation, a three-legged pig
+$P$ is capable of standing on the corners of a triangle $T$ iff
+@eq-sdq holds.
+:::
+
+::: {.remark .unnumbered}
+As two-legged pigs generally fall over, the case of a
+polygon of order $2$ is uninteresting.
+:::
+
+# Custom theorem styles
+
+::: exercise
+Generalize Theorem\ @pigspan to three and four dimensions.
+:::
+
+::: note
+This is a test of the custom theorem style `note`. It is
+supposed to have variant fonts and other differences.
+:::
+
+::: bthm
+Test of the 'linebreak' style of theorem heading.
+:::
+
+This is a test of a citing theorem to cite a theorem from some other
+source.
+
+::: varthm
+(Theorem 3.6 in @thatone). No hyperlinking available here yet 
+but that's not a bad idea for the future.
+:::
+
+# The proof environment
+
+::: proof
+Here is a test of the proof environment.
+:::
+
+::: proof
+(Proof of Theorem @pigspan) And another test.
+:::
+
+::: proof
+(Proof of *necessity*) And another.
+:::
+
+::: proof
+(Proof of *sufficiency*)  And another, ending with
+a display: 
+
+::::: {.content-visible when-format='latex'}
+$$1+1=2\,. \qedhere$$
+:::::
+
+::::: {.content-visible unless-format='latex'}
+$$1+1=2\,.$$
+:::::
+
+:::
+
+# References
+

@@ -66,16 +66,20 @@ function Statement:write_native()
 		end
 	end
 
-	-- if the element has an identifier, insert an empty identifier Span 
+	-- prepare Div attributes
+	-- keep the original element's attributes if any
+	attributes = self.element.attr or pandoc.Attr()
 	if self.identifier then
-		id_span = pandoc.Span({},pandoc.Attr(self.identifier))
-		if self.content[1] 
-				and (self.content[1].t == 'Para' 
-						or self.content[1].t == 'Plain') then
-			self.content[1].content:insert(1, id_span)
-		else
-			self.content:insert(pandoc.Plain(id_span))
-		end
+			attributes.identifier = self.identifier
+	end
+	-- add the `statement`, kind, style and unnumbered classes
+	-- same name for kind and style shouldn't be a problem
+	attributes.classes:insert('statement')
+	attributes.classes:insert('statement-'..self.kind)
+	attributes.classes:insert('statement-style-'..style)
+	if not self.is_numbered 
+			and not attributes.classes:includes('unnumbered') then
+		--attributes.classes:insert('unnumbered')
 	end
 
 	-- place all the content blocks in Div

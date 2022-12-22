@@ -109,22 +109,20 @@ function Statement:write_style(style, format)
 	elseif format:match('html') then
 
 		-- CSS specification 
-		-- @TODO: handle linebreak_after_head
-		-- .statement.<style> {
+		-- .statement-style-<style> {
 		--			margin-top:
 		--			margin-bottom:
 		--			margin-left:
 		--			margin-right:
 		--			[font-style,-weight,-variant]: body font
 		--			}	
-		-- .statement.<style> .statement-label {
+		-- .statement-style-<style> .statement-label {
 		--			[font-style,-weight,-variant]: head font
 		-- 		}
-		-- .statement.<style> .statement-info {
+		-- .statement-style-<style> .statement-info {
 		--			[font-style,-weight,-variant]: normal
 		--	}
-		--@TODO: handle indent, 'text-ident' on the first paragraph only, before heading
-		--@TODO: handle space after theorem head. Need to use space chars???
+		-- proof style adds QED symbol
 		local style_def = styles[style]
 		local margin_top = length_format(style_def.margin_top)
 		local margin_bottom = length_format(style_def.margin_bottom)
@@ -153,7 +151,7 @@ function Statement:write_style(style, format)
 
 		if margin_top or margin_bottom or margin_left or margin_right
 				or body_font then
-			css_spec = css_spec..'.statement.'..style..' {\n'
+			css_spec = css_spec..'.statement-style-'..style..' {\n'
 			if margin_top then
 				css_spec = css_spec..'\tmargin-top: '..margin_top..';\n'
 			end
@@ -172,37 +170,50 @@ function Statement:write_style(style, format)
 			css_spec = css_spec..'}\n'
 		end
 		if head_font then
-			css_spec = css_spec..'.statement.'..style..' .statement-label {\n'
-			css_spec = css_spec..'\t'..head_font..'\n'
-			css_spec = css_spec..'}\n'
+			css_spec = css_spec..'.statement-style-'..style..' .statement-label {\n'
+					..'\t'..head_font..'\n'
+					..'}\n'
 		end
 		if indent ~= '' then
-			css_spec = css_spec..'.statement.'..style..' p:first-child {\n'
-			css_spec = css_spec..'\t text-indent: '..indent..';\n'
-			css_spec = css_spec..'}\n'
+			css_spec = css_spec..'.statement-style-'..style..' p:first-child {\n'
+					..'\t text-indent: '..indent..';\n'
+					..'}\n'
 		end
 		-- linebreak after heading or space after heading
 		-- linebreak after heading: use '\a' and white-space: pre
 		-- space after heading: use word-spacing
 		if linebreak_after_head then
-			css_spec = css_spec..'.statement.'..style..' .statement-spah:after {\n'
-			css_spec = css_spec.."\tcontent: '\\a';\n"
-			css_spec = css_spec..'\twhite-space: pre;\n'
-			css_spec = css_spec..'}\n'
+			css_spec = css_spec..'.statement-style-'..style..' .statement-spah:after {\n'
+					.."\tcontent: '\\a';\n"
+					..'\twhite-space: pre;\n'
+					..'}\n'
 		elseif space_after_head then
-			css_spec = css_spec..'.statement.'..style..' .statement-spah {\n'
-			css_spec = css_spec..'\tword-spacing: '..space_after_head..';\n'
-			css_spec = css_spec..'}\n'
+			css_spec = css_spec..'.statement-style-'..style..' .statement-spah {\n'
+					..'\tword-spacing: '..space_after_head..';\n'
+					..'}\n'
 		end
 
 		-- info style: always clean (as in AMS theorems)
-		css_spec = css_spec..'.statement.'..style..' .statement-info {\n'
-		css_spec = css_spec..'\t'..'font-style: normal; font-weight: normal;'
-									..' font-variant: normal;\n'
-		css_spec = css_spec..'}\n'
+		css_spec = css_spec..'.statement-style-'..style..' .statement-info {\n'
+					..'\t'..'font-style: normal; font-weight: normal;'
+					..' font-variant: normal;\n'
+					..'}\n'
 
-
-
+		-- special case: proof has a qed-symbol span or div
+		if style == 'proof' then
+			css_spec = css_spec..'.statement-style-proof .qed-span {'
+					..' float: right; '
+					..'}\n'
+			css_spec = css_spec..'[dir="rtl"] .statement-style-proof .qed-span {'
+					..' float: left; '
+					..'}\n'
+			css_spec = css_spec..'.statement-style-proof .qed-div {'
+					..' text-align: right; '
+					..'}\n'
+			css_spec = css_spec..'[dir="rtl"] .statement-style-proof .qed-div {'
+					..' text-align: left; '
+					..'}\n'
+		end
 
 		-- wrap all in <style> tags
 		css_spec = '<style>\n'..css_spec..'</style>\n'
