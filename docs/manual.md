@@ -7,6 +7,8 @@ nav_order: 3 # for just-the-docs
 
 **DOCUMENTATION IN PROGRESS**
 
+{% raw %}
+
 ## Pre-defined statement kinds
 
 `algorithm`, `assumption`, `axiom`, `claim`, `conclusion`,
@@ -78,6 +80,7 @@ The bug is a conflict between the `amsthm` and `babel` (specifically, I
 suspect, its `luababel` component) packages. It can be generated in LaTeX
 itself, e.g:
 
+
  ~~~ {.latex}
 
  \documentclass{article}
@@ -115,3 +118,5 @@ its preamble should contain `\usepackage{calc}`.
 
 [manual]: manual
 [PandocLua]: https://pandoc.org/lua-filters.html
+
+{% endraw %}
