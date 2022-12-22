@@ -78,7 +78,8 @@ The bug is a conflict between the `amsthm` and `babel` (specifically, I
 suspect, its `luababel` component) packages. It can be generated in LaTeX
 itself, e.g:
 
- ```latex
+ ~~~ {.latex}
+
  \documentclass{article}
 \usepackage{amsthm}
 \usepackage{fontspec}
@@ -94,7 +95,8 @@ itself, e.g:
 \newtheorem*{statement}{a-b} % does not generate an error (only upper case letters)
 
 \end{document}
-```
+
+~~~
 
 ### `calc` needed
 
