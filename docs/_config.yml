@@ -25,8 +25,8 @@ description: >- #this means to ignore newlines until "baseurl:"
   other statements in Markdown and convert them to multiple output
   formats.
 markdown: kramdown # for automatic toc
-domain: jdutant.github.io
-url: https://jdutant.github.io/statement/
+domain: dialoa.github.io
+url: https://dialoa.github.io/statement/
 baseurl: /statement/
 github_username: jdutant
 github_repository: statement
