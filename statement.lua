@@ -2950,6 +2950,7 @@ end
 --			as part of the content otherwise.
 --		- single spaces before the heading or surrounding the dot
 --			are tolerated.
+--		- a single bracketed content is assumed to be acronym rather than info.
 -- Updates:
 --		self.custom_label Inlines or nil, content of the label if found
 --		self.acronym Inlines or nil, acronym
@@ -2982,6 +2983,13 @@ function Statement:parse_heading_inlines(inlines)
 		-- remove trailing space / dot
 		result = self:trim_dot_space(result, 'reverse')
 
+		-- Acronym is first content between balanced brackets
+		-- encountered in forward order
+		if #result > 0 then
+			acro, result = self:extract_fbb(result, 'forward', acro_delimiters)
+			self:trim_dot_space(result, 'forward')
+		end
+
 		-- Info is first Cite or content between balanced brackets 
 		-- encountered in reverse order.
 		if result[#result].t == 'Cite' then
@@ -2991,13 +2999,6 @@ function Statement:parse_heading_inlines(inlines)
 		else
 			info, result = self:extract_fbb(result, 'reverse', info_delimiters)
 			result = self:trim_dot_space(result, 'reverse')
-		end
-
-		-- Acronym is first content between balanced brackets
-		-- encountered in forward order
-		if #result > 0 then
-			acro, result = self:extract_fbb(result, 'forward', acro_delimiters)
-			self:trim_dot_space(result, 'forward')
 		end
 			
 		-- Custom label is whatever remains
